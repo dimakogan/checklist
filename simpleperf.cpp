@@ -28,6 +28,20 @@ void sequential_read(const vector<string>& db, int num_reads) {
     cerr << "Finished " << num_reads << " reads " << sum << endl;
 }
 
+void random_access_read(const vector<string>& db, int num_reads) {
+    default_random_engine generator;
+    uniform_int_distribution<int> distribution(0,db.size()-1);
+    string item;
+    char sum = 0;
+    for (auto i = 0; i < num_reads; ++i) {
+        item = db[distribution(generator)];
+        // Touch some character of the string to avoid optimizations.
+        sum += item[2];
+    }
+    cerr << "Finished " << num_reads << " reads " << sum << endl;
+}
+
+
 
 int main(int argc, const char* argv[]) {
     enum {
@@ -57,7 +71,8 @@ int main(int argc, const char* argv[]) {
     }
     cerr << "Finished setting up DB" << endl;
     auto start = chrono::steady_clock::now();
-    sequential_read(db, num_reads);
+    //sequential_read(db, num_reads);
+    random_access_read(db, num_reads);
     auto end = chrono::steady_clock::now();
     int duration_ms = (end - start).count() / (1000 * 1000);
     cout << "Measured duration of reads: " << duration_ms << endl;
