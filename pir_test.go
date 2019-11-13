@@ -21,11 +21,12 @@ func testBasicRead(t *testing.T, client PIRClient, server PIRServer) {
 	request.Reset()
 	response.Reset()
 
-	assert.NilError(t, client.Query(2, []io.Writer{request}))
+	const readIndex = 2
+	assert.NilError(t, client.Query(readIndex, []io.Writer{request}))
 	assert.NilError(t, server.Answer(request, response))
 	val, err := client.Reconstruct([]io.Reader{response})
 	assert.NilError(t, err)
-	assert.Equal(t, val, "C")
+	assert.Equal(t, val, data[readIndex])
 }
 
 // TestPIRStub is a simple end-to-end test.
