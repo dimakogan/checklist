@@ -3,3 +3,4 @@ simpleperf
 simpleperf.o
 /boosted-pir
 boosted-pir.exe
+.vscode/launch.json

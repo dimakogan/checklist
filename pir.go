@@ -12,14 +12,14 @@ type Database interface {
 
 // PIRServer is the interface that wraps the server methods.
 type PIRServer interface {
-	Hint(hintReq io.Reader) (io.Reader, error)
-	Answer(q io.Reader) (io.Reader, error)
+	Hint(hintReq io.Reader, hintWriter io.Writer) error
+	Answer(q io.Reader, answerWriter io.Writer) error
 }
 
 // PIRClient is the interface that wraps the client methods.
 type PIRClient interface {
-	RequestHint() (io.Reader, error)
+	RequestHint(reqWriter io.Writer) error
 	InitHint(hint io.Reader) error
-	Query(i int) ([]io.Reader, error)
+	Query(i int, reqWriters []io.Writer) error
 	Reconstruct(answers []io.Reader) (string, error)
 }

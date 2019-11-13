@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -28,17 +27,18 @@ func newPirServerStub(db Database) PIRServer {
 	return pirServerStub{db: db}
 }
 
-func (s pirServerStub) Hint(hintReq io.Reader) (io.Reader, error) {
-	return &bytes.Buffer{}, nil
+func (s pirServerStub) Hint(hintReq io.Reader, hintWriter io.Writer) error {
+	return nil
 }
 
-func (s pirServerStub) Answer(q io.Reader) (io.Reader, error) {
+func (s pirServerStub) Answer(q io.Reader, answerWriter io.Writer) error {
 	var i uint32
 	err := binary.Read(q, binary.LittleEndian, &i)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse query: %w", err)
+		return fmt.Errorf("Failed to parse query: %w", err)
 	}
-	return bytes.NewBufferString(s.db.Get(int(i))), nil
+	_, err = answerWriter.Write([]byte(s.db.Get(int(i))))
+	return err
 }
 
 type pirClientStub struct {
@@ -48,18 +48,20 @@ func newPirClientStub() PIRClient {
 	return pirClientStub{}
 }
 
-func (c pirClientStub) RequestHint() (io.Reader, error) {
-	return bytes.NewBufferString(""), nil
+func (c pirClientStub) RequestHint(reqWriter io.Writer) error {
+	return nil
 }
 
 func (c pirClientStub) InitHint(hint io.Reader) error {
 	return nil
 }
 
-func (c pirClientStub) Query(i int) ([]io.Reader, error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint32(i))
-	return []io.Reader{buf}, nil
+func (c pirClientStub) Query(i int, reqWriters []io.Writer) error {
+	if len(reqWriters) < 1 {
+		return fmt.Errorf("Missing request writer")
+	}
+	binary.Write(reqWriters[0], binary.LittleEndian, uint32(i))
+	return nil
 }
 
 func (c pirClientStub) Reconstruct(answers []io.Reader) (string, error) {

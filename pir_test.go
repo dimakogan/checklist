@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"testing"
 
@@ -10,22 +11,19 @@ import (
 var data = []string{"A", "B", "C", "D"}
 
 func testBasicRead(t *testing.T, client PIRClient, server PIRServer) {
-	hintReq, err := client.RequestHint()
-	assert.NilError(t, err)
+	request := new(bytes.Buffer)
+	response := new(bytes.Buffer)
 
-	hint, err := server.Hint(hintReq)
-	assert.NilError(t, err)
+	assert.NilError(t, client.RequestHint(request))
+	assert.NilError(t, server.Hint(request, response))
+	assert.NilError(t, client.InitHint(response))
 
-	assert.NilError(t, client.InitHint(hint))
+	request.Reset()
+	response.Reset()
 
-	queries, err := client.Query(2)
-	assert.NilError(t, err)
-	assert.Equal(t, len(queries), 1)
-
-	ans, err := server.Answer(queries[0])
-	assert.NilError(t, err)
-
-	val, err := client.Reconstruct([]io.Reader{ans})
+	assert.NilError(t, client.Query(2, []io.Writer{request}))
+	assert.NilError(t, server.Answer(request, response))
+	val, err := client.Reconstruct([]io.Reader{response})
 	assert.NilError(t, err)
 	assert.Equal(t, val, "C")
 }
