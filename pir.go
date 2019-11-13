@@ -1,25 +1,37 @@
 package main
 
-import (
-	"io"
-)
+//HintReq is a request for a hint from a client to a server.
+type HintReq struct{}
 
-// Database is an array-like abstraction for a database.
-type Database interface {
-	Length() int
-	Get(i int) string
+//HintResp is a response to a hint request.
+type HintResp struct{}
+
+//QueryReq is a PIR query from a client to a server.
+type QueryReq struct {
+	// Add real stuff here.
+
+	// Debug & testing.
+	Index int
+}
+
+//QueryResp is a response to a PIR query.
+type QueryResp struct {
+	// Add real stuff here.
+
+	// Debug & testing
+	Val string
 }
 
 // PIRServer is the interface that wraps the server methods.
 type PIRServer interface {
-	Hint(hintReq io.Reader, hintWriter io.Writer) error
-	Answer(q io.Reader, answerWriter io.Writer) error
+	Hint(*HintReq) (*HintResp, error)
+	Answer(*QueryReq) (*QueryResp, error)
 }
 
 // PIRClient is the interface that wraps the client methods.
 type PIRClient interface {
-	RequestHint(reqWriter io.Writer) error
-	InitHint(hint io.Reader) error
-	Query(i int, reqWriters []io.Writer) error
-	Reconstruct(answers []io.Reader) (string, error)
+	RequestHint() (*HintReq, error)
+	InitHint(*HintResp) error
+	Query(int) ([]*QueryReq, error)
+	Reconstruct([]*QueryResp) (string, error)
 }
