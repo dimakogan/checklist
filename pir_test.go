@@ -39,10 +39,10 @@ func TestPIRStub(t *testing.T) {
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func randStringBytes(n int) string {
+func randStringBytes(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+		b[i] = letterBytes[i%len(letterBytes)]
 	}
 	return string(b)
 }
@@ -52,6 +52,7 @@ var hint *HintResp
 var resp *QueryResp
 
 func BenchmarkServer(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
 	numDBRecords := []int{1000, 10 * 1000, 100 * 1000, 1000 * 1000}
 	dbRecordSize := []int{10, 100, 1000, 10 * 1000, 100 * 1000}
 	// Set maximum on total size to avoid really large DBs.
@@ -64,10 +65,14 @@ func BenchmarkServer(b *testing.B) {
 			}
 			var db = make([]string, n)
 			for i := 0; i < n; i++ {
-				db[i] = randStringBytes(recSize)
+				db[i] = randStringBytes(randSource, recSize)
 			}
 			client := newPirClientStub()
-			server := pirServerStub{db: db, numReadsOnHint: n, numReadsOnAnswer: int(math.Floor(math.Sqrt(float64(n))))}
+			server := pirServerStub{
+				db:               db,
+				numReadsOnHint:   n,
+				numReadsOnAnswer: int(math.Floor(math.Sqrt(float64(n)))),
+				randSource:       randSource}
 
 			hintReq, err := client.RequestHint()
 			assert.NilError(b, err)

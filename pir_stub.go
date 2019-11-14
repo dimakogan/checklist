@@ -11,27 +11,27 @@ type pirServerStub struct {
 	// Simulated work params.
 	numReadsOnHint   int
 	numReadsOnAnswer int
+
+	randSource *rand.Rand
 }
 
-func (s pirServerStub) Hint(*HintReq) (*HintResp, error) {
+func (s pirServerStub) fakeProbes(n int) {
 	totalSum := 0
-	for i := 0; i < s.numReadsOnHint; i++ {
-		st := s.db[rand.Intn(len(s.db))]
+	for i := 0; i < n; i++ {
+		st := s.db[s.randSource.Intn(len(s.db))]
 		for j := 0; j < len(st); j++ {
 			totalSum += int(st[j])
 		}
 	}
+}
+
+func (s pirServerStub) Hint(*HintReq) (*HintResp, error) {
+	s.fakeProbes(s.numReadsOnHint)
 	return nil, nil
 }
 
 func (s pirServerStub) Answer(q *QueryReq) (*QueryResp, error) {
-	totalSum := 0
-	for i := 0; i < s.numReadsOnAnswer; i++ {
-		st := s.db[rand.Intn(len(s.db))]
-		for j := 0; j < len(st); j++ {
-			totalSum += int(st[j])
-		}
-	}
+	s.fakeProbes(s.numReadsOnAnswer)
 	return &QueryResp{Val: s.db[q.Index]}, nil
 }
 
