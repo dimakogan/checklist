@@ -1,4 +1,4 @@
-package main
+package boosted
 
 import (
 	"fmt"
@@ -12,17 +12,19 @@ import (
 func testBasicRead(t *testing.T, db []string, client PIRClient, server PIRServer) {
 	hintReq, err := client.RequestHint()
 	assert.NilError(t, err)
-	hintResp, err := server.Hint(hintReq)
+	var hintResp HintResp
+	err = server.Hint(hintReq, &hintResp)
 	assert.NilError(t, err)
-	assert.NilError(t, client.InitHint(hintResp))
+	assert.NilError(t, client.InitHint(&hintResp))
 
 	const readIndex = 2
 	queryReq, err := client.Query(readIndex)
 	assert.NilError(t, err)
 
-	queryResp, err := server.Answer(queryReq[0])
+	var queryResp QueryResp
+	err = server.Answer(queryReq[0], &queryResp)
 	assert.NilError(t, err)
-	val, err := client.Reconstruct([]*QueryResp{queryResp})
+	val, err := client.Reconstruct([]*QueryResp{&queryResp})
 	assert.NilError(t, err)
 	assert.Equal(t, val, db[readIndex])
 }
@@ -31,8 +33,8 @@ func testBasicRead(t *testing.T, db []string, client PIRClient, server PIRServer
 func TestPIRStub(t *testing.T) {
 	var db = []string{"A", "B", "C", "D"}
 
-	client := newPirClientStub()
-	server := pirServerStub{db: db}
+	client := NewPirClientStub()
+	server := PIRServerStub{db: db}
 
 	testBasicRead(t, db, client, server)
 }
@@ -67,19 +69,16 @@ func BenchmarkServer(b *testing.B) {
 			for i := 0; i < n; i++ {
 				db[i] = randStringBytes(randSource, recSize)
 			}
-			client := newPirClientStub()
-			server := pirServerStub{
-				db:               db,
-				numReadsOnHint:   n,
-				numReadsOnAnswer: int(math.Floor(math.Sqrt(float64(n)))),
-				randSource:       randSource}
+			client := NewPirClientStub()
+			server := NewPIRServerStub(db, n, int(math.Floor(math.Sqrt(float64(n)))), randSource)
 
 			hintReq, err := client.RequestHint()
 			assert.NilError(b, err)
 
 			b.Run(fmt.Sprintf("HintGeneration/n=%d,B=%d", n, recSize), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					hint, err = server.Hint(hintReq)
+					var hint HintResp
+					err = server.Hint(hintReq, &hint)
 					assert.NilError(b, err)
 				}
 			})
@@ -89,7 +88,8 @@ func BenchmarkServer(b *testing.B) {
 
 			b.Run(fmt.Sprintf("QueryAnswer/n=%d,B=%d", n, recSize), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					resp, err = server.Answer(queryReq[0])
+					var resp QueryResp
+					err = server.Answer(queryReq[0], &resp)
 					assert.NilError(b, err)
 				}
 			})

@@ -2,6 +2,8 @@
 simpleperf
 simpleperf.o
 /boosted-pir
+/rpc_server
+/rpc_client
 boosted-pir.exe
 .vscode/launch.json
 .*.swp
