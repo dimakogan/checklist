@@ -1,6 +1,7 @@
 package main
 
 import (
+  "fmt"
 	"math/rand"
 	"testing"
 
@@ -39,20 +40,20 @@ func testPuncSetGenOnce(t *testing.T, univSize int, setSize int) {
   checkSet(t, set, univSize, setSize)
 }
 
-func TestPuncSetGen_10_5(t *testing.T) {
-  testPuncSetGenOnce(t, 10, 5)
-}
+func TestPuncSetGen(t *testing.T) {
+  tests := []struct{univSize int; setSize int} {
+    {10, 5},
+    {10, 10},
+    {1, 1},
+    {100000, 10},
+  }
 
-func TestPuncSetGen_10_10(t *testing.T) {
-  testPuncSetGenOnce(t, 10, 10)
-}
-
-func TestPuncSetGen_1_1(t *testing.T) {
-  testPuncSetGenOnce(t, 1, 1)
-}
-
-func TestPuncSetGen_100000_10(t *testing.T) {
-  testPuncSetGenOnce(t, 100000, 10)
+  for _,pair := range tests {
+    t.Run(fmt.Sprintf("%v %v", pair.univSize, pair.setSize),
+    func (t *testing.T) {
+      testPuncSetGenOnce(t, pair.univSize, pair.setSize)
+    })
+  }
 }
 
 func testPuncSetGenWith(t *testing.T, univSize int, setSize int, with int) {
@@ -68,20 +69,20 @@ func testPuncSetGenWith(t *testing.T, univSize int, setSize int, with int) {
   assert.Assert(t, inSet)
 }
 
-func TestPuncSetGenWith_10_5(t *testing.T) {
-  testPuncSetGenWith(t, 10, 5, 0)
-}
+func TestPuncSetGenWith(t *testing.T) {
+  tests := []struct{univSize int; setSize int; with int} {
+    {10, 5, 0},
+    {10, 10, 8},
+    {1, 1, 0},
+    {100000, 10, 7},
+  }
 
-func TestPuncSetGenWith_10_10(t *testing.T) {
-  testPuncSetGenWith(t, 10, 10, 8)
-}
-
-func TestPuncSetGenWith_1_1(t *testing.T) {
-  testPuncSetGenWith(t, 1, 1, 0)
-}
-
-func TestPuncSetGenWith_100000_10(t *testing.T) {
-  testPuncSetGenWith(t, 100000, 10, 7)
+  for _,pair := range tests {
+    t.Run(fmt.Sprintf("%v %v %v", pair.univSize, pair.setSize, pair.with),
+    func (t *testing.T) {
+      testPuncSetGenWith(t, pair.univSize, pair.setSize, pair.with)
+    })
+  }
 }
 
 func testPuncSetGenWithPunc(t *testing.T, univSize int, setSize int, with int) {
@@ -107,23 +108,21 @@ func testPuncSetGenWithPunc(t *testing.T, univSize int, setSize int, with int) {
   assert.Assert(t, !inSet)
 }
 
+func TestPuncSetGenWithPunc(t *testing.T) {
+  tests := []struct{univSize int; setSize int; with int} {
+    {10, 5, 0},
+    {10, 10, 8},
+    {1, 1, 0},
+    {100000, 10, 7},
+  }
 
-func TestPuncSetGenWithPunc_10_5(t *testing.T) {
-  testPuncSetGenWithPunc(t, 10, 5, 0)
+  for _,pair := range tests {
+    t.Run(fmt.Sprintf("%v %v %v", pair.univSize, pair.setSize, pair.with),
+    func (t *testing.T) {
+      testPuncSetGenWithPunc(t, pair.univSize, pair.setSize, pair.with)
+    })
+  }
 }
-
-func TestPuncSetGenWithPunc_10_10(t *testing.T) {
-  testPuncSetGenWithPunc(t, 10, 10, 8)
-}
-
-func TestPuncSetGenWithPunc_1_1(t *testing.T) {
-  testPuncSetGenWithPunc(t, 1, 1, 0)
-}
-
-func TestPuncSetGenWithPunc_100000_10(t *testing.T) {
-  testPuncSetGenWithPunc(t, 100000, 10, 7)
-}
-
 
 func TestPuncSetShift(t *testing.T) {
   key := SetGen(randSource(), 10, 5)
@@ -134,7 +133,59 @@ func TestPuncSetShift(t *testing.T) {
 
   for i := range set2 {
     j := MathMod(i - 1, key.univSize)
-    assert.Assert(t, set[j])
+    assert.Assert(t, set[j] == Present_Yes)
   }
 }
 
+func TestRandomMemberSet(t *testing.T) {
+  set := make(Set)
+  set[1023] = Present_Yes
+
+  assert.Equal(t, 1023, set.RandomMember(randSource()))
+}
+
+
+func TestRandomMember(t *testing.T) {
+  key := SetGen(randSource(), 100000, 1)
+  set := key.Eval()
+
+  x := key.RandomMember(randSource())
+
+  for k := range set {
+    assert.Equal(t, k, x)
+  }
+}
+
+func getElement(set Set) int {
+  for k := range set {
+    return k
+  }
+
+  return 0
+}
+
+func TestRandomMemberExcept(t *testing.T) {
+  key := SetGen(randSource(), 100000, 2)
+  set := key.Eval()
+
+  v1 := getElement(set)
+  v2 := key.RandomMemberExcept(randSource(), v1)
+  assert.Assert(t, v1 != v2)
+
+  for k := range set {
+    assert.Assert(t, k == v1 || k == v2)
+  }
+}
+
+func TestFindShift(t *testing.T) {
+  univSize := 100000
+  key := SetGen(randSource(), univSize, 2)
+  set := key.Eval()
+
+  v1 := getElement(set)
+  v1p := MathMod(v1 + 100, univSize)
+  assert.Assert(t, key.FindShift(v1p, []int{}) < 0)
+  assert.Equal(t, key.FindShift(v1, []int{0}), 0)
+  assert.Equal(t, key.FindShift(v1p, []int{100}), 0)
+  assert.Equal(t, key.FindShift(v1p, []int{7, 100}), 1)
+}
