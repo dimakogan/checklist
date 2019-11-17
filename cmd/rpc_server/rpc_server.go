@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"net/rpc"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -19,6 +20,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Format of service PIRServer isn't correct. ", err)
 	}
+
+	// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
+	server.HandleHTTP("/", "/debug")
+
 	// Listen to TPC connections on port 1234
 	listener, e := net.Listen("tcp", ":1234")
 	if e != nil {
@@ -26,5 +31,5 @@ func main() {
 	}
 	log.Printf("Serving RPC server on port %d", 1234)
 	// Start accept incoming HTTP connections
-	server.Accept(listener)
+	http.Serve(listener, nil)
 }

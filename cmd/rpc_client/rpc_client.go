@@ -16,7 +16,7 @@ func main() {
 	}
 
 	// Create a TCP connection to localhost on port 1234
-	remote, err := rpc.Dial("tcp", "localhost:1234")
+	remote, err := rpc.DialHTTP("tcp", "localhost:1234")
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
