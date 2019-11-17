@@ -1,4 +1,4 @@
-package main
+package boosted
 
 import (
   "math/rand"

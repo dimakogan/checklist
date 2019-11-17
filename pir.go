@@ -1,4 +1,4 @@
-package main
+package boosted
 
 //HintReq is a request for a hint from a client to a server.
 type HintReq struct{}
@@ -24,8 +24,8 @@ type QueryResp struct {
 
 // PIRServer is the interface that wraps the server methods.
 type PIRServer interface {
-	Hint(*HintReq) (*HintResp, error)
-	Answer(*QueryReq) (*QueryResp, error)
+	Hint(*HintReq, *HintResp) error
+	Answer(*QueryReq, *QueryResp) error
 }
 
 // PIRClient is the interface that wraps the client methods.

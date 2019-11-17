@@ -1,11 +1,11 @@
-package main
+package boosted
 
 import (
 	"fmt"
 	"math/rand"
 )
 
-type pirServerStub struct {
+type PIRServerStub struct {
 	db []string
 
 	// Simulated work params.
@@ -15,7 +15,7 @@ type pirServerStub struct {
 	randSource *rand.Rand
 }
 
-func (s pirServerStub) fakeProbes(n int) {
+func (s PIRServerStub) fakeProbes(n int) {
 	totalSum := 0
 	for i := 0; i < n; i++ {
 		st := s.db[s.randSource.Intn(len(s.db))]
@@ -25,25 +25,35 @@ func (s pirServerStub) fakeProbes(n int) {
 	}
 }
 
-func (s pirServerStub) Hint(*HintReq) (*HintResp, error) {
+func (s PIRServerStub) Hint(*HintReq, *HintResp) error {
 	s.fakeProbes(s.numReadsOnHint)
-	return nil, nil
+	return nil
 }
 
-func (s pirServerStub) Answer(q *QueryReq) (*QueryResp, error) {
+func (s PIRServerStub) Answer(q *QueryReq, resp *QueryResp) error {
 	s.fakeProbes(s.numReadsOnAnswer)
-	return &QueryResp{Val: s.db[q.Index]}, nil
+	resp.Val = s.db[q.Index]
+	return nil
 }
 
 type pirClientStub struct {
 }
 
-func newPirClientStub() PIRClient {
+func NewPIRServerStub(db []string, numReadsOnHint int, numReadsOnAnswer int, randSource *rand.Rand) PIRServer {
+	return PIRServerStub{
+		db: db,
+		numReadsOnHint: numReadsOnHint,
+		numReadsOnAnswer: numReadsOnAnswer,
+		randSource: randSource,
+	}
+}
+
+func NewPirClientStub() PIRClient {
 	return pirClientStub{}
 }
 
 func (c pirClientStub) RequestHint() (*HintReq, error) {
-	return nil, nil
+	return &HintReq{}, nil
 }
 
 func (c pirClientStub) InitHint(*HintResp) error {
