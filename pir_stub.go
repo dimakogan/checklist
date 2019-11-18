@@ -6,7 +6,7 @@ import (
 )
 
 type PIRServerStub struct {
-	db []string
+	db []Row
 
 	// Simulated work params.
 	numReadsOnHint   int
@@ -39,7 +39,7 @@ func (s PIRServerStub) Answer(q *QueryReq, resp *QueryResp) error {
 type pirClientStub struct {
 }
 
-func NewPIRServerStub(db []string, numReadsOnHint int, numReadsOnAnswer int, randSource *rand.Rand) PIRServer {
+func NewPIRServerStub(db []Row, numReadsOnHint int, numReadsOnAnswer int, randSource *rand.Rand) PIRServer {
 	return PIRServerStub{
 		db: db,
 		numReadsOnHint: numReadsOnHint,
@@ -64,9 +64,9 @@ func (c pirClientStub) Query(i int) ([]*QueryReq, error) {
 	return []*QueryReq{&QueryReq{Index: i}}, nil
 }
 
-func (c pirClientStub) Reconstruct(resp []*QueryResp) (string, error) {
+func (c pirClientStub) Reconstruct(resp []*QueryResp) (Row, error) {
 	if len(resp) != 1 {
-		return "", fmt.Errorf("Unexpected number of answers: have: %d, want: 1", len(resp))
+		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 1", len(resp))
 	}
 	return resp[0].Val, nil
 }

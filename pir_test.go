@@ -1,15 +1,25 @@
 package boosted
 
 import (
+  "bytes"
 	"fmt"
-	"math"
 	"math/rand"
 	"testing"
 
 	"gotest.tools/assert"
 )
 
-func testBasicRead(t *testing.T, db []string, client PIRClient, server PIRServer) {
+func makeDb(nRows int, rowLen int) []Row {
+  db := make([]Row, nRows)
+  src := randSource()
+  for i := range db {
+    db[i] = make([]byte, rowLen)
+    src.Read(db[i])
+  }
+  return db
+}
+
+func testBasicRead(t *testing.T, db []Row, client PIRClient, server PIRServer) {
 	hintReq, err := client.RequestHint()
 	assert.NilError(t, err)
 	var hintResp HintResp
@@ -26,15 +36,23 @@ func testBasicRead(t *testing.T, db []string, client PIRClient, server PIRServer
 	assert.NilError(t, err)
 	val, err := client.Reconstruct([]*QueryResp{&queryResp})
 	assert.NilError(t, err)
-	assert.Equal(t, val, db[readIndex])
+  assert.Assert(t, bytes.Equal(val, db[readIndex]))
 }
 
 // TestPIRStub is a simple end-to-end test.
 func TestPIRStub(t *testing.T) {
-	var db = []string{"A", "B", "C", "D"}
-
+  db := makeDb(100, 1024)
 	client := NewPirClientStub()
 	server := PIRServerStub{db: db}
+
+	testBasicRead(t, db, client, server)
+}
+
+
+func TestPIRPunc(t *testing.T) {
+  db := makeDb(100, 1024)
+	client := newPirClientPunc(randSource(), len(db))
+	server := newPirServerPunc(randSource(), db)
 
 	testBasicRead(t, db, client, server)
 }
@@ -48,6 +66,7 @@ func randStringBytes(r *rand.Rand, n int) string {
 	}
 	return string(b)
 }
+
 
 // Save results to avoid compiler optimizations.
 var hint *HintResp
@@ -65,17 +84,14 @@ func BenchmarkServer(b *testing.B) {
 			if int64(n)*int64(recSize) > maxDBSizeBytes {
 				continue
 			}
-			var db = make([]string, n)
-			for i := 0; i < n; i++ {
-				db[i] = randStringBytes(randSource, recSize)
-			}
-			client := NewPirClientStub()
-			server := NewPIRServerStub(db, n, int(math.Floor(math.Sqrt(float64(n)))), randSource)
+      db := makeDb(n, recSize)
+			client := newPirClientPunc(randSource, n)
+			server := newPirServerPunc(randSource, db)
 
 			hintReq, err := client.RequestHint()
 			assert.NilError(b, err)
 
-			b.Run(fmt.Sprintf("HintGeneration/n=%d,B=%d", n, recSize), func(b *testing.B) {
+			b.Run(fmt.Sprintf("HintGeneration/n=%d,B=%d/", n, recSize), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					var hint HintResp
 					err = server.Hint(hintReq, &hint)
@@ -86,7 +102,7 @@ func BenchmarkServer(b *testing.B) {
 			queryReq, err := client.Query(5)
 			assert.NilError(b, err)
 
-			b.Run(fmt.Sprintf("QueryAnswer/n=%d,B=%d", n, recSize), func(b *testing.B) {
+			b.Run(fmt.Sprintf("QueryAnswer/n=%d,B=%d/", n, recSize), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					var resp QueryResp
 					err = server.Answer(queryReq[0], &resp)

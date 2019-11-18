@@ -1,14 +1,27 @@
 package boosted
 
+// One database row.
+//
+// I think we want byte-slices here instead of strings, since 
+// we're going to handle arbitrary binary data. Iterating over
+// a row using `range` should give us bytes back, rather than
+// the UTF-8 runes.
+type Row []byte
+
 //HintReq is a request for a hint from a client to a server.
-type HintReq struct{}
+type HintReq struct{
+  Key *SetKey
+  Deltas []int
+}
 
 //HintResp is a response to a hint request.
-type HintResp struct{}
+type HintResp struct{
+  Hints []Row
+}
 
 //QueryReq is a PIR query from a client to a server.
 type QueryReq struct {
-	// Add real stuff here.
+	Key *PuncSetKey
 
 	// Debug & testing.
 	Index int
@@ -16,10 +29,10 @@ type QueryReq struct {
 
 //QueryResp is a response to a PIR query.
 type QueryResp struct {
-	// Add real stuff here.
+	Answer Row
 
 	// Debug & testing
-	Val string
+	Val Row
 }
 
 // PIRServer is the interface that wraps the server methods.
@@ -33,5 +46,5 @@ type PIRClient interface {
 	RequestHint() (*HintReq, error)
 	InitHint(*HintResp) error
 	Query(int) ([]*QueryReq, error)
-	Reconstruct([]*QueryResp) (string, error)
+	Reconstruct([]*QueryResp) (Row, error)
 }

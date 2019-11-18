@@ -7,3 +7,5 @@ simpleperf.o
 boosted-pir.exe
 .vscode/launch.json
 .*.swp
+prof.out
+boosted-pir.test
