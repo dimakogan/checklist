@@ -9,3 +9,5 @@ boosted-pir.exe
 .*.swp
 prof.out
 boosted-pir.test
+rpc_client.exe
+rpc_server.exe

@@ -2,21 +2,21 @@ package boosted
 
 // One database row.
 //
-// I think we want byte-slices here instead of strings, since 
+// I think we want byte-slices here instead of strings, since
 // we're going to handle arbitrary binary data. Iterating over
 // a row using `range` should give us bytes back, rather than
 // the UTF-8 runes.
 type Row []byte
 
 //HintReq is a request for a hint from a client to a server.
-type HintReq struct{
-  Key *SetKey
-  Deltas []int
+type HintReq struct {
+	Key    *SetKey
+	Deltas []int
 }
 
 //HintResp is a response to a hint request.
-type HintResp struct{
-  Hints []Row
+type HintResp struct {
+	Hints []Row
 }
 
 //QueryReq is a PIR query from a client to a server.

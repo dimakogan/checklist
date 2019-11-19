@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -10,26 +11,64 @@ import (
 	b "github.com/dimakogan/boosted-pir"
 )
 
-func main() {
-	var db = []string{"A", "B", "C", "D", "E", "F"}
-	randSource := rand.New(rand.NewSource(12345))
-	stub := b.NewPIRServerStub(db, 100000, 1000, randSource)
-	// Publish the receivers methods
-	server := rpc.NewServer()
-	err := server.RegisterName("PIRServer", stub)
-	if err != nil {
-		log.Fatal("Format of service PIRServer isn't correct. ", err)
+type ServerTestDriver struct {
+	b.PIRServer
+	randSource *rand.Rand
+	db         []b.Row
+	server     *rpc.Server
+}
+
+func NewServerTestDriver(db []b.Row) (*ServerTestDriver, error) {
+	driver := ServerTestDriver{
+		randSource: b.RandSource(),
+		db:         db,
+		server:     rpc.NewServer(),
+	}
+	driver.PIRServer = b.NewPIRServerStub(db, 4, 1, driver.randSource)
+	if err := driver.server.RegisterName("PIRServer", &driver); err != nil {
+		return nil, fmt.Errorf("Failed to register PIRServer, %w", err)
 	}
 
 	// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
-	server.HandleHTTP("/", "/debug")
+	driver.server.HandleHTTP("/", "/debug")
 
+	return &driver, nil
+}
+
+func (driver *ServerTestDriver) serve(addr string) error {
 	// Listen to TPC connections on port 1234
-	listener, e := net.Listen("tcp", ":1234")
+	listener, e := net.Listen("tcp", addr)
 	if e != nil {
-		log.Fatal("Listen error: ", e)
+		return fmt.Errorf("Listen error, %w ", e)
 	}
-	log.Printf("Serving RPC server on port %d", 1234)
+	log.Printf("Serving RPC server on %s", addr)
 	// Start accept incoming HTTP connections
-	http.Serve(listener, nil)
+	return http.Serve(listener, nil)
+}
+
+func (driver *ServerTestDriver) SetDBDimensions(dim b.DBDimensions, none *int) error {
+	driver.db = b.MakeDBWithDimensions(dim)
+	driver.PIRServer = b.NewPIRServerStub(driver.db, dim.NumRecords, dim.RecordSize, driver.randSource)
+
+	return nil
+}
+
+func (driver *ServerTestDriver) SetRecordValue(rec b.RecordIndexVal, none *int) error {
+	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
+	driver.db[rec.Index] = rec.Value
+	return nil
+}
+
+func main() {
+	// Some easy to test initial values.
+	var db = []b.Row{{'A'}, {'B'}, {'C'}, {'D'}}
+
+	driver, err := NewServerTestDriver(db)
+	if err != nil {
+		log.Fatal("Failed to initialize driver, ", err)
+	}
+
+	if err = driver.serve(":1234"); err != nil {
+		log.Fatal("Failed to serve: ", err)
+	}
 }
