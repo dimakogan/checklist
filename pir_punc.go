@@ -43,7 +43,7 @@ func (s *pirServerPunc) xorRows(out Row, rows Set) {
 	}
 }
 
-func newPirServerPunc(source *rand.Rand, data []Row) PIRServer {
+func NewPirServerPunc(source *rand.Rand, data []Row) PIRServer {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}

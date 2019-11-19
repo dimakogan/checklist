@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create RPC PIR client: %w", err)
 	}
-	const readIndex = 1
+	const readIndex = 2
 	val, err := client.Read(readIndex)
 	if err != nil {
 		log.Fatalf("Failed to read index %d: %w", readIndex, err)

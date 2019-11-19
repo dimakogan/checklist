@@ -19,12 +19,13 @@ type ServerTestDriver struct {
 }
 
 func NewServerTestDriver(db []b.Row) (*ServerTestDriver, error) {
+	randSource := b.RandSource()
 	driver := ServerTestDriver{
-		randSource: b.RandSource(),
+		PIRServer:  b.NewPirServerPunc(randSource, db),
+		randSource: randSource,
 		db:         db,
 		server:     rpc.NewServer(),
 	}
-	driver.PIRServer = b.NewPIRServerStub(db, 4, 1, driver.randSource)
 	if err := driver.server.RegisterName("PIRServer", &driver); err != nil {
 		return nil, fmt.Errorf("Failed to register PIRServer, %w", err)
 	}
@@ -48,7 +49,7 @@ func (driver *ServerTestDriver) serve(addr string) error {
 
 func (driver *ServerTestDriver) SetDBDimensions(dim b.DBDimensions, none *int) error {
 	driver.db = b.MakeDBWithDimensions(dim)
-	driver.PIRServer = b.NewPIRServerStub(driver.db, dim.NumRecords, dim.RecordSize, driver.randSource)
+	driver.PIRServer = b.NewPirServerPunc(driver.randSource, driver.db)
 
 	return nil
 }

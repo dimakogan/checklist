@@ -46,7 +46,7 @@ func TestPIRStub(t *testing.T) {
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(100, 1024)
 	client := newPirClientPunc(RandSource(), len(db))
-	server := newPirServerPunc(RandSource(), db)
+	server := NewPirServerPunc(RandSource(), db)
 
 	testBasicRead(t, db, client, server)
 }
@@ -56,9 +56,6 @@ func TestPIRServerOverRPC(t *testing.T) {
 		t.Skip("No remote address flag set. Skipping remote test.")
 	}
 
-	pir := NewPirClientStub()
-	assert.Assert(t, pir != nil)
-
 	// Create a TCP connection to localhost on port 1234
 	remote, err := rpc.DialHTTP("tcp", *serverAddr)
 	assert.NilError(t, err)
@@ -67,6 +64,8 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, remote.Call("PIRServer.SetDBDimensions", DBDimensions{100, 4}, &none))
 	assert.NilError(t, remote.Call("PIRServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
 
+	pir := newPirClientPunc(RandSource(), 100)
+	assert.Assert(t, pir != nil)
 	client, err := NewRpcPirClient(remote, pir)
 	assert.NilError(t, err)
 
@@ -112,7 +111,7 @@ func BenchmarkHint(b *testing.B) {
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
 		client := newPirClientPunc(randSource, dim.NumRecords)
-		server := newPirServerPunc(randSource, db)
+		server := NewPirServerPunc(randSource, db)
 
 		hintReq, err := client.RequestHint()
 		assert.NilError(b, err)
@@ -134,7 +133,7 @@ func BenchmarkAnswer(b *testing.B) {
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
 		client := newPirClientPunc(randSource, dim.NumRecords)
-		server := newPirServerPunc(randSource, db)
+		server := NewPirServerPunc(randSource, db)
 
 		// Initialize client with valid hint
 		hintReq, err := client.RequestHint()
@@ -159,6 +158,61 @@ func BenchmarkAnswer(b *testing.B) {
 					var resp QueryResp
 					err = server.Answer(preparedQueries[i%len(preparedQueries)], &resp)
 					assert.NilError(b, err)
+				}
+			})
+	}
+}
+
+func BenchmarkAnswerOverRPC(b *testing.B) {
+	if *serverAddr == "" {
+		b.Skip("No remote address flag set. Skipping remote test.")
+	}
+
+	randSource := RandSource()
+	for _, dim := range dbDimensions() {
+
+		// Create a TCP connection to localhost on port 1234
+		remote, err := rpc.DialHTTP("tcp", *serverAddr)
+		assert.NilError(b, err)
+
+		var none int
+		assert.NilError(b, remote.Call("PIRServer.SetDBDimensions", dim, &none))
+
+		// Prepare a bunch of queries to avoid hitting cache effects on the server.
+
+		preparedValues := make([]Row, 10)
+		for i := 0; i < len(preparedValues); i++ {
+			preparedValues[i] = make([]byte, dim.RecordSize)
+			randSource.Read(preparedValues[i])
+			assert.NilError(b, remote.Call("PIRServer.SetRecordValue", RecordIndexVal{i, preparedValues[i]}, &none))
+		}
+
+		// Initialize clients with valid hints
+		preparedClients := make([]PIRClient, len(preparedValues))
+		preparedQueries := make([]*QueryReq, len(preparedValues))
+		for i := 0; i < len(preparedClients); i++ {
+			preparedClients[i] = newPirClientPunc(randSource, dim.NumRecords)
+			hintReq, err := preparedClients[i].RequestHint()
+			assert.NilError(b, err)
+
+			var hintResp HintResp
+			assert.NilError(b, remote.Call("PIRServer.Hint", hintReq, &hintResp))
+			assert.Assert(b, len(hintResp.Hints) > 0)
+			assert.NilError(b, preparedClients[i].InitHint(&hintResp))
+
+			queries, err := preparedClients[i].Query(i)
+			assert.NilError(b, err)
+			preparedQueries[i] = queries[0]
+		}
+		b.Run(
+			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					var queryResp QueryResp
+					assert.NilError(b, remote.Call("PIRServer.Answer", preparedQueries[i%len(preparedQueries)], &queryResp))
+					val, err := preparedClients[i%len(preparedQueries)].Reconstruct([]*QueryResp{&queryResp})
+					assert.NilError(b, err)
+					assert.Assert(b, bytes.Equal(val, preparedValues[i%len(preparedValues)]))
 				}
 			})
 	}
