@@ -46,9 +46,15 @@ func TestPIRStub(t *testing.T) {
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(100, 1024)
 	client := newPirClientPunc(RandSource(), len(db))
-	server := NewPirServerPunc(RandSource(), db)
 
-	testBasicRead(t, db, client, server)
+  for hintType := 0; hintType < 3; hintType++ {
+	  server := NewPirServerPunc(RandSource(), db, hintType)
+    t.Run(
+      fmt.Sprintf("hintType=%d", hintType),
+      func(t *testing.T) {
+        testBasicRead(t, db, client, server)
+      })
+    }
 }
 
 func TestPIRServerOverRPC(t *testing.T) {
@@ -108,24 +114,26 @@ func dbDimensions() []DBDimensions {
 
 func BenchmarkHint(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
-		client := newPirClientPunc(randSource, dim.NumRecords)
-		server := NewPirServerPunc(randSource, db)
+  for _, dim := range dbDimensions() {
+    for hintType := 0; hintType < 3; hintType++ {
+      db := MakeDBWithDimensions(dim)
+      client := newPirClientPunc(randSource, dim.NumRecords)
+      server := NewPirServerPunc(randSource, db, hintType)
 
-		hintReq, err := client.RequestHint()
-		assert.NilError(b, err)
+      hintReq, err := client.RequestHint()
+      assert.NilError(b, err)
 
-		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					var hint HintResp
-					err = server.Hint(hintReq, &hint)
-					assert.NilError(b, err)
-				}
-			})
-	}
+      b.Run(
+        fmt.Sprintf("hintType=%d,n=%d,B=%d", hintType, dim.NumRecords, dim.RecordSize),
+        func(b *testing.B) {
+          for i := 0; i < b.N; i++ {
+            var hint HintResp
+            err = server.Hint(hintReq, &hint)
+            assert.NilError(b, err)
+          }
+        })
+    }
+  }
 }
 
 func BenchmarkAnswer(b *testing.B) {
@@ -133,7 +141,7 @@ func BenchmarkAnswer(b *testing.B) {
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
 		client := newPirClientPunc(randSource, dim.NumRecords)
-		server := NewPirServerPunc(randSource, db)
+		server := NewPirServerPunc(randSource, db, 0)
 
 		// Initialize client with valid hint
 		hintReq, err := client.RequestHint()

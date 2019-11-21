@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 )
+
+type HintFunc func(s *pirServerPunc, req *HintReq, resp *HintResp) error
 
 type pirClientPunc struct {
 	nRows   int
@@ -23,6 +26,7 @@ type pirServerPunc struct {
 	rowLen int
 	db     []Row
 
+  hintFunc HintFunc
 	randSource *rand.Rand
 }
 
@@ -43,7 +47,7 @@ func (s *pirServerPunc) xorRows(out Row, rows Set) {
 	}
 }
 
-func NewPirServerPunc(source *rand.Rand, data []Row) PIRServer {
+func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}
@@ -55,14 +59,92 @@ func NewPirServerPunc(source *rand.Rand, data []Row) PIRServer {
 		}
 	}
 
+  var hf HintFunc
+  switch hintStrategy {
+    case 0: hf = HintRandom
+    case 1: hf = HintLinear
+    case 2: hf = HintLinearSort
+  }
+
 	return &pirServerPunc{
 		rowLen:     rowLen,
 		db:         data,
+    hintFunc:   hf,
 		randSource: source,
 	}
 }
 
 func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
+  return s.hintFunc(s, req, resp)
+}
+
+func HintLinearSort(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]Row, nHints)
+	rowSets := make([][]int, len(s.db))
+
+	for i := 0; i < len(s.db); i++ {
+    rowSets[i] = make([]int, 0, 10*nHints)
+  }
+
+	for j := 0; j < nHints; j++ {
+		hints[j] = make(Row, s.rowLen)
+
+		req.Key.Shift(req.Deltas[j])
+    set := req.Key.Eval()
+	  for k := range set {
+      rowSets[k] = append(rowSets[k], j)
+    }
+
+		req.Key.Shift(-req.Deltas[j])
+	}
+
+	for i := 0; i < len(s.db); i++ {
+    row := s.db[i]
+
+    sort.Ints(rowSets[i])
+    for _,j := range rowSets[i] {
+      xorInto(hints[j], row)
+    }
+  }
+
+	resp.Hints = hints
+	return nil
+}
+
+func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]Row, nHints)
+	rowSets := make([]Set, len(s.db))
+
+	for i := 0; i < len(s.db); i++ {
+    rowSets[i] = make(Set)
+  }
+
+	for j := 0; j < nHints; j++ {
+		hints[j] = make(Row, s.rowLen)
+
+		req.Key.Shift(req.Deltas[j])
+    set := req.Key.Eval()
+	  for k := range set {
+      rowSets[k][j] = Present_Yes
+    }
+
+		req.Key.Shift(-req.Deltas[j])
+	}
+
+	for i := 0; i < len(s.db); i++ {
+    row := s.db[i]
+    for j := range rowSets[i] {
+      xorInto(hints[j], row)
+    }
+  }
+
+	resp.Hints = hints
+	return nil
+}
+
+func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	nHints := len(req.Deltas)
 	hints := make([]Row, nHints)
 
