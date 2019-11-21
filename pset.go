@@ -52,6 +52,11 @@ func (s Set) RandomMember(src *rand.Rand) int {
 	return keys[choose]
 }
 
+func (s Set) Has(elm int) bool {
+  _, okay := s[elm]
+  return okay
+}
+
 func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
 	if univSize < setSize {
 		panic("Set size too large.")
@@ -149,7 +154,7 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 	set := key.Eval()
 	for j, delta := range deltas {
 		shift := MathMod(idx-delta, key.UnivSize)
-		if _, okay := set[shift]; okay {
+		if set.Has(shift) {
 			return j
 		}
 	}
