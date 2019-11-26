@@ -49,9 +49,10 @@ func (s *pirServerPunc) xorRows(out Row, rows Set, delta int) {
 	}
 }
 
-func (s *pirServerPunc) xorRowsFlat(out Row, rows Set) {
+func (s *pirServerPunc) xorRowsFlat(out Row, rows Set, delta int) {
 	for row := range rows {
-    xorInto(out, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
+    drow := (row+delta) % len(s.db)
+    xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
 	}
 }
 
@@ -77,6 +78,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
     case 1: hf = HintLinear
     case 2: hf = HintLinearSort
     case 3: hf = HintFlat
+    case 4: hf = HintFlatLinear
   }
 
 	return &pirServerPunc{
@@ -132,7 +134,7 @@ func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	rowSets := make([]Set, len(s.db))
 
 	for i := 0; i < len(s.db); i++ {
-    rowSets[i] = make(Set, 10*nHints)
+    rowSets[i] = make(Set)
   }
 
   set := req.Key.Eval()
@@ -146,6 +148,35 @@ func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 
 	for i := 0; i < len(s.db); i++ {
     row := s.db[i]
+    for j := range rowSets[i] {
+      xorInto(hints[j], row)
+    }
+  }
+
+	resp.Hints = hints
+	return nil
+}
+
+func HintFlatLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]Row, nHints)
+	rowSets := make([]Set, len(s.db))
+
+	for i := 0; i < len(s.db); i++ {
+    rowSets[i] = make(Set)
+  }
+
+  set := req.Key.Eval()
+	for j := 0; j < nHints; j++ {
+		hints[j] = make(Row, s.rowLen)
+
+	  for k := range set {
+      rowSets[(k + req.Deltas[j]) % len(s.db)][j] = Present_Yes
+    }
+	}
+
+	for i := 0; i < len(s.db); i++ {
+    row := s.flatDb[i*s.rowLen:(i+1)*s.rowLen]
     for j := range rowSets[i] {
       xorInto(hints[j], row)
     }
@@ -173,7 +204,7 @@ func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool) e
 		hints[j] = make(Row, s.rowLen)
 
     if flat {
-		  s.xorRows(hints[j], set, req.Deltas[j])
+		  s.xorRowsFlat(hints[j], set, req.Deltas[j])
     } else {
 		  s.xorRows(hints[j], set, req.Deltas[j])
     }

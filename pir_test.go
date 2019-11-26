@@ -141,15 +141,21 @@ func BenchmarkHintOnce(b *testing.B) {
   dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
   db := MakeDBWithDimensions(dim)
   client := newPirClientPunc(randSource, dim.NumRecords)
-  server := NewPirServerPunc(randSource, db, 0)
+
   hintReq, err := client.RequestHint()
   assert.NilError(b, err)
 
-  b.ResetTimer()
-  for i := 0; i < b.N; i++ {
-    var hint HintResp
-    err := server.Hint(hintReq, &hint)
-    assert.NilError(b, err)
+  for hintType := 0; hintType < 5; hintType++ {
+    server := NewPirServerPunc(randSource, db, hintType)
+    b.Run(
+      fmt.Sprintf("hintType=%d", hintType),
+      func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+          var hint HintResp
+          err = server.Hint(hintReq, &hint)
+          assert.NilError(b, err)
+        }
+      })
   }
 }
 
@@ -189,23 +195,6 @@ func BenchmarkNothingLinear(b *testing.B) {
         q = (q+1) % dim.NumRecords
       }
     }
-  }
-}
-
-func BenchmarkHintOnceFlat(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
-  db := MakeDBWithDimensions(dim)
-  client := newPirClientPunc(randSource, dim.NumRecords)
-  server := NewPirServerPunc(randSource, db, 3)
-  hintReq, err := client.RequestHint()
-  assert.NilError(b, err)
-
-  b.ResetTimer()
-  for i := 0; i < b.N; i++ {
-    var hint HintResp
-    err := server.Hint(hintReq, &hint)
-    assert.NilError(b, err)
   }
 }
 
