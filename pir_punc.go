@@ -26,6 +26,8 @@ type pirServerPunc struct {
 	rowLen int
 	db     []Row
 
+  flatDb []byte
+
   hintFunc HintFunc
 	randSource *rand.Rand
 }
@@ -40,10 +42,16 @@ func xorInto(a Row, b Row) {
 	}
 }
 
-func (s *pirServerPunc) xorRows(out Row, rows Set) {
+func (s *pirServerPunc) xorRows(out Row, rows Set, delta int) {
 	// TODO: Parallelize this function.
 	for row := range rows {
-		xorInto(out, s.db[row])
+		xorInto(out, s.db[(row + delta) % len(s.db)])
+	}
+}
+
+func (s *pirServerPunc) xorRowsFlat(out Row, rows Set) {
+	for row := range rows {
+    xorInto(out, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
 	}
 }
 
@@ -53,10 +61,14 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 	}
 
 	rowLen := len(data[0])
-	for _, v := range data {
+  flatDb := make([]byte, rowLen * len(data))
+
+	for i, v := range data {
 		if len(v) != rowLen {
 			panic("Database rows must all be of the same length")
 		}
+
+    copy(flatDb[i*rowLen:], v[:])
 	}
 
   var hf HintFunc
@@ -64,12 +76,14 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
     case 0: hf = HintRandom
     case 1: hf = HintLinear
     case 2: hf = HintLinearSort
+    case 3: hf = HintFlat
   }
 
 	return &pirServerPunc{
 		rowLen:     rowLen,
 		db:         data,
     hintFunc:   hf,
+    flatDb:     flatDb,
 		randSource: source,
 	}
 }
@@ -118,19 +132,16 @@ func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	rowSets := make([]Set, len(s.db))
 
 	for i := 0; i < len(s.db); i++ {
-    rowSets[i] = make(Set)
+    rowSets[i] = make(Set, 10*nHints)
   }
 
+  set := req.Key.Eval()
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
-		req.Key.Shift(req.Deltas[j])
-    set := req.Key.Eval()
 	  for k := range set {
-      rowSets[k][j] = Present_Yes
+      rowSets[(k + req.Deltas[j]) % len(s.db)][j] = Present_Yes
     }
-
-		req.Key.Shift(-req.Deltas[j])
 	}
 
 	for i := 0; i < len(s.db); i++ {
@@ -145,15 +156,27 @@ func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 }
 
 func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+  return HintRandomType(s, req, resp, false)
+}
+
+func HintFlat(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+  return HintRandomType(s, req, resp, true)
+}
+
+func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool) error {
 	nHints := len(req.Deltas)
 	hints := make([]Row, nHints)
 
+  set := req.Key.Eval()
+
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
-		req.Key.Shift(req.Deltas[j])
-		set := req.Key.Eval()
-		s.xorRows(hints[j], set)
-		req.Key.Shift(-req.Deltas[j])
+
+    if flat {
+		  s.xorRows(hints[j], set, req.Deltas[j])
+    } else {
+		  s.xorRows(hints[j], set, req.Deltas[j])
+    }
 	}
 
 	resp.Hints = hints
@@ -163,7 +186,7 @@ func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
 	rows := q.Key.Eval()
 	resp.Answer = make(Row, s.rowLen)
-	s.xorRows(resp.Answer, rows)
+	s.xorRows(resp.Answer, rows, 0)
 	return nil
 }
 

@@ -136,6 +136,79 @@ func BenchmarkHint(b *testing.B) {
   }
 }
 
+func BenchmarkHintOnce(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
+  db := MakeDBWithDimensions(dim)
+  client := newPirClientPunc(randSource, dim.NumRecords)
+  server := NewPirServerPunc(randSource, db, 0)
+  hintReq, err := client.RequestHint()
+  assert.NilError(b, err)
+
+  b.ResetTimer()
+  for i := 0; i < b.N; i++ {
+    var hint HintResp
+    err := server.Hint(hintReq, &hint)
+    assert.NilError(b, err)
+  }
+}
+
+func BenchmarkNothingRandom(b *testing.B) {
+  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
+  db := MakeDBWithDimensions(dim)
+
+  nHints := 9216
+  setLen := 512
+
+  out := make(Row, dim.RecordSize)
+  b.ResetTimer()
+  for i := 0; i < b.N; i++ {
+    for j := 0; j < nHints; j++ {
+      for k := 0; k < setLen; k++ {
+        q := ((123124124 * k) + 912812367) % dim.NumRecords
+        xorInto(out, db[q])
+      }
+    }
+  }
+}
+
+func BenchmarkNothingLinear(b *testing.B) {
+  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
+  db := MakeDBWithDimensions(dim)
+
+  nHints := 9216
+  setLen := 512
+
+  out := make(Row, dim.RecordSize)
+  b.ResetTimer()
+  q := 0
+  for i := 0; i < b.N; i++ {
+    for j := 0; j < nHints; j++ {
+      for k := 0; k < setLen; k++ {
+        xorInto(out, db[q])
+        q = (q+1) % dim.NumRecords
+      }
+    }
+  }
+}
+
+func BenchmarkHintOnceFlat(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
+  db := MakeDBWithDimensions(dim)
+  client := newPirClientPunc(randSource, dim.NumRecords)
+  server := NewPirServerPunc(randSource, db, 3)
+  hintReq, err := client.RequestHint()
+  assert.NilError(b, err)
+
+  b.ResetTimer()
+  for i := 0; i < b.N; i++ {
+    var hint HintResp
+    err := server.Hint(hintReq, &hint)
+    assert.NilError(b, err)
+  }
+}
+
 func BenchmarkAnswer(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
