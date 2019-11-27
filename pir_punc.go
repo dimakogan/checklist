@@ -56,6 +56,13 @@ func (s *pirServerPunc) xorRowsFlat(out Row, rows Set, delta int) {
 	}
 }
 
+func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int, delta int) {
+	for _, row := range rows {
+    drow := (row+delta) % len(s.db)
+    xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
+	}
+}
+
 func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
@@ -79,6 +86,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
     case 2: hf = HintLinearSort
     case 3: hf = HintFlat
     case 4: hf = HintFlatLinear
+    case 5: hf = HintFlatSlice
   }
 
 	return &pirServerPunc{
@@ -187,24 +195,46 @@ func HintFlatLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 }
 
 func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
-  return HintRandomType(s, req, resp, false)
+  return HintRandomType(s, req, resp, false, false)
 }
 
 func HintFlat(s *pirServerPunc, req *HintReq, resp *HintResp) error {
-  return HintRandomType(s, req, resp, true)
+  return HintRandomType(s, req, resp, true, false)
 }
 
-func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool) error {
+func HintFlatSlice(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+  return HintRandomType(s, req, resp, true, true)
+}
+
+func setToSlice(set Set) []int {
+  out := make([]int, len(set))
+  i := 0
+  for k := range set {
+    out[i] = k
+    i += 1
+  }
+  return out
+}
+
+func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, setSlice bool) error {
 	nHints := len(req.Deltas)
 	hints := make([]Row, nHints)
 
   set := req.Key.Eval()
+  var setS []int
+  if setSlice {
+    setS = setToSlice(set)
+  }
 
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
     if flat {
-		  s.xorRowsFlat(hints[j], set, req.Deltas[j])
+      if setSlice {
+		    s.xorRowsFlatSlice(hints[j], setS, req.Deltas[j])
+      } else {
+		    s.xorRowsFlat(hints[j], set, req.Deltas[j])
+      }
     } else {
 		  s.xorRows(hints[j], set, req.Deltas[j])
     }

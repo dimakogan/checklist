@@ -145,7 +145,7 @@ func BenchmarkHintOnce(b *testing.B) {
   hintReq, err := client.RequestHint()
   assert.NilError(b, err)
 
-  for hintType := 0; hintType < 5; hintType++ {
+  for hintType := 0; hintType < 6; hintType++ {
     server := NewPirServerPunc(randSource, db, hintType)
     b.Run(
       fmt.Sprintf("hintType=%d", hintType),
