@@ -1,0 +1,12 @@
+This directory contains some Percy++ test sets for comparing against our scheme.
+
+To run the tests: 
+
+1. extract the ntl and percy archives. 
+
+2. build and install ntl (see instructions within).
+
+3. build and extract percy (see instructions within, might require installing
+additional dependencies.)
+
+4. from within the percy directory run "./runtestset testsets/boosted-baseline/*.test".
