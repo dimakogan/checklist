@@ -7,6 +7,7 @@ require (
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gorilla/rpc v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
+	github.com/lukechampine/fastxor v0.0.0-20190515202756-7d8727055c51
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect

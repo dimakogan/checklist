@@ -6,6 +6,8 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+
+	"github.com/lukechampine/fastxor"
 )
 
 type HintFunc func(s *pirServerPunc, req *HintReq, resp *HintResp) error
@@ -26,9 +28,9 @@ type pirServerPunc struct {
 	rowLen int
 	db     []Row
 
-  flatDb []byte
+	flatDb []byte
 
-  hintFunc HintFunc
+	hintFunc   HintFunc
 	randSource *rand.Rand
 }
 
@@ -37,29 +39,31 @@ func xorInto(a Row, b Row) {
 		panic("Tried to XOR byte-slices of unequal length.")
 	}
 
-	for i := 0; i < len(a); i++ {
-		a[i] = a[i] ^ b[i]
-	}
+	fastxor.Bytes(a, a, b)
+
+	// for i := 0; i < len(a); i++ {
+	// 	a[i] = a[i] ^ b[i]
+	// }
 }
 
 func (s *pirServerPunc) xorRows(out Row, rows Set, delta int) {
 	// TODO: Parallelize this function.
 	for row := range rows {
-		xorInto(out, s.db[(row + delta) % len(s.db)])
+		xorInto(out, s.db[(row+delta)%len(s.db)])
 	}
 }
 
 func (s *pirServerPunc) xorRowsFlat(out Row, rows Set, delta int) {
 	for row := range rows {
-    drow := (row+delta) % len(s.db)
-    xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
+		drow := (row + delta) % len(s.db)
+		xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
 	}
 }
 
 func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int, delta int) {
 	for _, row := range rows {
-    drow := (row+delta) % len(s.db)
-    xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
+		drow := (row + delta) % len(s.db)
+		xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
 	}
 }
 
@@ -69,37 +73,43 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 	}
 
 	rowLen := len(data[0])
-  flatDb := make([]byte, rowLen * len(data))
+	flatDb := make([]byte, rowLen*len(data))
 
 	for i, v := range data {
 		if len(v) != rowLen {
 			panic("Database rows must all be of the same length")
 		}
 
-    copy(flatDb[i*rowLen:], v[:])
+		copy(flatDb[i*rowLen:], v[:])
 	}
 
-  var hf HintFunc
-  switch hintStrategy {
-    case 0: hf = HintRandom
-    case 1: hf = HintLinear
-    case 2: hf = HintLinearSort
-    case 3: hf = HintFlat
-    case 4: hf = HintFlatLinear
-    case 5: hf = HintFlatSlice
-  }
+	var hf HintFunc
+	switch hintStrategy {
+	case 0:
+		hf = HintRandom
+	case 1:
+		hf = HintLinear
+	case 2:
+		hf = HintLinearSort
+	case 3:
+		hf = HintFlat
+	case 4:
+		hf = HintFlatLinear
+	case 5:
+		hf = HintFlatSlice
+	}
 
 	return &pirServerPunc{
 		rowLen:     rowLen,
 		db:         data,
-    hintFunc:   hf,
-    flatDb:     flatDb,
+		hintFunc:   hf,
+		flatDb:     flatDb,
 		randSource: source,
 	}
 }
 
 func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
-  return s.hintFunc(s, req, resp)
+	return s.hintFunc(s, req, resp)
 }
 
 func HintLinearSort(s *pirServerPunc, req *HintReq, resp *HintResp) error {
@@ -108,29 +118,29 @@ func HintLinearSort(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	rowSets := make([][]int, len(s.db))
 
 	for i := 0; i < len(s.db); i++ {
-    rowSets[i] = make([]int, 0, 10*nHints)
-  }
+		rowSets[i] = make([]int, 0, 10*nHints)
+	}
 
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
 		req.Key.Shift(req.Deltas[j])
-    set := req.Key.Eval()
-	  for k := range set {
-      rowSets[k] = append(rowSets[k], j)
-    }
+		set := req.Key.Eval()
+		for k := range set {
+			rowSets[k] = append(rowSets[k], j)
+		}
 
 		req.Key.Shift(-req.Deltas[j])
 	}
 
 	for i := 0; i < len(s.db); i++ {
-    row := s.db[i]
+		row := s.db[i]
 
-    sort.Ints(rowSets[i])
-    for _,j := range rowSets[i] {
-      xorInto(hints[j], row)
-    }
-  }
+		sort.Ints(rowSets[i])
+		for _, j := range rowSets[i] {
+			xorInto(hints[j], row)
+		}
+	}
 
 	resp.Hints = hints
 	return nil
@@ -142,24 +152,24 @@ func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	rowSets := make([]Set, len(s.db))
 
 	for i := 0; i < len(s.db); i++ {
-    rowSets[i] = make(Set)
-  }
+		rowSets[i] = make(Set)
+	}
 
-  set := req.Key.Eval()
+	set := req.Key.Eval()
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
-	  for k := range set {
-      rowSets[(k + req.Deltas[j]) % len(s.db)][j] = Present_Yes
-    }
+		for k := range set {
+			rowSets[(k+req.Deltas[j])%len(s.db)][j] = Present_Yes
+		}
 	}
 
 	for i := 0; i < len(s.db); i++ {
-    row := s.db[i]
-    for j := range rowSets[i] {
-      xorInto(hints[j], row)
-    }
-  }
+		row := s.db[i]
+		for j := range rowSets[i] {
+			xorInto(hints[j], row)
+		}
+	}
 
 	resp.Hints = hints
 	return nil
@@ -171,73 +181,73 @@ func HintFlatLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	rowSets := make([]Set, len(s.db))
 
 	for i := 0; i < len(s.db); i++ {
-    rowSets[i] = make(Set)
-  }
+		rowSets[i] = make(Set)
+	}
 
-  set := req.Key.Eval()
+	set := req.Key.Eval()
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
-	  for k := range set {
-      rowSets[(k + req.Deltas[j]) % len(s.db)][j] = Present_Yes
-    }
+		for k := range set {
+			rowSets[(k+req.Deltas[j])%len(s.db)][j] = Present_Yes
+		}
 	}
 
 	for i := 0; i < len(s.db); i++ {
-    row := s.flatDb[i*s.rowLen:(i+1)*s.rowLen]
-    for j := range rowSets[i] {
-      xorInto(hints[j], row)
-    }
-  }
+		row := s.flatDb[i*s.rowLen : (i+1)*s.rowLen]
+		for j := range rowSets[i] {
+			xorInto(hints[j], row)
+		}
+	}
 
 	resp.Hints = hints
 	return nil
 }
 
 func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
-  return HintRandomType(s, req, resp, false, false)
+	return HintRandomType(s, req, resp, false, false)
 }
 
 func HintFlat(s *pirServerPunc, req *HintReq, resp *HintResp) error {
-  return HintRandomType(s, req, resp, true, false)
+	return HintRandomType(s, req, resp, true, false)
 }
 
 func HintFlatSlice(s *pirServerPunc, req *HintReq, resp *HintResp) error {
-  return HintRandomType(s, req, resp, true, true)
+	return HintRandomType(s, req, resp, true, true)
 }
 
 func setToSlice(set Set) []int {
-  out := make([]int, len(set))
-  i := 0
-  for k := range set {
-    out[i] = k
-    i += 1
-  }
-  return out
+	out := make([]int, len(set))
+	i := 0
+	for k := range set {
+		out[i] = k
+		i += 1
+	}
+	return out
 }
 
 func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, setSlice bool) error {
 	nHints := len(req.Deltas)
 	hints := make([]Row, nHints)
 
-  set := req.Key.Eval()
-  var setS []int
-  if setSlice {
-    setS = setToSlice(set)
-  }
+	set := req.Key.Eval()
+	var setS []int
+	if setSlice {
+		setS = setToSlice(set)
+	}
 
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
-    if flat {
-      if setSlice {
-		    s.xorRowsFlatSlice(hints[j], setS, req.Deltas[j])
-      } else {
-		    s.xorRowsFlat(hints[j], set, req.Deltas[j])
-      }
-    } else {
-		  s.xorRows(hints[j], set, req.Deltas[j])
-    }
+		if flat {
+			if setSlice {
+				s.xorRowsFlatSlice(hints[j], setS, req.Deltas[j])
+			} else {
+				s.xorRowsFlat(hints[j], set, req.Deltas[j])
+			}
+		} else {
+			s.xorRows(hints[j], set, req.Deltas[j])
+		}
 	}
 
 	resp.Hints = hints

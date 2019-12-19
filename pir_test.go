@@ -47,14 +47,14 @@ func TestPIRPunc(t *testing.T) {
 	db := MakeDB(100, 1024)
 	client := newPirClientPunc(RandSource(), len(db))
 
-  for hintType := 0; hintType < 3; hintType++ {
-	  server := NewPirServerPunc(RandSource(), db, hintType)
-    t.Run(
-      fmt.Sprintf("hintType=%d", hintType),
-      func(t *testing.T) {
-        testBasicRead(t, db, client, server)
-      })
-    }
+	for hintType := 0; hintType < 6; hintType++ {
+		server := NewPirServerPunc(RandSource(), db, hintType)
+		t.Run(
+			fmt.Sprintf("hintType=%d", hintType),
+			func(t *testing.T) {
+				testBasicRead(t, db, client, server)
+			})
+	}
 }
 
 func TestPIRServerOverRPC(t *testing.T) {
@@ -96,10 +96,11 @@ var resp *QueryResp
 
 func dbDimensions() []DBDimensions {
 	var dims []DBDimensions
-	numDBRecords := []int{1000, 10 * 1000, 100 * 1000, 1000 * 1000}
-	dbRecordSize := []int{10, 100, 1000, 10 * 1000, 100 * 1000}
+	numDBRecords :=
+		[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
+	dbRecordSize := []int{1024}
 	// Set maximum on total size to avoid really large DBs.
-	maxDBSizeBytes := int64(2 * 1000 * 1000 * 1000)
+	maxDBSizeBytes := int64(2 * 1024 * 1024 * 1024)
 
 	for _, n := range numDBRecords {
 		for _, recSize := range dbRecordSize {
@@ -114,88 +115,88 @@ func dbDimensions() []DBDimensions {
 
 func BenchmarkHint(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-  for _, dim := range dbDimensions() {
-    for hintType := 0; hintType < 3; hintType++ {
-      db := MakeDBWithDimensions(dim)
-      client := newPirClientPunc(randSource, dim.NumRecords)
-      server := NewPirServerPunc(randSource, db, hintType)
+	for _, dim := range dbDimensions() {
+		for hintType := 5; hintType < 6; hintType++ {
+			db := MakeDBWithDimensions(dim)
+			client := newPirClientPunc(randSource, dim.NumRecords)
+			server := NewPirServerPunc(randSource, db, hintType)
 
-      hintReq, err := client.RequestHint()
-      assert.NilError(b, err)
+			hintReq, err := client.RequestHint()
+			assert.NilError(b, err)
 
-      b.Run(
-        fmt.Sprintf("hintType=%d,n=%d,B=%d", hintType, dim.NumRecords, dim.RecordSize),
-        func(b *testing.B) {
-          for i := 0; i < b.N; i++ {
-            var hint HintResp
-            err = server.Hint(hintReq, &hint)
-            assert.NilError(b, err)
-          }
-        })
-    }
-  }
+			b.Run(
+				fmt.Sprintf("hintType=%d,n=%d,B=%d", hintType, dim.NumRecords, dim.RecordSize),
+				func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						var hint HintResp
+						err = server.Hint(hintReq, &hint)
+						assert.NilError(b, err)
+					}
+				})
+		}
+	}
 }
 
 func BenchmarkHintOnce(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
-  db := MakeDBWithDimensions(dim)
-  client := newPirClientPunc(randSource, dim.NumRecords)
+	dim := DBDimensions{NumRecords: 1024 * 256, RecordSize: 1024}
+	db := MakeDBWithDimensions(dim)
+	client := newPirClientPunc(randSource, dim.NumRecords)
 
-  hintReq, err := client.RequestHint()
-  assert.NilError(b, err)
+	hintReq, err := client.RequestHint()
+	assert.NilError(b, err)
 
-  for hintType := 0; hintType < 6; hintType++ {
-    server := NewPirServerPunc(randSource, db, hintType)
-    b.Run(
-      fmt.Sprintf("hintType=%d", hintType),
-      func(b *testing.B) {
-        for i := 0; i < b.N; i++ {
-          var hint HintResp
-          err = server.Hint(hintReq, &hint)
-          assert.NilError(b, err)
-        }
-      })
-  }
+	for hintType := 0; hintType < 6; hintType++ {
+		server := NewPirServerPunc(randSource, db, hintType)
+		b.Run(
+			fmt.Sprintf("hintType=%d", hintType),
+			func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					var hint HintResp
+					err = server.Hint(hintReq, &hint)
+					assert.NilError(b, err)
+				}
+			})
+	}
 }
 
 func BenchmarkNothingRandom(b *testing.B) {
-  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
-  db := MakeDBWithDimensions(dim)
+	dim := DBDimensions{NumRecords: 1024 * 256, RecordSize: 1024}
+	db := MakeDBWithDimensions(dim)
 
-  nHints := 9216
-  setLen := 512
+	nHints := 9216
+	setLen := 512
 
-  out := make(Row, dim.RecordSize)
-  b.ResetTimer()
-  for i := 0; i < b.N; i++ {
-    for j := 0; j < nHints; j++ {
-      for k := 0; k < setLen; k++ {
-        q := ((123124124 * k) + 912812367) % dim.NumRecords
-        xorInto(out, db[q])
-      }
-    }
-  }
+	out := make(Row, dim.RecordSize)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < nHints; j++ {
+			for k := 0; k < setLen; k++ {
+				q := ((123124124 * k) + 912812367) % dim.NumRecords
+				xorInto(out, db[q])
+			}
+		}
+	}
 }
 
 func BenchmarkNothingLinear(b *testing.B) {
-  dim := DBDimensions{NumRecords: 1024*256, RecordSize: 1024}
-  db := MakeDBWithDimensions(dim)
+	dim := DBDimensions{NumRecords: 1024 * 256, RecordSize: 1024}
+	db := MakeDBWithDimensions(dim)
 
-  nHints := 9216
-  setLen := 512
+	nHints := 9216
+	setLen := 512
 
-  out := make(Row, dim.RecordSize)
-  b.ResetTimer()
-  q := 0
-  for i := 0; i < b.N; i++ {
-    for j := 0; j < nHints; j++ {
-      for k := 0; k < setLen; k++ {
-        xorInto(out, db[q])
-        q = (q+1) % dim.NumRecords
-      }
-    }
-  }
+	out := make(Row, dim.RecordSize)
+	b.ResetTimer()
+	q := 0
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < nHints; j++ {
+			for k := 0; k < setLen; k++ {
+				xorInto(out, db[q])
+				q = (q + 1) % dim.NumRecords
+			}
+		}
+	}
 }
 
 func BenchmarkAnswer(b *testing.B) {

@@ -1,0 +1,11 @@
+_name = 'CGKS_BS1024'
+__doc__ = 'CGKS95 as baseline for BoostedPIR'
+
+num_tests = 1
+num_queries = 1
+mode = 'CHOR'
+num_servers = 2
+num_blocks = [2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576]
+block_size = 1024
+database = 'database'
+
