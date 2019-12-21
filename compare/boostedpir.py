@@ -8,6 +8,9 @@ Original file is located at
 """
 
 import numpy as np
+import matplotlib 
+# Uncomment next line when running in python command line, rather than Jupyter/Colab.
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 block_size = 1024
@@ -33,23 +36,20 @@ hint_gen_time_sec = [raw_hint_gen_time_nsec[i]*1e-9*80./np.log2(num_blocks[i]) f
 
 answer_time_sec = [raw_answer_time_nsec[i]*1e-9*80./np.log2(num_blocks[i]) for i in range(len(num_blocks))]
 
-answer_time_sec
-
 # Commented out IPython magic to ensure Python compatibility.
 # %config InlineBackend.figure_format = 'png'
-plt.figure(dpi=100)
+plt.figure(dpi=300)
 
-plt.loglog(num_blocks, cgks_time_sec, label='Percy++ [CGKS95]', marker='o', linestyle='dashed')
-plt.loglog(num_blocks, seal_pir_time_sec, label='SealPIR [ACLS18]', marker='v', linestyle='dashed')
-plt.loglog(num_blocks, hint_gen_time_sec, label='This work (Offline)', marker='x', linestyle='dashed')
-plt.loglog(num_blocks, answer_time_sec, label='This work (Online)', marker='s', linestyle='dashed' )
+plt.loglog(num_blocks, cgks_time_sec, label='Percy++ [CGKS95, GDLYHH14]', marker='x', linestyle='dotted')
+plt.loglog(num_blocks, seal_pir_time_sec, label='SealPIR [ACLS18]', marker='v', linestyle='dotted')
+plt.loglog(num_blocks, answer_time_sec, label='This work (Online)', marker='s', linestyle='dashed', linewidth=2.0 )
+plt.loglog(num_blocks, hint_gen_time_sec, label='This work (Offline)', marker='o', linestyle='dashed', linewidth=2.0)
+
 plt.xlabel('database size [blocks]')
 plt.ylabel('server time [sec]')
 plt.legend()
 plt.grid()
 plt.show()
 
-from google.colab import files
 plt.savefig("compare.png")
-files.download("compare.png")
 
