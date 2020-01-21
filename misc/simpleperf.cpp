@@ -18,10 +18,9 @@ string random_record(int rec_size_bytes) {
 }
 
 void sequential_read(const vector<string>& db, int num_reads) {
-    string item;
     char sum = 0;
     for (auto i = 0; i < num_reads; ++i) {
-        item = db[i % db.size()];
+        const auto& item = db[i % db.size()];
         // Touch some character of the string to avoid optimizations.
         sum += item[2];
     }
@@ -31,10 +30,9 @@ void sequential_read(const vector<string>& db, int num_reads) {
 void random_access_read(const vector<string>& db, int num_reads) {
     default_random_engine generator;
     uniform_int_distribution<int> distribution(0,db.size()-1);
-    string item;
     char sum = 0;
     for (auto i = 0; i < num_reads; ++i) {
-        item = db[distribution(generator)];
+        const auto& item = db[distribution(generator)];
         // Touch some character of the string to avoid optimizations.
         sum += item[2];
     }

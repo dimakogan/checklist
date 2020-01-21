@@ -139,7 +139,7 @@ func BenchmarkHint(b *testing.B) {
 
 func BenchmarkHintOnce(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	dim := DBDimensions{NumRecords: 1024 * 256, RecordSize: 1024}
+	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
 	db := MakeDBWithDimensions(dim)
 	client := newPirClientPunc(randSource, dim.NumRecords)
 
@@ -161,11 +161,11 @@ func BenchmarkHintOnce(b *testing.B) {
 }
 
 func BenchmarkNothingRandom(b *testing.B) {
-	dim := DBDimensions{NumRecords: 1024 * 256, RecordSize: 1024}
+	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
 	db := MakeDBWithDimensions(dim)
 
-	nHints := 9216
-	setLen := 512
+	nHints := 1024
+	setLen := 1024
 
 	out := make(Row, dim.RecordSize)
 	b.ResetTimer()
@@ -180,11 +180,11 @@ func BenchmarkNothingRandom(b *testing.B) {
 }
 
 func BenchmarkNothingLinear(b *testing.B) {
-	dim := DBDimensions{NumRecords: 1024 * 256, RecordSize: 1024}
+	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
 	db := MakeDBWithDimensions(dim)
 
-	nHints := 9216
-	setLen := 512
+	nHints := 1024
+	setLen := 1024
 
 	out := make(Row, dim.RecordSize)
 	b.ResetTimer()
