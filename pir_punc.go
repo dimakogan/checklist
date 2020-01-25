@@ -34,7 +34,7 @@ type pirServerPunc struct {
 	randSource *rand.Rand
 }
 
-func xorInto(a Row, b Row) {
+func xorInto(a []byte, b []byte) {
 	if len(a) != len(b) {
 		panic("Tried to XOR byte-slices of unequal length.")
 	}

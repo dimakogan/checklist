@@ -98,7 +98,7 @@ func dbDimensions() []DBDimensions {
 	var dims []DBDimensions
 	numDBRecords :=
 		[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
-	dbRecordSize := []int{1024}
+	dbRecordSize := []int{96}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(2 * 1024 * 1024 * 1024)
 
@@ -157,6 +157,50 @@ func BenchmarkHintOnce(b *testing.B) {
 					assert.NilError(b, err)
 				}
 			})
+	}
+}
+
+func BenchmarkHintMatrix(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+	for _, dim := range dbDimensions() {
+			db := MakeDBWithDimensions(dim)
+			client := newPirClientMatrix(randSource, dim.NumRecords, dim.RecordSize)
+			server := NewPirServerMatrix(randSource, db, dim.RecordSize)
+
+			hintReq, err := client.RequestHint()
+			assert.NilError(b, err)
+
+			b.Run(
+				fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+				func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						var hint HintResp
+						err = server.Hint(hintReq, &hint)
+						assert.NilError(b, err)
+					}
+				})
+	}
+}
+
+func BenchmarkHintOneTime(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+	for _, dim := range dbDimensions() {
+			db := MakeDBWithDimensions(dim)
+			client := newPirClientOneTime(randSource, dim.NumRecords, dim.RecordSize)
+			server := NewPirServerOneTime(randSource, db, dim.RecordSize)
+
+			hintReq, err := client.RequestHint()
+			assert.NilError(b, err)
+
+			b.Run(
+				fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+				func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						var hint HintResp
+						err = server.Hint(hintReq, &hint)
+						assert.NilError(b, err)
+					}
+				})
 	}
 }
 

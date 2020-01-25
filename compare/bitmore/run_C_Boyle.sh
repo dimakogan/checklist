@@ -1,10 +1,12 @@
 #!/bin/bash
 DV=1
 
-g++ -std=c++1z -O3 C_Boyle_client_query.cpp -o C_Boyle_client_query -mavx2 -march=native -lbsd
-g++ -std=c++1z -O3 C_Boyle_server_response.cpp -o C_Boyle_server_response -mavx2 -march=native -lbsd
-g++ -std=c++1z -O3 C_Boyle_client_reconstruct.cpp -o C_Boyle_client_reconstruct -mavx2 -march=native -lbsd
-g++ -std=c++1z -O3 C_Boyle_client_reconstruct_with_correctness_proof.cpp -o C_Boyle_client_reconstruct_with_correctness_proof -mavx2 -march=native -lbsd
+CFLAGS=-std=c++1z -O3 -mavx2 -march=native -lbsd
+
+g++ $CFLAGS C_Boyle_client_query.cpp -o C_Boyle_client_query 
+g++ $CFLAGS C_Boyle_server_response.cpp -o C_Boyle_server_response 
+g++ $CFLAGS C_Boyle_client_reconstruct.cpp -o C_Boyle_client_reconstruct 
+g++ $CFLAGS -O3 C_Boyle_client_reconstruct_with_correctness_proof.cpp -o C_Boyle_client_reconstruct_with_correctness_proof 
 
 
 ./C_Boyle_client_query
