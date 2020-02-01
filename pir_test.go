@@ -97,7 +97,8 @@ var resp *QueryResp
 func dbDimensions() []DBDimensions {
 	var dims []DBDimensions
 	numDBRecords :=
-		[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
+		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
+		[]int{1<<16, 1<<17, 1<<18, 1<<19, 1<<20, 1<<21, 1<<22, 1<<23, 1<<24, 1<<25}
 	dbRecordSize := []int{96}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(2 * 1024 * 1024 * 1024)
@@ -116,7 +117,7 @@ func dbDimensions() []DBDimensions {
 func BenchmarkHint(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		for hintType := 5; hintType < 6; hintType++ {
+		for hintType := 5; hintType < 7; hintType++ {
 			db := MakeDBWithDimensions(dim)
 			client := newPirClientPunc(randSource, dim.NumRecords)
 			server := NewPirServerPunc(randSource, db, hintType)

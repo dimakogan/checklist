@@ -97,6 +97,8 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 		hf = HintFlatLinear
 	case 5:
 		hf = HintFlatSlice
+	case 6:
+		hf = HintFake
 	}
 
 	return &pirServerPunc{
@@ -224,6 +226,29 @@ func setToSlice(set Set) []int {
 		i += 1
 	}
 	return out
+}
+
+func HintFake(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]byte, s.rowLen * nHints)
+
+  bound := int(math.Sqrt(float64(len(s.db))))
+  for i := 0; i<len(s.db); i++ {
+    row := make(Row, s.rowLen)
+    copy(row[:], s.flatDb[i*s.rowLen:(i+1)*s.rowLen])
+    for j := 0; j<nHints; j++ {
+      if(s.randSource.Intn(len(s.db)) < bound) {
+        xorInto(hints[j*s.rowLen:(j+1)*s.rowLen], row[:])
+      }
+    }
+  }
+
+	resp.Hints = make([]Row, nHints)
+  for i := 0; i<nHints; i++ {
+    resp.Hints[i] = make([]byte, s.rowLen)
+    copy(resp.Hints[i][:], hints[i*s.rowLen:(i+1)*s.rowLen])
+  }
+	return nil
 }
 
 func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, setSlice bool) error {
