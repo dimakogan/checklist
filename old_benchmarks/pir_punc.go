@@ -3,7 +3,7 @@ package boosted
 import (
 	"errors"
 	"fmt"
-//	"log"
+	"log"
 	"math"
 	"math/rand"
 //	"sort"
@@ -54,6 +54,13 @@ func (s *pirServerPunc) xorRows(out Row, rows Set, delta int) {
 	}
 }
 
+func (s *pirServerPunc) xorRowsFlat(out Row, rows Set, delta int) {
+	for row := range rows {
+		drow := (row + delta) % len(s.db)
+		xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
+	}
+}
+
 func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int, delta int) int {
   bytes := 0
 	for _, row := range rows {
@@ -64,7 +71,7 @@ func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int, delta int) int {
   return bytes
 }
 
-func NewPirServerPunc(source *rand.Rand, data []Row) PIRServer {
+func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}
@@ -81,12 +88,147 @@ func NewPirServerPunc(source *rand.Rand, data []Row) PIRServer {
 		copy(flatDb[i*rowLen:], v[:])
 	}
 
+	var hf HintFunc
+	switch hintStrategy {
+	case 0:
+		hf = HintRandom
+	case 1:
+		hf = HintLinear
+    /*
+	case 2:
+		hf = HintLinearSort
+    */
+	case 3:
+		hf = HintFlat
+	case 4:
+		hf = HintFlatLinear
+	case 5:
+		hf = HintFlatSlice
+    /*
+	case 6:
+		hf = HintFake
+    */
+  default:
+    panic("Unknown hint type")
+	}
+
 	return &pirServerPunc{
 		rowLen:     rowLen,
 		db:         data,
+		hintFunc:   hf,
 		flatDb:     flatDb,
 		randSource: source,
 	}
+}
+
+func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
+	return s.hintFunc(s, req, resp)
+}
+
+/*
+func HintLinearSort(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]Row, nHints)
+	rowSets := make([][]int, len(s.db))
+
+	for i := 0; i < len(s.db); i++ {
+		rowSets[i] = make([]int, 0, 10*nHints)
+	}
+
+	for j := 0; j < nHints; j++ {
+		hints[j] = make(Row, s.rowLen)
+
+		req.Key.Shift(req.Deltas[j])
+		set := req.Key.Eval()
+		for k := range set {
+			rowSets[k] = append(rowSets[k], j)
+		}
+
+		req.Key.Shift(-req.Deltas[j])
+	}
+
+	for i := 0; i < len(s.db); i++ {
+		row := s.db[i]
+
+		sort.Ints(rowSets[i])
+		for _, j := range rowSets[i] {
+			xorInto(hints[j], row)
+		}
+	}
+
+	resp.Hints = hints
+	return nil
+}
+*/
+
+func HintLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]Row, nHints)
+	rowSets := make([]Set, len(s.db))
+
+	for i := 0; i < len(s.db); i++ {
+		rowSets[i] = make(Set)
+	}
+
+	set := req.Key.Eval()
+	for j := 0; j < nHints; j++ {
+		hints[j] = make(Row, s.rowLen)
+
+		for k := range set {
+			rowSets[(k+req.Deltas[j])%len(s.db)][j] = Present_Yes
+		}
+	}
+
+	for i := 0; i < len(s.db); i++ {
+		row := s.db[i]
+		for j := range rowSets[i] {
+			xorInto(hints[j], row)
+		}
+	}
+
+	resp.Hints = hints
+	return nil
+}
+
+func HintFlatLinear(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]Row, nHints)
+	rowSets := make([]Set, len(s.db))
+
+	for i := 0; i < len(s.db); i++ {
+		rowSets[i] = make(Set)
+	}
+
+	set := req.Key.Eval()
+	for j := 0; j < nHints; j++ {
+		hints[j] = make(Row, s.rowLen)
+
+		for k := range set {
+			rowSets[(k+req.Deltas[j])%len(s.db)][j] = Present_Yes
+		}
+	}
+
+	for i := 0; i < len(s.db); i++ {
+		row := s.flatDb[i*s.rowLen : (i+1)*s.rowLen]
+		for j := range rowSets[i] {
+			xorInto(hints[j], row)
+		}
+	}
+
+	resp.Hints = hints
+	return nil
+}
+
+func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	return HintRandomType(s, req, resp, false, false)
+}
+
+func HintFlat(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	return HintRandomType(s, req, resp, true, false)
+}
+
+func HintFlatSlice(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	return HintRandomType(s, req, resp, true, true)
 }
 
 func setToSlice(set Set) []int {
@@ -99,20 +241,56 @@ func setToSlice(set Set) []int {
 	return out
 }
 
+/*
+func HintFake(s *pirServerPunc, req *HintReq, resp *HintResp) error {
+	nHints := len(req.Deltas)
+	hints := make([]byte, s.rowLen * nHints)
 
-func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
+  bound := int(math.Sqrt(float64(len(s.db))))
+  for i := 0; i<len(s.db); i++ {
+    row := make(Row, s.rowLen)
+    copy(row[:], s.flatDb[i*s.rowLen:(i+1)*s.rowLen])
+    for j := 0; j<nHints; j++ {
+      if(s.randSource.Intn(len(s.db)) < bound) {
+        xorInto(hints[j*s.rowLen:(j+1)*s.rowLen], row[:])
+      }
+    }
+  }
+
+	resp.Hints = make([]Row, nHints)
+  for i := 0; i<nHints; i++ {
+    resp.Hints[i] = make([]byte, s.rowLen)
+    copy(resp.Hints[i][:], hints[i*s.rowLen:(i+1)*s.rowLen])
+  }
+	return nil
+}
+*/
+
+func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, setSlice bool) error {
 	nHints := len(req.Deltas)
 	hints := make([]Row, nHints)
 
 	set := req.Key.Eval()
-  setS := setToSlice(set)
+	var setS []int
+	if setSlice {
+		setS = setToSlice(set)
+	}
 
   bytes := 0
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
-    bytes = bytes + s.xorRowsFlatSlice(hints[j], setS, req.Deltas[j])
+
+		if flat {
+			if setSlice {
+				bytes = bytes + s.xorRowsFlatSlice(hints[j], setS, req.Deltas[j])
+			} else {
+				s.xorRowsFlat(hints[j], set, req.Deltas[j])
+			}
+		} else {
+			s.xorRows(hints[j], set, req.Deltas[j])
+		}
 	}
-  //log.Printf("bytes: %v", bytes)
+  log.Printf("bytes: %v", bytes)
 
 	resp.Hints = hints
 	return nil

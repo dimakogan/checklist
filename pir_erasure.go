@@ -18,8 +18,8 @@ type pirServerErasure struct {
 	server PIRServer
 }
 
-var CHUNK_SIZE = 64
-var ALLOW_LOSS = 2
+var CHUNK_SIZE = 128
+var ALLOW_LOSS = 128
 
 func nEncodedRows(nRows int) int {
   // We split the length-n database into chunks of size `chunkSize`
@@ -82,7 +82,7 @@ func NewPirServerErasure(source *rand.Rand, data []Row) PIRServer {
   encdata := encodeDatabase(data)
   fmt.Printf("LenIn = %v\n", len(data))
   fmt.Printf("LenOut = %v\n", len(encdata))
-  server := NewPirServerPunc(source, encdata, 5)
+  server := NewPirServerPunc(source, encdata)
 
 	return &pirServerErasure{
 		server: server,

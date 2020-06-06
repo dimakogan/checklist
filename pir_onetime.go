@@ -1,6 +1,7 @@
 package boosted
 
 import (
+  //"log"
 	"fmt"
 	"math"
 	"math/rand"
@@ -50,12 +51,15 @@ func NewPirServerOneTime(source *rand.Rand, data []Row, hintStrategy int) PIRSer
 func (s *pirOneTime) Hint(req *HintReq, resp *HintResp) error {
 	hint := make([]byte, len(req.Sets) * s.rowLen)
 
+  bytes := 0
 	for i := 0; i < len(req.Sets); i++ {
 	  for j := 0; j < len(req.Sets[i]); j++ {
       xorInto(hint[i*s.rowLen:(i+1)*s.rowLen],
           s.flatDb[s.rowLen * req.Sets[i][j]:(s.rowLen*(req.Sets[i][j]+1))])
+      bytes += s.rowLen
     }
 	}
+  //log.Printf("Bytes: %v", bytes)
 
 	resp.Answer = hint
 	return nil
