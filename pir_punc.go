@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
+//	"sort"
 
 	"github.com/lukechampine/fastxor"
 )
@@ -77,6 +77,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 
 	for i, v := range data {
 		if len(v) != rowLen {
+      fmt.Printf("Got row[%v] %v %v\n", i, len(v), rowLen)
 			panic("Database rows must all be of the same length")
 		}
 
@@ -85,6 +86,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 
 	var hf HintFunc
 	switch hintStrategy {
+    /*
 	case 0:
 		hf = HintRandom
 	case 1:
@@ -95,10 +97,15 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 		hf = HintFlat
 	case 4:
 		hf = HintFlatLinear
+    */
 	case 5:
 		hf = HintFlatSlice
+    /*
 	case 6:
 		hf = HintFake
+    */
+  default:
+    panic("Unknown hint type")
 	}
 
 	return &pirServerPunc{
@@ -114,6 +121,7 @@ func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	return s.hintFunc(s, req, resp)
 }
 
+/*
 func HintLinearSort(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	nHints := len(req.Deltas)
 	hints := make([]Row, nHints)
@@ -213,6 +221,7 @@ func HintRandom(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 func HintFlat(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	return HintRandomType(s, req, resp, true, false)
 }
+*/
 
 func HintFlatSlice(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	return HintRandomType(s, req, resp, true, true)
@@ -228,6 +237,7 @@ func setToSlice(set Set) []int {
 	return out
 }
 
+/*
 func HintFake(s *pirServerPunc, req *HintReq, resp *HintResp) error {
 	nHints := len(req.Deltas)
 	hints := make([]byte, s.rowLen * nHints)
@@ -250,6 +260,7 @@ func HintFake(s *pirServerPunc, req *HintReq, resp *HintResp) error {
   }
 	return nil
 }
+*/
 
 func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, setSlice bool) error {
 	nHints := len(req.Deltas)
@@ -301,6 +312,10 @@ func newPirClientPunc(source *rand.Rand, nRows int) PIRClient {
 
 func (c *pirClientPunc) RequestHint() (*HintReq, error) {
 	nHints := c.setSize * int(math.Round(math.Log2(float64(c.nRows))))
+  return c.RequestHintN(nHints)
+}
+
+func (c *pirClientPunc) RequestHintN(nHints int) (*HintReq, error) {
 	c.deltas = make([]int, nHints)
 	for i := range c.deltas {
 		c.deltas[i] = c.randSource.Intn(c.nRows)
@@ -323,6 +338,10 @@ func (c *pirClientPunc) InitHint(resp *HintResp) error {
 func (c *pirClientPunc) bernoulli(nHeads int, total int) bool {
 	coin := c.randSource.Intn(total)
 	return coin < nHeads
+}
+
+func (c *pirClientPunc) CanQuery(i int) bool {
+	return c.key.FindShift(i, c.deltas) >= 0
 }
 
 func (c *pirClientPunc) Query(i int) ([]*QueryReq, error) {

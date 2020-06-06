@@ -88,6 +88,10 @@ func newPirClientMatrix(source *rand.Rand, nRows int, rowLen int) PIRClient {
 	}
 }
 
+func (c *pirClientMatrix) RequestHintN(nHints int) (*HintReq, error) {
+  return c.RequestHint()
+}
+
 func (c *pirClientMatrix) RequestHint() (*HintReq, error) {
   hr := new(HintReq)
   hr.Col = make([]bool, c.height)

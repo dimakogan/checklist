@@ -52,6 +52,10 @@ func NewPirClientStub() PIRClient {
 	return pirClientStub{}
 }
 
+func (c pirClientStub) RequestHintN(nHints int) (*HintReq, error) {
+  return c.RequestHint()
+}
+
 func (c pirClientStub) RequestHint() (*HintReq, error) {
 	return &HintReq{}, nil
 }

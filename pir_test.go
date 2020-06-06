@@ -47,7 +47,7 @@ func TestPIRPunc(t *testing.T) {
 	db := MakeDB(100, 1024)
 	client := newPirClientPunc(RandSource(), len(db))
 
-	for hintType := 0; hintType < 6; hintType++ {
+	for hintType := 5; hintType < 6; hintType++ {
 		server := NewPirServerPunc(RandSource(), db, hintType)
 		t.Run(
 			fmt.Sprintf("hintType=%d", hintType),
@@ -117,10 +117,34 @@ func dbDimensions() []DBDimensions {
 func BenchmarkHint(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		for hintType := 5; hintType < 7; hintType++ {
+		for hintType := 5; hintType < 6; hintType++ {
 			db := MakeDBWithDimensions(dim)
 			client := newPirClientPunc(randSource, dim.NumRecords)
 			server := NewPirServerPunc(randSource, db, hintType)
+
+			hintReq, err := client.RequestHint()
+			assert.NilError(b, err)
+
+			b.Run(
+				fmt.Sprintf("hintType=%d,n=%d,B=%d", hintType, dim.NumRecords, dim.RecordSize),
+				func(b *testing.B) {
+					for i := 0; i < b.N; i++ {
+						var hint HintResp
+						err = server.Hint(hintReq, &hint)
+						assert.NilError(b, err)
+					}
+				})
+		}
+	}
+}
+
+func BenchmarkHintErasure(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+	for _, dim := range dbDimensions() {
+		for hintType := 5; hintType < 6; hintType++ {
+			db := MakeDBWithDimensions(dim)
+			client := newPirClientErasure(randSource, dim.NumRecords)
+			server := NewPirServerErasure(randSource, db)
 
 			hintReq, err := client.RequestHint()
 			assert.NilError(b, err)
@@ -147,7 +171,7 @@ func BenchmarkHintOnce(b *testing.B) {
 	hintReq, err := client.RequestHint()
 	assert.NilError(b, err)
 
-	for hintType := 0; hintType < 6; hintType++ {
+	for hintType := 5; hintType < 6; hintType++ {
 		server := NewPirServerPunc(randSource, db, hintType)
 		b.Run(
 			fmt.Sprintf("hintType=%d", hintType),
