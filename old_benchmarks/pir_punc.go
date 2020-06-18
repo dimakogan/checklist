@@ -1,3 +1,5 @@
+//+build ignore
+
 package boosted
 
 import (
@@ -6,7 +8,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
-//	"sort"
+
+	//	"sort"
 
 	"github.com/lukechampine/fastxor"
 )
@@ -62,13 +65,13 @@ func (s *pirServerPunc) xorRowsFlat(out Row, rows Set, delta int) {
 }
 
 func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int, delta int) int {
-  bytes := 0
+	bytes := 0
 	for _, row := range rows {
 		drow := (row + delta) % len(s.db)
 		xorInto(out, s.flatDb[s.rowLen*drow:s.rowLen*(drow+1)])
-    bytes += s.rowLen
+		bytes += s.rowLen
 	}
-  return bytes
+	return bytes
 }
 
 func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer {
@@ -81,7 +84,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 
 	for i, v := range data {
 		if len(v) != rowLen {
-      fmt.Printf("Got row[%v] %v %v\n", i, len(v), rowLen)
+			fmt.Printf("Got row[%v] %v %v\n", i, len(v), rowLen)
 			panic("Database rows must all be of the same length")
 		}
 
@@ -94,22 +97,22 @@ func NewPirServerPunc(source *rand.Rand, data []Row, hintStrategy int) PIRServer
 		hf = HintRandom
 	case 1:
 		hf = HintLinear
-    /*
-	case 2:
-		hf = HintLinearSort
-    */
+		/*
+			case 2:
+				hf = HintLinearSort
+		*/
 	case 3:
 		hf = HintFlat
 	case 4:
 		hf = HintFlatLinear
 	case 5:
 		hf = HintFlatSlice
-    /*
-	case 6:
-		hf = HintFake
-    */
-  default:
-    panic("Unknown hint type")
+		/*
+			case 6:
+				hf = HintFake
+		*/
+	default:
+		panic("Unknown hint type")
 	}
 
 	return &pirServerPunc{
@@ -276,7 +279,7 @@ func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, s
 		setS = setToSlice(set)
 	}
 
-  bytes := 0
+	bytes := 0
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 
@@ -290,7 +293,7 @@ func HintRandomType(s *pirServerPunc, req *HintReq, resp *HintResp, flat bool, s
 			s.xorRows(hints[j], set, req.Deltas[j])
 		}
 	}
-  log.Printf("bytes: %v", bytes)
+	log.Printf("bytes: %v", bytes)
 
 	resp.Hints = hints
 	return nil
@@ -318,7 +321,7 @@ func newPirClientPunc(source *rand.Rand, nRows int) PIRClient {
 
 func (c *pirClientPunc) RequestHint() (*HintReq, error) {
 	nHints := c.setSize * int(math.Round(math.Log2(float64(c.nRows))))
-  return c.RequestHintN(nHints)
+	return c.RequestHintN(nHints)
 }
 
 func (c *pirClientPunc) RequestHintN(nHints int) (*HintReq, error) {

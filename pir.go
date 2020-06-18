@@ -5,22 +5,21 @@ type Row []byte
 
 //HintReq is a request for a hint from a client to a server.
 type HintReq struct {
-	Key    *SetKey
-	Deltas []int
+	Keys []*SetKey
 
-  // Matrix PIR
-  Col []bool
+	// Matrix PIR
+	Col []bool
 
-  // One-time
-  Sets [][]int
+	// One-time
+	Sets [][]int
 }
 
 //HintResp is a response to a hint request.
 type HintResp struct {
 	Hints []Row
 
-  // Matrix PIR
-  Answer []byte
+	// Matrix PIR
+	Answer []byte
 }
 
 //QueryReq is a PIR query from a client to a server.

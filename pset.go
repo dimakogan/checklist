@@ -53,8 +53,8 @@ func (s Set) RandomMember(src *rand.Rand) int {
 }
 
 func (s Set) Has(elm int) bool {
-  _, okay := s[elm]
-  return okay
+	_, okay := s[elm]
+	return okay
 }
 
 func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
@@ -136,13 +136,13 @@ func (key *PuncSetKey) Eval() Set {
 }
 
 func evalMap(univSize int, delta int, m Set) Set {
-  out := make(Set, len(m))
+	out := make(Set, len(m))
 
 	for k := range m {
 		out[MathMod(k+delta, univSize)] = Present_Yes
 	}
 
-  return out
+	return out
 }
 
 // Given set key `key`, an element of the universe `idx`, and a slice
@@ -151,7 +151,7 @@ func evalMap(univSize int, delta int, m Set) Set {
 //
 // Returns -1 if no such value exists.
 func (key *SetKey) FindShift(idx int, deltas []int) int {
-  set := key.Eval()
+	set := key.Eval()
 
 	for j, delta := range deltas {
 		shift := MathMod(idx-delta, key.UnivSize)
@@ -161,4 +161,8 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 	}
 
 	return -1
+}
+
+func (key *SetKey) InSet(idx int) bool {
+	return key.Eval().Has(idx)
 }
