@@ -1,7 +1,13 @@
 package boosted
 
 import (
+	"fmt"
+	"math"
 	"math/rand"
+	"strconv"
+	"strings"
+
+	"github.com/dimakogan/boosted-pir/ff1"
 )
 
 type Present int
@@ -16,14 +22,14 @@ type Set map[int]Present
 
 type SetKey struct {
 	UnivSize int
+	Radix    int
+	SetSize  int
 	Delta    int
-	Set      Set
+	Key      []byte
 }
 
 type PuncSetKey struct {
-	UnivSize int
-	Delta    int
-	Set      Set
+	Set Set
 }
 
 // Go's % operator follows C semantics and can produce
@@ -62,18 +68,26 @@ func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
 		panic("Set size too large.")
 	}
 
-	if univSize < 1 {
+	var radix int
+	if (univSize & (univSize - 1)) == 0 {
+		radix = 2
+	} else if math.Pow(10, math.Log10(float64(univSize))) == float64(univSize) {
+		radix = 10
+	} else {
+		panic("Universe size is not a power of 2 or 10.")
+	}
+
+	if univSize < 2 || univSize <= radix {
 		panic("Universe size too small.")
 	}
 
-	// TODO: Implement this more efficiently
-	out := make(Set)
-	for len(out) < setSize {
-		out[src.Intn(univSize)] = Present_Yes
+	key := make([]byte, 16)
+	if l, err := src.Read(key); l != len(key) || err != nil {
+		panic(err)
 	}
 
 	delta := src.Intn(univSize)
-	return &SetKey{univSize, delta, out}
+	return &SetKey{univSize, radix, setSize, delta, key}
 }
 
 func SetGenWith(src *rand.Rand, univSize int, setSize int, val int) *SetKey {
@@ -93,20 +107,15 @@ func (key *SetKey) Shift(amount int) {
 }
 
 func (key *SetKey) Punc(idx int) *PuncSetKey {
-	puncAt := MathMod(idx-key.Delta, key.UnivSize)
+	set := key.Eval()
 
-	if _, okay := key.Set[puncAt]; !okay {
+	if _, okay := set[idx]; !okay {
 		panic("Can't puncture at this point!")
 	}
 
-	out := make(map[int]Present)
-	for i := range key.Set {
-		if i != puncAt {
-			out[i] = Present_Yes
-		}
-	}
+	delete(set, idx)
 
-	return &PuncSetKey{key.UnivSize, key.Delta, out}
+	return &PuncSetKey{set}
 }
 
 func (key *SetKey) RandomMember(randSource *rand.Rand) int {
@@ -128,21 +137,37 @@ func (key *SetKey) RandomMemberExcept(randSource *rand.Rand, idx int) int {
 }
 
 func (key *SetKey) Eval() Set {
-	return evalMap(key.UnivSize, key.Delta, key.Set)
-}
+	out := make(Set, key.SetSize)
 
-func (key *PuncSetKey) Eval() Set {
-	return evalMap(key.UnivSize, key.Delta, key.Set)
-}
+	// Create a new FF1 cipher "object"
+	// 8 is the tweak length.
+	FF1, err := ff1.NewCipher(key.Radix, 0, key.Key, nil)
+	if err != nil {
+		panic(err)
+	}
 
-func evalMap(univSize int, delta int, m Set) Set {
-	out := make(Set, len(m))
-
-	for k := range m {
-		out[MathMod(k+delta, univSize)] = Present_Yes
+	padLen := len(strconv.FormatInt(int64(key.UnivSize), key.Radix)) - 1
+	for i := 0; i < key.SetSize; i++ {
+		iStr := strconv.FormatInt(int64(i), key.Radix)
+		if len(iStr) < padLen {
+			iStr = strings.Repeat("0", padLen-len(iStr)) + iStr
+		}
+		elemStr, err := FF1.Encrypt(iStr)
+		if err != nil {
+			panic(fmt.Sprintf("%d, %s, %d, %d, %s", i, iStr, key.UnivSize, padLen, err))
+		}
+		var elem int64
+		if elem, err = strconv.ParseInt(elemStr, key.Radix, 32); err != nil {
+			panic(fmt.Sprintf("%d, %s, %d, %d, %s", i, iStr, key.UnivSize, padLen, err))
+		}
+		out[MathMod(int(elem)+key.Delta, key.UnivSize)] = Present_Yes
 	}
 
 	return out
+}
+
+func (key *PuncSetKey) Eval() Set {
+	return key.Set
 }
 
 // Given set key `key`, an element of the universe `idx`, and a slice
@@ -164,5 +189,26 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 }
 
 func (key *SetKey) InSet(idx int) bool {
+	// key := make([]byte, 16)
+	// if l, err := src.Read(key); l != len(key) || err != nil {
+	// 	panic(err)
+	// }
+	// // tweak, err := hex.DecodeString("0")
+	// // if err != nil {
+	// // 	panic(err)
+	// // }
+
+	// // Create a new FF1 cipher "object"
+	// // 10 is the radix/base, and 8 is the tweak length.
+	// FF1, err := ff1.NewCipher(2, 0, key, nil)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// plaintext, err := FF1.Decrypt(ciphertext)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
 	return key.Eval().Has(idx)
 }

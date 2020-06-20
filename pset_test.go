@@ -40,9 +40,8 @@ func TestPuncSetGen(t *testing.T) {
 		UnivSize int
 		setSize  int
 	}{
-		{10, 5},
-		{10, 10},
-		{1, 1},
+		{16, 5},
+		{16, 16},
 		{100000, 10},
 	}
 
@@ -73,9 +72,8 @@ func TestPuncSetGenWith(t *testing.T) {
 		setSize  int
 		with     int
 	}{
-		{10, 5, 0},
-		{10, 10, 8},
-		{1, 1, 0},
+		{16, 5, 0},
+		{100, 100, 8},
 		{100000, 10, 7},
 	}
 
@@ -116,9 +114,8 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 		setSize  int
 		with     int
 	}{
-		{10, 5, 0},
-		{10, 10, 8},
-		{1, 1, 0},
+		{8, 5, 0},
+		{16, 16, 8},
 		{100000, 10, 7},
 	}
 
@@ -131,7 +128,7 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 }
 
 func TestPuncSetShift(t *testing.T) {
-	key := SetGen(RandSource(), 10, 5)
+	key := SetGen(RandSource(), 16, 5)
 	set := key.Eval()
 
 	key.Shift(1)
