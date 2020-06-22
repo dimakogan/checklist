@@ -36,7 +36,7 @@ func testBasicRead(t *testing.T, db []Row, client PIRClient, server PIRServer) {
 
 // TestPIRStub is a simple end-to-end test.
 func TestPIRStub(t *testing.T) {
-	db := MakeDB(100, 1024)
+	db := MakeDB(256, 1024)
 	client := NewPirClientStub()
 	server := PIRServerStub{db: db}
 
@@ -44,7 +44,7 @@ func TestPIRStub(t *testing.T) {
 }
 
 func TestPIRPunc(t *testing.T) {
-	db := MakeDB(100, 10)
+	db := MakeDB(256, 10)
 	client := newPirClientPunc(RandSource(), len(db))
 
 	server := NewPirServerPunc(RandSource(), db)

@@ -55,6 +55,9 @@ func (s *pirServerPunc) xorRows(out Row, rows Set, delta int) {
 func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int) int {
 	bytes := 0
 	for _, row := range rows {
+		if row >= len(s.db) {
+			continue
+		}
 		xorInto(out, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
 		bytes += s.rowLen
 	}
@@ -123,11 +126,11 @@ func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
 
 func newPirClientPunc(source *rand.Rand, nRows int) PIRClient {
 	// TODO: Maybe better to just do this with integer ops.
-	nf := float64(nRows)
-	setSize := int(math.Round(math.Pow(nf, 0.5)))
+	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
+	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
 
 	return &pirClientPunc{
-		nRows:      nRows,
+		nRows:      nRowsRounded,
 		setSize:    setSize,
 		hints:      nil,
 		randSource: source,

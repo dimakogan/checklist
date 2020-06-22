@@ -42,7 +42,7 @@ func TestPuncSetGen(t *testing.T) {
 	}{
 		{16, 5},
 		{16, 16},
-		{100000, 10},
+		{1 << 16, 10},
 	}
 
 	for _, pair := range tests {
@@ -73,8 +73,8 @@ func TestPuncSetGenWith(t *testing.T) {
 		with     int
 	}{
 		{16, 5, 0},
-		{100, 100, 8},
-		{100000, 10, 7},
+		{256, 256, 8},
+		{1 << 16, 10, 7},
 	}
 
 	for _, pair := range tests {
@@ -114,9 +114,9 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 		setSize  int
 		with     int
 	}{
-		{8, 5, 0},
+		{16, 5, 0},
 		{16, 16, 8},
-		{100000, 10, 7},
+		{1 << 16, 10, 7},
 	}
 
 	for _, pair := range tests {
@@ -148,7 +148,7 @@ func TestRandomMemberSet(t *testing.T) {
 }
 
 func TestRandomMember(t *testing.T) {
-	key := SetGen(RandSource(), 100000, 1)
+	key := SetGen(RandSource(), 1<<16, 1)
 	set := key.Eval()
 
 	x := key.RandomMember(RandSource())
@@ -167,7 +167,7 @@ func getElement(set Set) int {
 }
 
 func TestRandomMemberExcept(t *testing.T) {
-	key := SetGen(RandSource(), 100000, 2)
+	key := SetGen(RandSource(), 1<<16, 2)
 	set := key.Eval()
 
 	v1 := getElement(set)
@@ -180,7 +180,7 @@ func TestRandomMemberExcept(t *testing.T) {
 }
 
 func TestFindShift(t *testing.T) {
-	univSize := 100000
+	univSize := 1 << 16
 	key := SetGen(RandSource(), univSize, 2)
 	set := key.Eval()
 

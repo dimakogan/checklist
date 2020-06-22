@@ -13,6 +13,7 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/tsenart/vegeta v12.7.0+incompatible // indirect
+	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20191116160921-f9c825593386 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gotest.tools v2.2.0+incompatible

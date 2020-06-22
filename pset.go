@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strconv"
-	"strings"
-
-	"github.com/dimakogan/boosted-pir/ff1"
 )
 
 type Present int
@@ -22,7 +18,6 @@ type Set map[int]Present
 
 type SetKey struct {
 	UnivSize int
-	Radix    int
 	SetSize  int
 	Delta    int
 	Key      []byte
@@ -64,21 +59,21 @@ func (s Set) Has(elm int) bool {
 }
 
 func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
+	if univSize < 4 {
+		panic("Universe size must be at least 4.")
+	}
+
 	if univSize < setSize {
 		panic("Set size too large.")
 	}
 
-	var radix int
-	if (univSize & (univSize - 1)) == 0 {
-		radix = 2
-	} else if math.Pow(10, math.Log10(float64(univSize))) == float64(univSize) {
-		radix = 10
-	} else {
-		panic("Universe size is not a power of 2 or 10.")
+	if (univSize & (univSize - 1)) != 0 {
+		panic("Universe size is not a power of 2.")
 	}
 
-	if univSize < 2 || univSize <= radix {
-		panic("Universe size too small.")
+	univSizeBits := int(math.Log2(float64(univSize)))
+	if univSizeBits%2 != 0 {
+		panic("Universe size is not an EVEN power of 2.")
 	}
 
 	key := make([]byte, 16)
@@ -87,7 +82,7 @@ func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
 	}
 
 	delta := src.Intn(univSize)
-	return &SetKey{univSize, radix, setSize, delta, key}
+	return &SetKey{univSize, setSize, delta, key}
 }
 
 func SetGenWith(src *rand.Rand, univSize int, setSize int, val int) *SetKey {
@@ -139,27 +134,15 @@ func (key *SetKey) RandomMemberExcept(randSource *rand.Rand, idx int) int {
 func (key *SetKey) Eval() Set {
 	out := make(Set, key.SetSize)
 
-	// Create a new FF1 cipher "object"
-	// 8 is the tweak length.
-	FF1, err := ff1.NewCipher(key.Radix, 0, key.Key, nil)
+	univSizeBits := int(math.Log2(float64(key.UnivSize)))
+
+	prp, err := NewPRP(key.Key, univSizeBits)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("Failed to create PRP: %s", err))
 	}
 
-	padLen := len(strconv.FormatInt(int64(key.UnivSize), key.Radix)) - 1
 	for i := 0; i < key.SetSize; i++ {
-		iStr := strconv.FormatInt(int64(i), key.Radix)
-		if len(iStr) < padLen {
-			iStr = strings.Repeat("0", padLen-len(iStr)) + iStr
-		}
-		elemStr, err := FF1.Encrypt(iStr)
-		if err != nil {
-			panic(fmt.Sprintf("%d, %s, %d, %d, %s", i, iStr, key.UnivSize, padLen, err))
-		}
-		var elem int64
-		if elem, err = strconv.ParseInt(elemStr, key.Radix, 32); err != nil {
-			panic(fmt.Sprintf("%d, %s, %d, %d, %s", i, iStr, key.UnivSize, padLen, err))
-		}
+		elem := prp.Eval(uint32(i))
 		out[MathMod(int(elem)+key.Delta, key.UnivSize)] = Present_Yes
 	}
 
@@ -189,26 +172,6 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 }
 
 func (key *SetKey) InSet(idx int) bool {
-	// key := make([]byte, 16)
-	// if l, err := src.Read(key); l != len(key) || err != nil {
-	// 	panic(err)
-	// }
-	// // tweak, err := hex.DecodeString("0")
-	// // if err != nil {
-	// // 	panic(err)
-	// // }
-
-	// // Create a new FF1 cipher "object"
-	// // 10 is the radix/base, and 8 is the tweak length.
-	// FF1, err := ff1.NewCipher(2, 0, key, nil)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// plaintext, err := FF1.Decrypt(ciphertext)
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	return key.Eval().Has(idx)
 }
