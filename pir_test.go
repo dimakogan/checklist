@@ -191,8 +191,8 @@ func BenchmarkHintMatrix(b *testing.B) {
 			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 			func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					var hint HintResp
-					err = server.Hint(hintReq, &hint)
+					var hint pirMatrixHintResp
+					err = server.Hint(*hintReq, &hint)
 					assert.NilError(b, err)
 				}
 			})
@@ -213,8 +213,8 @@ func BenchmarkHintOneTime(b *testing.B) {
 			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 			func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					var hint HintResp
-					err = server.Hint(hintReq, &hint)
+					var hint pirOneTimeHintResp
+					err = server.Hint(*hintReq, &hint)
 					assert.NilError(b, err)
 				}
 			})
