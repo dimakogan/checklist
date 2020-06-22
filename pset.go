@@ -172,6 +172,12 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 }
 
 func (key *SetKey) InSet(idx int) bool {
+	univSizeBits := int(math.Log2(float64(key.UnivSize)))
 
-	return key.Eval().Has(idx)
+	prp, err := NewPRP(key.Key, univSizeBits)
+	if err != nil {
+		panic(fmt.Errorf("Failed to create PRP: %s", err))
+	}
+
+	return prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize))) < uint32(key.SetSize)
 }

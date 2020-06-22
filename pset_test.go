@@ -191,3 +191,17 @@ func TestFindShift(t *testing.T) {
 	assert.Equal(t, key.FindShift(v1p, []int{100}), 0)
 	assert.Equal(t, key.FindShift(v1p, []int{7, 100}), 1)
 }
+
+func TestInSet(t *testing.T) {
+	univSize := 1 << 4
+	setSize := 4
+	key := SetGen(RandSource(), univSize, setSize)
+	set := key.Eval()
+	for i := 0; i < univSize; i++ {
+		if _, exists := set[i]; exists {
+			assert.Check(t, key.InSet(i))
+		} else {
+			assert.Check(t, !key.InSet(i))
+		}
+	}
+}

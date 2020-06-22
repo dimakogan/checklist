@@ -15,11 +15,19 @@ import (
 )
 
 type PRP struct {
-	round1       cipher.Block
-	round2       cipher.Block
-	round3       cipher.Block
-	blockLenBits int
-	mask         []byte
+	round1           cipher.Block
+	round2           cipher.Block
+	round3           cipher.Block
+	blockLenBits     int
+	prfBlockLenBytes int
+	lastByteMask     byte
+
+	// Preallocated buffers
+	u []byte
+	v []byte
+	w []byte
+	x []byte
+	y []byte
 }
 
 func NewPRP(key []byte, blockLenBits int) (*PRP, error) {
@@ -31,13 +39,15 @@ func NewPRP(key []byte, blockLenBits int) (*PRP, error) {
 	}
 
 	prp := PRP{
-		blockLenBits: blockLenBits,
-		mask:         make([]byte, aes.BlockSize),
+		blockLenBits:     blockLenBits,
+		prfBlockLenBytes: (blockLenBits/2-1)/8 + 1,
+		lastByteMask:     byte((1 << ((blockLenBits / 2) % 8)) - 1),
+		u:                make([]byte, aes.BlockSize),
+		v:                make([]byte, aes.BlockSize),
+		w:                make([]byte, aes.BlockSize),
+		x:                make([]byte, aes.BlockSize),
+		y:                make([]byte, aes.BlockSize),
 	}
-
-	var mask uint32
-	mask = (1 << (blockLenBits / 2)) - 1
-	binary.LittleEndian.PutUint32(prp.mask, mask)
 
 	hash := sha256.New
 	hkdf := hkdf.New(hash, key, nil, nil)
@@ -73,36 +83,41 @@ func NewPRP(key []byte, blockLenBits int) (*PRP, error) {
 
 func (prp *PRP) Eval(in uint32) uint32 {
 	// Parse input to binary
-	u := make([]byte, aes.BlockSize)
-	v := make([]byte, aes.BlockSize)
-	binary.LittleEndian.PutUint32(u, in&((1<<(prp.blockLenBits/2))-1))
-	binary.LittleEndian.PutUint32(v, in>>(prp.blockLenBits/2))
+	binary.LittleEndian.PutUint32(prp.u, in&((1<<(prp.blockLenBits/2))-1))
+	binary.LittleEndian.PutUint32(prp.v, in>>(prp.blockLenBits/2))
 
-	w := make([]byte, aes.BlockSize)
-	prp.prf(prp.round1, w, v)
-	fastxor.Bytes(w, w, u)
+	prp.prf(prp.round1, prp.w, prp.v)
+	fastxor.Bytes(prp.w, prp.w, prp.u)
 
-	x := make([]byte, aes.BlockSize)
-	prp.prf(prp.round2, x, w)
-	fastxor.Bytes(x, x, v)
+	prp.prf(prp.round2, prp.x, prp.w)
+	fastxor.Bytes(prp.x, prp.x, prp.v)
 
-	y := make([]byte, aes.BlockSize)
-	prp.prf(prp.round2, y, x)
-	fastxor.Bytes(y, y, w)
+	prp.prf(prp.round3, prp.y, prp.x)
+	fastxor.Bytes(prp.y, prp.y, prp.w)
 
-	return binary.LittleEndian.Uint32(x) + binary.LittleEndian.Uint32(y)<<(prp.blockLenBits/2)
+	return binary.LittleEndian.Uint32(prp.x) + binary.LittleEndian.Uint32(prp.y)<<(prp.blockLenBits/2)
 }
 
-func (prp *PRP) Invert(y int) int {
-	return 0
+func (prp *PRP) Invert(in uint32) uint32 {
+	// Parse input to binary
+	binary.LittleEndian.PutUint32(prp.x, in&((1<<(prp.blockLenBits/2))-1))
+	binary.LittleEndian.PutUint32(prp.y, in>>(prp.blockLenBits/2))
+
+	prp.prf(prp.round3, prp.w, prp.x)
+	fastxor.Bytes(prp.w, prp.w, prp.y)
+
+	prp.prf(prp.round2, prp.v, prp.w)
+	fastxor.Bytes(prp.v, prp.v, prp.x)
+
+	prp.prf(prp.round1, prp.u, prp.v)
+	fastxor.Bytes(prp.u, prp.u, prp.w)
+
+	return binary.LittleEndian.Uint32(prp.u) + binary.LittleEndian.Uint32(prp.v)<<(prp.blockLenBits/2)
 }
 
 func (prp *PRP) prf(c cipher.Block, dst []byte, src []byte) {
 	c.Encrypt(dst, src)
-	for i := (prp.blockLenBits/2-1)/8 + 1; i < aes.BlockSize; i++ {
-		dst[i] = 0
-	}
-	lastByteMask := byte((1 << ((prp.blockLenBits / 2) % 8)) - 1)
-
-	dst[(prp.blockLenBits/2-1)/8] &= lastByteMask
+	// zero out the remainder of the AES block
+	fastxor.Bytes(dst[prp.prfBlockLenBytes:], dst[prp.prfBlockLenBytes:], dst[prp.prfBlockLenBytes:])
+	dst[prp.prfBlockLenBytes-1] &= prp.lastByteMask
 }
