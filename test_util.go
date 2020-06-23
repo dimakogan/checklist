@@ -13,7 +13,7 @@ func MakeDB(nRows int, rowLen int) []Row {
 		db[i] = make([]byte, rowLen)
 		src.Read(db[i])
 		db[i][0] = byte(i % 256)
-		db[i][1] = byte(i % 256)
+		db[i][1] = 'A' + byte(i%256)
 	}
 	return db
 }

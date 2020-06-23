@@ -96,8 +96,7 @@ func testPuncSetGenWithPunc(t *testing.T, univSize int, setSize int, with int) {
 	}
 	assert.Assert(t, inSet)
 
-	pkey := key.Punc(with)
-	pset := pkey.Eval()
+	pset := key.Punc(with)
 	assert.Equal(t, len(pset), setSize-1)
 
 	inSet = false
@@ -192,16 +191,20 @@ func TestFindShift(t *testing.T) {
 	assert.Equal(t, key.FindShift(v1p, []int{7, 100}), 1)
 }
 
-func TestInSet(t *testing.T) {
+func TestFind(t *testing.T) {
 	univSize := 1 << 4
 	setSize := 4
-	key := SetGen(RandSource(), univSize, setSize)
-	set := key.Eval()
+	setKey := SetGen(RandSource(), univSize, setSize)
+	var list []int
+	for elem := range setKey.Eval() {
+		list = append(list, elem)
+	}
+	totalFound := 0
 	for i := 0; i < univSize; i++ {
-		if _, exists := set[i]; exists {
-			assert.Check(t, key.InSet(i))
-		} else {
-			assert.Check(t, !key.InSet(i))
+		if pos := setKey.Find(i); pos >= 0 {
+			assert.Equal(t, list[pos], i)
+			totalFound++
 		}
 	}
+	assert.Equal(t, totalFound, setSize)
 }

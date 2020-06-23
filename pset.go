@@ -23,10 +23,6 @@ type SetKey struct {
 	Key      []byte
 }
 
-type PuncSetKey struct {
-	Set Set
-}
-
 // Go's % operator follows C semantics and can produce
 // negative values if it's given a negative argument.
 // We need an arithmetic mod operator.
@@ -101,7 +97,7 @@ func (key *SetKey) Shift(amount int) {
 	key.Delta = MathMod(key.Delta+amount, key.UnivSize)
 }
 
-func (key *SetKey) Punc(idx int) *PuncSetKey {
+func (key *SetKey) Punc(idx int) Set {
 	set := key.Eval()
 
 	if _, okay := set[idx]; !okay {
@@ -110,7 +106,7 @@ func (key *SetKey) Punc(idx int) *PuncSetKey {
 
 	delete(set, idx)
 
-	return &PuncSetKey{set}
+	return set
 }
 
 func (key *SetKey) RandomMember(randSource *rand.Rand) int {
@@ -149,10 +145,6 @@ func (key *SetKey) Eval() Set {
 	return out
 }
 
-func (key *PuncSetKey) Eval() Set {
-	return key.Set
-}
-
 // Given set key `key`, an element of the universe `idx`, and a slice
 // `deltas` of shift values, find a `j` in `deltas` such that `idx` is
 // in the set `key.Shift(deltas[j])`.
@@ -171,7 +163,7 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 	return -1
 }
 
-func (key *SetKey) InSet(idx int) bool {
+func (key *SetKey) Find(idx int) int {
 	univSizeBits := int(math.Log2(float64(key.UnivSize)))
 
 	prp, err := NewPRP(key.Key, univSizeBits)
@@ -179,5 +171,9 @@ func (key *SetKey) InSet(idx int) bool {
 		panic(fmt.Errorf("Failed to create PRP: %s", err))
 	}
 
-	return prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize))) < uint32(key.SetSize)
+	i := prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize)))
+	if i >= uint32(key.SetSize) {
+		return -1
+	}
+	return int(i)
 }

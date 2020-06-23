@@ -21,6 +21,7 @@ type pirClientPunc struct {
 	keys        []*SetKey
 	querySetIdx int
 	hints       []Row
+	auxRecords  map[int]Row
 
 	randSource *rand.Rand
 
@@ -38,7 +39,7 @@ type pirServerPunc struct {
 
 type PuncPirServer interface {
 	Hint(req *HintReq, resp *HintResp) error
-	Answer(q *QueryReq, resp *QueryResp) error
+	Answer(q QueryReq, resp *QueryResp) error
 }
 
 func xorInto(a []byte, b []byte) {
@@ -103,25 +104,31 @@ func setToSlice(set Set) []int {
 }
 
 func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
-	nHints := len(req.Keys)
+	nHints := len(req.Sets)
 	hints := make([]Row, nHints)
 
 	bytes := 0
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
-		set := req.Keys[j].Eval()
+		set := req.Sets[j].Eval()
 		bytes = bytes + s.xorRowsFlatSlice(hints[j], set)
 	}
-	//log.Printf("bytes: %v", bytes)
-
 	resp.Hints = hints
+
+	auxSet := req.AuxRecordsSet.Eval()
+	resp.AuxRecords = make(map[int]Row)
+	for row := range auxSet {
+		if row < s.nRows {
+			resp.AuxRecords[row] = s.flatDb[s.rowLen*row : s.rowLen*(row+1)]
+		}
+	}
+
 	return nil
 }
 
-func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
-	rows := q.Key.Eval()
+func (s *pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 	resp.Answer = make(Row, s.rowLen)
-	s.xorRowsFlatSlice(resp.Answer, rows)
+	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet)
 	return nil
 }
 
@@ -146,12 +153,14 @@ func (c *pirClientPunc) requestHint() (*HintReq, error) {
 		c.keys[i] = SetGen(c.randSource, c.nRows, c.setSize)
 	}
 	return &HintReq{
-		Keys: c.keys,
+		Sets:          c.keys,
+		AuxRecordsSet: SetGen(c.randSource, c.nRows, c.setSize),
 	}, nil
 }
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.hints = resp.Hints
+	c.auxRecords = resp.AuxRecords
 	return nil
 }
 
@@ -164,14 +173,14 @@ func (c *pirClientPunc) bernoulli(nHeads int, total int) bool {
 
 func (c *pirClientPunc) findIndex(i int) int {
 	for j, key := range c.keys {
-		if key.InSet(i) {
+		if pos := key.Find(i); pos >= 0 {
 			return j
 		}
 	}
 	return -1
 }
 
-func (c *pirClientPunc) query(i int) ([]*QueryReq, error) {
+func (c *pirClientPunc) query(i int) ([]QueryReq, error) {
 	if len(c.hints) < 1 {
 		return nil, fmt.Errorf("No stored hints. Did you forget to call InitHint?")
 	}
@@ -184,16 +193,27 @@ func (c *pirClientPunc) query(i int) ([]*QueryReq, error) {
 	}
 
 	coin := c.bernoulli(c.setSize-1, c.nRows)
-	var iPunc int
+	puncSet := make(Set)
 	if coin {
-		iPunc = key.RandomMemberExcept(c.randSource, i)
-		c.querySetIdx = -1
+		for pos, _ := range c.auxRecords {
+			puncSet[pos] = Present_Yes
+		}
+		if _, present := puncSet[i]; !present {
+			var remove int
+			remove = puncSet.RandomMember(c.randSource)
+			delete(puncSet, remove)
+			delete(c.auxRecords, remove)
+			puncSet[i] = Present_Yes
+		} else {
+			delete(c.auxRecords, i)
+		}
+		c.querySetIdx = len(c.keys)
 	} else {
-		iPunc = i
+		puncSet = key.Punc(i)
 	}
 
-	return []*QueryReq{
-		&QueryReq{Key: key.Punc(iPunc)},
+	return []QueryReq{
+		QueryReq{PuncturedSet: puncSet},
 	}, nil
 }
 
@@ -205,6 +225,13 @@ func (c *pirClientPunc) reconstruct(resp []*QueryResp) (Row, error) {
 	out := make(Row, len(c.hints[0]))
 	if c.querySetIdx < 0 {
 		return nil, errors.New("Fail")
+	} else if c.querySetIdx == len(c.hints) {
+		for _, record := range c.auxRecords {
+			if record != nil {
+				xorInto(out, record)
+			}
+		}
+		xorInto(out, resp[0].Answer)
 	} else {
 		xorInto(out, c.hints[c.querySetIdx])
 		xorInto(out, resp[0].Answer)

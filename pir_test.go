@@ -63,6 +63,25 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.DeepEqual(t, val, Row("Cool"))
 }
 
+func TestPIRPuncKrzysztofTrick(t *testing.T) {
+	db := MakeDB(4, 10)
+	// Set nHints to be very high such that the probability of failure due to
+	// the index being missing from all of the sets is small
+	nHints := 100
+	src := RandSource()
+
+	server := NewPirServerPunc(src, db)
+
+	for i := 0; i < 100; i++ {
+		client := NewPirClientPunc(src, len(db), nHints, server)
+		assert.NilError(t, client.Init())
+		const readIndex = 2
+		val, err := client.Read(readIndex)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, val, db[readIndex])
+	}
+}
+
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func randStringBytes(r *rand.Rand, n int) string {
@@ -115,7 +134,7 @@ func (s *benchmarkServer) Hint(req *HintReq, resp *HintResp) error {
 	return nil
 }
 
-func (s *benchmarkServer) Answer(q *QueryReq, resp *QueryResp) error {
+func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
 	s.b.Run(
 		"Answer/"+s.name,
 		func(b *testing.B) {

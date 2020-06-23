@@ -98,7 +98,7 @@ func (c *pirClientErasure) Read(i int) (Row, error) {
 
 	chunkNum := i / CHUNK_SIZE
 	for j := 0; j < CHUNK_SIZE+ALLOW_LOSS; j++ {
-		// fmt.Printf("Copying %v\n", i*CHUNK_SIZE+j)
+		// TODO: add batch Read method to puncClient to avoid multiple rounds over the network
 		if row, err := c.puncClient.Read(chunkNum*(CHUNK_SIZE+ALLOW_LOSS) + j); err == nil {
 			toReconstruct[j] = row
 		}
