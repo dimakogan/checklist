@@ -163,7 +163,7 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 	return -1
 }
 
-func (key *SetKey) Find(idx int) int {
+func (key *SetKey) InSet(idx int) bool {
 	univSizeBits := int(math.Log2(float64(key.UnivSize)))
 
 	prp, err := NewPRP(key.Key, univSizeBits)
@@ -171,9 +171,5 @@ func (key *SetKey) Find(idx int) int {
 		panic(fmt.Errorf("Failed to create PRP: %s", err))
 	}
 
-	i := prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize)))
-	if i >= uint32(key.SetSize) {
-		return -1
-	}
-	return int(i)
+	return prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize))) < uint32(key.SetSize)
 }

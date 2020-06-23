@@ -191,20 +191,16 @@ func TestFindShift(t *testing.T) {
 	assert.Equal(t, key.FindShift(v1p, []int{7, 100}), 1)
 }
 
-func TestFind(t *testing.T) {
+func TestInSet(t *testing.T) {
 	univSize := 1 << 4
 	setSize := 4
-	setKey := SetGen(RandSource(), univSize, setSize)
-	var list []int
-	for elem := range setKey.Eval() {
-		list = append(list, elem)
-	}
-	totalFound := 0
+	key := SetGen(RandSource(), univSize, setSize)
+	set := key.Eval()
 	for i := 0; i < univSize; i++ {
-		if pos := setKey.Find(i); pos >= 0 {
-			assert.Equal(t, list[pos], i)
-			totalFound++
+		if _, exists := set[i]; exists {
+			assert.Check(t, key.InSet(i))
+		} else {
+			assert.Check(t, !key.InSet(i))
 		}
 	}
-	assert.Equal(t, totalFound, setSize)
 }

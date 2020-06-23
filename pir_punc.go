@@ -173,7 +173,7 @@ func (c *pirClientPunc) bernoulli(nHeads int, total int) bool {
 
 func (c *pirClientPunc) findIndex(i int) int {
 	for j, key := range c.keys {
-		if pos := key.Find(i); pos >= 0 {
+		if key.InSet(i) {
 			return j
 		}
 	}
