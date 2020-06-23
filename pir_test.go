@@ -15,7 +15,12 @@ import (
 // For testing server over RPC.
 var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 
-func testBasicRead(t *testing.T, db []Row, client PIRClient, server PIRServer) {
+// TestPIRStub is a simple end-to-end test.
+func TestPIRStub(t *testing.T) {
+	db := MakeDB(256, 1024)
+	client := NewPirClientStub()
+	server := PIRServerStub{db: db}
+
 	hintReq, err := client.RequestHint()
 	assert.NilError(t, err)
 	var hintResp HintResp
@@ -35,26 +40,33 @@ func testBasicRead(t *testing.T, db []Row, client PIRClient, server PIRServer) {
 	assert.DeepEqual(t, val, db[readIndex])
 }
 
-// TestPIRStub is a simple end-to-end test.
-func TestPIRStub(t *testing.T) {
-	db := MakeDB(256, 1024)
-	client := NewPirClientStub()
-	server := PIRServerStub{db: db}
-
-	testBasicRead(t, db, client, server)
-}
-
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(256, 10)
 	nHints := 256 * int(math.Round(math.Log2(float64(256))))
 
-	client := newPirClientPunc(RandSource(), len(db), nHints)
+	client := NewPirClientPunc(RandSource(), len(db), nHints)
 
 	server := NewPirServerPunc(RandSource(), db)
 	t.Run(
 		"Hint",
 		func(t *testing.T) {
-			testBasicRead(t, db, client, server)
+			hintReq, err := client.RequestHint()
+			assert.NilError(t, err)
+			var hintResp HintResp
+			err = server.Hint(hintReq, &hintResp)
+			assert.NilError(t, err)
+			assert.NilError(t, client.InitHint(&hintResp))
+
+			const readIndex = 2
+			queryReq, err := client.Query(readIndex)
+			assert.NilError(t, err)
+
+			var queryResp QueryResp
+			err = server.Answer(queryReq[0], &queryResp)
+			assert.NilError(t, err)
+			val, err := client.Reconstruct([]*QueryResp{&queryResp})
+			assert.NilError(t, err)
+			assert.DeepEqual(t, val, db[readIndex])
 		})
 }
 
@@ -71,7 +83,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, remote.Call("PIRServer.SetDBDimensions", DBDimensions{100, 4}, &none))
 	assert.NilError(t, remote.Call("PIRServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
 
-	pir := newPirClientPunc(RandSource(), 100, 10)
+	pir := NewPirClientPunc(RandSource(), 100, 10)
 	assert.Assert(t, pir != nil)
 	client, err := NewRpcPirClient(remote, pir)
 	assert.NilError(t, err)
@@ -122,7 +134,7 @@ func BenchmarkHint(b *testing.B) {
 		setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
 		nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
 
-		client := newPirClientPunc(randSource, dim.NumRecords, nHints)
+		client := NewPirClientPunc(randSource, dim.NumRecords, nHints)
 		server := NewPirServerPunc(randSource, db)
 
 		hintReq, err := client.RequestHint()
@@ -168,7 +180,7 @@ func BenchmarkHintOnce(b *testing.B) {
 	db := MakeDBWithDimensions(dim)
 	setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
 	nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
-	client := newPirClientPunc(randSource, dim.NumRecords, nHints)
+	client := NewPirClientPunc(randSource, dim.NumRecords, nHints)
 
 	hintReq, err := client.RequestHint()
 	assert.NilError(b, err)
@@ -274,7 +286,7 @@ func BenchmarkAnswer(b *testing.B) {
 		db := MakeDBWithDimensions(dim)
 		setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
 		nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
-		client := newPirClientPunc(randSource, dim.NumRecords, nHints)
+		client := NewPirClientPunc(randSource, dim.NumRecords, nHints)
 		server := NewPirServerPunc(randSource, db)
 
 		// Initialize client with valid hint
@@ -330,12 +342,12 @@ func BenchmarkAnswerOverRPC(b *testing.B) {
 		}
 
 		// Initialize clients with valid hints
-		preparedClients := make([]PIRClient, len(preparedValues))
+		preparedClients := make([]*pirClientPunc, len(preparedValues))
 		preparedQueries := make([]*QueryReq, len(preparedValues))
 		for i := 0; i < len(preparedClients); i++ {
 			setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
 			nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
-			preparedClients[i] = newPirClientPunc(randSource, dim.NumRecords, nHints)
+			preparedClients[i] = NewPirClientPunc(randSource, dim.NumRecords, nHints)
 			hintReq, err := preparedClients[i].RequestHint()
 			assert.NilError(b, err)
 

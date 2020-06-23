@@ -125,7 +125,7 @@ func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func newPirClientPunc(source *rand.Rand, nRows int, nHints int) PIRClient {
+func NewPirClientPunc(source *rand.Rand, nRows int, nHints int) *pirClientPunc {
 	// TODO: Maybe better to just do this with integer ops.
 	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))

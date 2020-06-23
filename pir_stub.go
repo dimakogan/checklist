@@ -48,7 +48,7 @@ func NewPIRServerStub(db []Row, numReadsOnHint int, numReadsOnAnswer int, randSo
 	}
 }
 
-func NewPirClientStub() PIRClient {
+func NewPirClientStub() pirClientStub {
 	return pirClientStub{}
 }
 

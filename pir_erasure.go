@@ -1,7 +1,6 @@
 package boosted
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -10,7 +9,7 @@ import (
 
 type pirClientErasure struct {
 	nEncodedRows int
-	client       PIRClient
+	client       *pirClientPunc
 }
 
 type pirServerErasure struct {
@@ -78,8 +77,8 @@ func encodeDatabase(data []Row) []Row {
 
 func NewPirServerErasure(source *rand.Rand, data []Row) PIRServer {
 	encdata := encodeDatabase(data)
-	fmt.Printf("LenIn = %v\n", len(data))
-	fmt.Printf("LenOut = %v\n", len(encdata))
+	// fmt.Printf("LenIn = %v\n", len(data))
+	// fmt.Printf("LenOut = %v\n", len(encdata))
 	server := NewPirServerPunc(source, encdata)
 
 	return &pirServerErasure{
@@ -95,11 +94,11 @@ func (s *pirServerErasure) Answer(q *QueryReq, resp *QueryResp) error {
 	return s.server.Answer(q, resp)
 }
 
-func newPirClientErasure(source *rand.Rand, nRows int) PIRClient {
+func newPirClientErasure(source *rand.Rand, nRows int) *pirClientErasure {
 	nEnc := nEncodedRows(nRows)
 	nHints := int(math.Round(math.Pow(float64(nEnc), 0.5)))
 
-	client := newPirClientPunc(source, nEnc, nHints)
+	client := NewPirClientPunc(source, nEnc, nHints)
 
 	return &pirClientErasure{
 		nEncodedRows: nEnc,

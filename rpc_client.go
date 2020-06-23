@@ -7,10 +7,10 @@ import (
 
 type rpcPIRClient struct {
 	remote *rpc.Client
-	pir    PIRClient
+	pir    *pirClientPunc
 }
 
-func NewRpcPirClient(remote *rpc.Client, pir PIRClient) (*rpcPIRClient, error) {
+func NewRpcPirClient(remote *rpc.Client, pir *pirClientPunc) (*rpcPIRClient, error) {
 	c := rpcPIRClient{
 		remote: remote,
 		pir:    pir,
