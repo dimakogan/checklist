@@ -222,50 +222,6 @@ func BenchmarkHintOnce(b *testing.B) {
 	assert.NilError(b, err)
 }
 
-func BenchmarkHintMatrix(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
-		client := newPirClientMatrix(randSource, dim.NumRecords, dim.RecordSize)
-		server := NewPirServerMatrix(randSource, db, dim.RecordSize)
-
-		hintReq, err := client.RequestHint()
-		assert.NilError(b, err)
-
-		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					var hint pirMatrixHintResp
-					err = server.Hint(*hintReq, &hint)
-					assert.NilError(b, err)
-				}
-			})
-	}
-}
-
-func BenchmarkHintOneTime(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
-		client := newPirClientOneTime(randSource, dim.NumRecords, dim.RecordSize)
-		server := NewPirServerOneTime(randSource, db, dim.RecordSize)
-
-		hintReq, err := client.RequestHint()
-		assert.NilError(b, err)
-
-		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					var hint pirOneTimeHintResp
-					err = server.Hint(*hintReq, &hint)
-					assert.NilError(b, err)
-				}
-			})
-	}
-}
-
 func BenchmarkNothingRandom(b *testing.B) {
 	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
 	db := MakeDBWithDimensions(dim)
