@@ -33,10 +33,10 @@ func TestPIRPuncErasure(t *testing.T) {
 	server := NewPirServerErasure(RandSource(), db)
 	client := NewPirClientErasure(RandSource(), len(db), server)
 	assert.NilError(t, client.Init())
-	//	const readIndex = 2
-	//val, err := client.Read(readIndex)
-	//assert.NilError(t, err)
-	//assert.DeepEqual(t, val, db[readIndex])
+	const readIndex = 2
+	val, err := client.Read(readIndex)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, db[readIndex])
 }
 
 func TestPIRServerOverRPC(t *testing.T) {

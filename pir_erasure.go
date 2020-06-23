@@ -1,6 +1,7 @@
 package boosted
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -93,5 +94,21 @@ func (c *pirClientErasure) Init() error {
 }
 
 func (c *pirClientErasure) Read(i int) (Row, error) {
-	return c.puncClient.Read(i)
+	toReconstruct := make([][]byte, CHUNK_SIZE+ALLOW_LOSS)
+
+	chunkNum := i / CHUNK_SIZE
+	for j := 0; j < CHUNK_SIZE+ALLOW_LOSS; j++ {
+		// fmt.Printf("Copying %v\n", i*CHUNK_SIZE+j)
+		if row, err := c.puncClient.Read(chunkNum*(CHUNK_SIZE+ALLOW_LOSS) + j); err == nil {
+			toReconstruct[j] = row
+		}
+	}
+	rs, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
+	if err != nil {
+		return nil, fmt.Errorf("Could not create RS encoder: %w", err)
+	}
+	if err = rs.Reconstruct(toReconstruct); err != nil {
+		return nil, err
+	}
+	return toReconstruct[i%CHUNK_SIZE], nil
 }
