@@ -14,8 +14,8 @@ import (
 
 func main() {
 	args := os.Args
-	if len(args) < 4 {
-		panic(fmt.Sprintf("Usage: %s <NUM-DB-RECORDS> <DB-RECORD-LEN-BYTES> <INDEX-TO-READ>", args[0]))
+	if len(args) < 3 {
+		panic(fmt.Sprintf("Usage: %s <NUM-DB-RECORDS> <INDEX-TO-READ>", args[0]))
 	}
 	numRecords, err := strconv.Atoi(args[1])
 	if err != nil {
@@ -23,7 +23,11 @@ func main() {
 	}
 	setSize := int(math.Round(math.Sqrt(float64(numRecords))))
 	nHints := setSize * int(math.Round(math.Log2(float64(numRecords))))
-	pir := b.NewPirClientPunc(b.RandSource(), numRecords, nHints)
+
+	idx, err := strconv.Atoi(args[2])
+	if err != nil {
+		panic(fmt.Sprintf("Invalid INDEX-TO-READ: %s", args[2]))
+	}
 
 	// Create a TCP connection to localhost on port 1234
 	remote, err := rpc.DialHTTP("tcp", "localhost:1234")
@@ -31,14 +35,12 @@ func main() {
 		log.Fatal("Connection error: ", err)
 	}
 
-	client, err := b.NewRpcPirClient(remote, pir)
+	proxy := b.NewPirRpcProxy(remote)
+	client := b.NewPirClientPunc(b.RandSource(), numRecords, nHints, proxy)
+
+	val, err := client.Read(idx)
 	if err != nil {
-		log.Fatalf("Failed to create RPC PIR client: %w", err)
-	}
-	const readIndex = 2
-	val, err := client.Read(readIndex)
-	if err != nil {
-		log.Fatalf("Failed to read index %d: %w", readIndex, err)
+		log.Fatalf("Failed to read index %d: %w", idx, err)
 	}
 	fmt.Printf("Got value: %s from server\n", val)
 }

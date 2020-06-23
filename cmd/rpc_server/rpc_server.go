@@ -13,7 +13,7 @@ func main() {
 	// Some easy to test initial values.
 	var db = []b.Row{{'A'}, {'B'}, {'C'}, {'D'}}
 
-	driver := b.NewServerTestDriver(db)
+	driver := b.NewPirRpcServer(db)
 
 	// Listen to TPC connections on port 1234
 	listener, e := net.Listen("tcp", ":1234")
@@ -21,7 +21,7 @@ func main() {
 		log.Fatal("Listen error, %w ", e)
 	}
 	server := rpc.NewServer()
-	if err := server.RegisterName("PIRServer", &driver); err != nil {
+	if err := server.Register(driver); err != nil {
 		log.Fatal("Failed to register PIRServer, %w", err)
 	}
 

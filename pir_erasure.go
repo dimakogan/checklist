@@ -8,8 +8,7 @@ import (
 )
 
 type pirClientErasure struct {
-	nEncodedRows int
-	client       *pirClientPunc
+	puncClient *pirClientPunc
 }
 
 type pirServerErasure struct {
@@ -75,49 +74,24 @@ func encodeDatabase(data []Row) []Row {
 	return encoded
 }
 
-func NewPirServerErasure(source *rand.Rand, data []Row) *pirServerErasure {
+func NewPirServerErasure(source *rand.Rand, data []Row) *pirServerPunc {
 	encdata := encodeDatabase(data)
 	// fmt.Printf("LenIn = %v\n", len(data))
 	// fmt.Printf("LenOut = %v\n", len(encdata))
-	server := NewPirServerPunc(source, encdata)
-
-	return &pirServerErasure{
-		server: server,
-	}
+	return NewPirServerPunc(source, encdata)
 }
 
-func (s *pirServerErasure) Hint(req *HintReq, resp *HintResp) error {
-	return s.server.Hint(req, resp)
-}
-
-func (s *pirServerErasure) Answer(q *QueryReq, resp *QueryResp) error {
-	return s.server.Answer(q, resp)
-}
-
-func newPirClientErasure(source *rand.Rand, nRows int) *pirClientErasure {
+func NewPirClientErasure(source *rand.Rand, nRows int, server PuncPirServer) *pirClientErasure {
 	nEnc := nEncodedRows(nRows)
 	nHints := int(math.Round(math.Pow(float64(nEnc), 0.5)))
 
-	client := NewPirClientPunc(source, nEnc, nHints)
-
-	return &pirClientErasure{
-		nEncodedRows: nEnc,
-		client:       client,
-	}
+	return &pirClientErasure{puncClient: NewPirClientPunc(source, nEnc, nHints, server)}
 }
 
-func (c *pirClientErasure) RequestHint() (*HintReq, error) {
-	return c.client.RequestHint()
+func (c *pirClientErasure) Init() error {
+	return c.puncClient.Init()
 }
 
-func (c *pirClientErasure) InitHint(resp *HintResp) error {
-	return c.client.InitHint(resp)
-}
-
-func (c *pirClientErasure) Query(i int) ([]*QueryReq, error) {
-	return c.Query(i)
-}
-
-func (c *pirClientErasure) Reconstruct(resp []*QueryResp) (Row, error) {
-	return c.Reconstruct(resp)
+func (c *pirClientErasure) Read(i int) (Row, error) {
+	return c.puncClient.Read(i)
 }

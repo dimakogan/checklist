@@ -23,6 +23,8 @@ type pirClientPunc struct {
 	hints       []Row
 
 	randSource *rand.Rand
+
+	server PuncPirServer
 }
 
 type pirServerPunc struct {
@@ -32,6 +34,11 @@ type pirServerPunc struct {
 	flatDb []byte
 
 	randSource *rand.Rand
+}
+
+type PuncPirServer interface {
+	Hint(req *HintReq, resp *HintResp) error
+	Answer(q *QueryReq, resp *QueryResp) error
 }
 
 func xorInto(a []byte, b []byte) {
@@ -118,7 +125,7 @@ func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func NewPirClientPunc(source *rand.Rand, nRows int, nHints int) *pirClientPunc {
+func NewPirClientPunc(source *rand.Rand, nRows int, nHints int, server PuncPirServer) *pirClientPunc {
 	// TODO: Maybe better to just do this with integer ops.
 	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
@@ -129,10 +136,11 @@ func NewPirClientPunc(source *rand.Rand, nRows int, nHints int) *pirClientPunc {
 		nHints:     nHints,
 		hints:      nil,
 		randSource: source,
+		server:     server,
 	}
 }
 
-func (c *pirClientPunc) RequestHint() (*HintReq, error) {
+func (c *pirClientPunc) requestHint() (*HintReq, error) {
 	c.keys = make([]*SetKey, c.nHints)
 	for i := 0; i < c.nHints; i++ {
 		c.keys[i] = SetGen(c.randSource, c.nRows, c.setSize)
@@ -142,7 +150,7 @@ func (c *pirClientPunc) RequestHint() (*HintReq, error) {
 	}, nil
 }
 
-func (c *pirClientPunc) InitHint(resp *HintResp) error {
+func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.hints = resp.Hints
 	return nil
 }
@@ -163,7 +171,7 @@ func (c *pirClientPunc) findIndex(i int) int {
 	return -1
 }
 
-func (c *pirClientPunc) Query(i int) ([]*QueryReq, error) {
+func (c *pirClientPunc) query(i int) ([]*QueryReq, error) {
 	if len(c.hints) < 1 {
 		return nil, fmt.Errorf("No stored hints. Did you forget to call InitHint?")
 	}
@@ -189,7 +197,7 @@ func (c *pirClientPunc) Query(i int) ([]*QueryReq, error) {
 	}, nil
 }
 
-func (c *pirClientPunc) Reconstruct(resp []*QueryResp) (Row, error) {
+func (c *pirClientPunc) reconstruct(resp []*QueryResp) (Row, error) {
 	if len(resp) != 1 {
 		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 1", len(resp))
 	}
@@ -203,4 +211,35 @@ func (c *pirClientPunc) Reconstruct(resp []*QueryResp) (Row, error) {
 	}
 
 	return out, nil
+}
+
+func (c *pirClientPunc) Init() error {
+	hintReq, err := c.requestHint()
+	if err != nil {
+		return err
+	}
+	var hintResp HintResp
+	err = c.server.Hint(hintReq, &hintResp)
+	if err != nil {
+		return err
+	}
+	return c.initHint(&hintResp)
+}
+
+func (c *pirClientPunc) Read(i int) (Row, error) {
+	queryReq, err := c.query(i)
+	if err != nil {
+		return nil, err
+	}
+
+	var queryResp QueryResp
+	err = c.server.Answer(queryReq[0], &queryResp)
+	if err != nil {
+		return nil, err
+	}
+	val, err := c.reconstruct([]*QueryResp{&queryResp})
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
 }
