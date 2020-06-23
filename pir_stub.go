@@ -41,19 +41,15 @@ type pirClientStub struct {
 
 func NewPIRServerStub(db []Row, numReadsOnHint int, numReadsOnAnswer int, randSource *rand.Rand) PIRServer {
 	return PIRServerStub{
-		db: db,
-		numReadsOnHint: numReadsOnHint,
+		db:               db,
+		numReadsOnHint:   numReadsOnHint,
 		numReadsOnAnswer: numReadsOnAnswer,
-		randSource: randSource,
+		randSource:       randSource,
 	}
 }
 
 func NewPirClientStub() PIRClient {
 	return pirClientStub{}
-}
-
-func (c pirClientStub) RequestHintN(nHints int) (*HintReq, error) {
-  return c.RequestHint()
 }
 
 func (c pirClientStub) RequestHint() (*HintReq, error) {

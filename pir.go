@@ -38,7 +38,6 @@ type PIRServer interface {
 // PIRClient is the interface that wraps the client methods.
 type PIRClient interface {
 	RequestHint() (*HintReq, error)
-	RequestHintN(int) (*HintReq, error)
 	InitHint(*HintResp) error
 	Query(int) ([]*QueryReq, error)
 	Reconstruct([]*QueryResp) (Row, error)

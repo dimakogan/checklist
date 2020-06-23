@@ -15,6 +15,7 @@ import (
 
 type pirClientPunc struct {
 	nRows   int
+	nHints  int
 	setSize int
 
 	keys        []*SetKey
@@ -124,7 +125,7 @@ func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func newPirClientPunc(source *rand.Rand, nRows int) PIRClient {
+func newPirClientPunc(source *rand.Rand, nRows int, nHints int) PIRClient {
 	// TODO: Maybe better to just do this with integer ops.
 	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
@@ -132,19 +133,15 @@ func newPirClientPunc(source *rand.Rand, nRows int) PIRClient {
 	return &pirClientPunc{
 		nRows:      nRowsRounded,
 		setSize:    setSize,
+		nHints:     nHints,
 		hints:      nil,
 		randSource: source,
 	}
 }
 
 func (c *pirClientPunc) RequestHint() (*HintReq, error) {
-	nHints := c.setSize * int(math.Round(math.Log2(float64(c.nRows))))
-	return c.RequestHintN(nHints)
-}
-
-func (c *pirClientPunc) RequestHintN(nHints int) (*HintReq, error) {
-	c.keys = make([]*SetKey, nHints)
-	for i := 0; i < nHints; i++ {
+	c.keys = make([]*SetKey, c.nHints)
+	for i := 0; i < c.nHints; i++ {
 		c.keys[i] = SetGen(c.randSource, c.nRows, c.setSize)
 	}
 	return &HintReq{

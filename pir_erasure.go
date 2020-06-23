@@ -5,13 +5,12 @@ import (
 	"math"
 	"math/rand"
 
-  "github.com/klauspost/reedsolomon"
+	"github.com/klauspost/reedsolomon"
 )
 
-
 type pirClientErasure struct {
-  nEncodedRows int
-	client PIRClient
+	nEncodedRows int
+	client       PIRClient
 }
 
 type pirServerErasure struct {
@@ -22,67 +21,66 @@ var CHUNK_SIZE = 128
 var ALLOW_LOSS = 128
 
 func nEncodedRows(nRows int) int {
-  // We split the length-n database into chunks of size `chunkSize`
-  // and then we encode each chunk using a erasure encoding that
-  // tolerates the loss of at most L rows.
+	// We split the length-n database into chunks of size `chunkSize`
+	// and then we encode each chunk using a erasure encoding that
+	// tolerates the loss of at most L rows.
 
-  // XXX choose `chunkSize` and `allowLoss` such that if you flip `chunkSize`
-  // coins that come up heads with probability 1/e, you end up with 
-  // fewer than `allowLoss` heads with very high probability.
+	// XXX choose `chunkSize` and `allowLoss` such that if you flip `chunkSize`
+	// coins that come up heads with probability 1/e, you end up with
+	// fewer than `allowLoss` heads with very high probability.
 
-  // Our encoding library requires CHUNK_SIZE + ALLOW_LOSS <= 256
+	// Our encoding library requires CHUNK_SIZE + ALLOW_LOSS <= 256
 
-  return (nRows/CHUNK_SIZE)*(CHUNK_SIZE + ALLOW_LOSS)
+	return (nRows / CHUNK_SIZE) * (CHUNK_SIZE + ALLOW_LOSS)
 }
 
 func encodeDatabase(data []Row) []Row {
 
-  enc, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
-  if err != nil {
-    panic("Could not create encoder.");
-  }
+	enc, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
+	if err != nil {
+		panic("Could not create encoder.")
+	}
 
-  if len(data) % CHUNK_SIZE != 0 {
-    panic("Haven't implemented this case")
-  }
+	if len(data)%CHUNK_SIZE != 0 {
+		panic("Haven't implemented this case")
+	}
 
-  encRows := nEncodedRows(len(data))
-  encoded := make([]Row, encRows)
-  rowLen := len(data[0])
+	encRows := nEncodedRows(len(data))
+	encoded := make([]Row, encRows)
+	rowLen := len(data[0])
 
-  for i := 0; i < len(data)/CHUNK_SIZE; i++ {
-    toEnc := make([][]byte, CHUNK_SIZE + ALLOW_LOSS)
+	for i := 0; i < len(data)/CHUNK_SIZE; i++ {
+		toEnc := make([][]byte, CHUNK_SIZE+ALLOW_LOSS)
 
-    // Data chunks
-    for j := 0; j < CHUNK_SIZE; j++ {
-      toEnc[j] = data[i*CHUNK_SIZE + j]
-    }
+		// Data chunks
+		for j := 0; j < CHUNK_SIZE; j++ {
+			toEnc[j] = data[i*CHUNK_SIZE+j]
+		}
 
-    // Parity chunks
-    for j := 0; j < ALLOW_LOSS; j++ {
-      toEnc[CHUNK_SIZE + j] = make([]byte, rowLen)
-    }
+		// Parity chunks
+		for j := 0; j < ALLOW_LOSS; j++ {
+			toEnc[CHUNK_SIZE+j] = make([]byte, rowLen)
+		}
 
-    err := enc.Encode(toEnc)
-    if err != nil {
-      panic("Encoding error")
-    }
+		err := enc.Encode(toEnc)
+		if err != nil {
+			panic("Encoding error")
+		}
 
-    for j := 0; j < CHUNK_SIZE + ALLOW_LOSS; j++ {
-     // fmt.Printf("Copying %v\n", i*CHUNK_SIZE+j)
-      encoded[i*(CHUNK_SIZE + ALLOW_LOSS) + j] = toEnc[j]
-    }
-  }
+		for j := 0; j < CHUNK_SIZE+ALLOW_LOSS; j++ {
+			// fmt.Printf("Copying %v\n", i*CHUNK_SIZE+j)
+			encoded[i*(CHUNK_SIZE+ALLOW_LOSS)+j] = toEnc[j]
+		}
+	}
 
-  return encoded
+	return encoded
 }
 
-
 func NewPirServerErasure(source *rand.Rand, data []Row) PIRServer {
-  encdata := encodeDatabase(data)
-  fmt.Printf("LenIn = %v\n", len(data))
-  fmt.Printf("LenOut = %v\n", len(encdata))
-  server := NewPirServerPunc(source, encdata)
+	encdata := encodeDatabase(data)
+	fmt.Printf("LenIn = %v\n", len(data))
+	fmt.Printf("LenOut = %v\n", len(encdata))
+	server := NewPirServerPunc(source, encdata)
 
 	return &pirServerErasure{
 		server: server,
@@ -98,23 +96,19 @@ func (s *pirServerErasure) Answer(q *QueryReq, resp *QueryResp) error {
 }
 
 func newPirClientErasure(source *rand.Rand, nRows int) PIRClient {
-  nEnc := nEncodedRows(nRows)
-  client := newPirClientPunc(source, nEnc)
+	nEnc := nEncodedRows(nRows)
+	nHints := int(math.Round(math.Pow(float64(nEnc), 0.5)))
+
+	client := newPirClientPunc(source, nEnc, nHints)
 
 	return &pirClientErasure{
-    nEncodedRows: nEnc,
-		client: client,
+		nEncodedRows: nEnc,
+		client:       client,
 	}
 }
 
 func (c *pirClientErasure) RequestHint() (*HintReq, error) {
-  nf := float64(c.nEncodedRows)
-  nHints := int(math.Round(math.Pow(nf, 0.5)))
-  return c.RequestHintN(nHints)
-}
-
-func (c *pirClientErasure) RequestHintN(nHints int) (*HintReq, error) {
-	return c.client.RequestHintN(nHints)
+	return c.client.RequestHint()
 }
 
 func (c *pirClientErasure) InitHint(resp *HintResp) error {
@@ -126,5 +120,5 @@ func (c *pirClientErasure) Query(i int) ([]*QueryReq, error) {
 }
 
 func (c *pirClientErasure) Reconstruct(resp []*QueryResp) (Row, error) {
-  return c.Reconstruct(resp)
+	return c.Reconstruct(resp)
 }

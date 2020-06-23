@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/rpc"
 	"testing"
@@ -45,7 +46,9 @@ func TestPIRStub(t *testing.T) {
 
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(256, 10)
-	client := newPirClientPunc(RandSource(), len(db))
+	nHints := 256 * int(math.Round(math.Log2(float64(256))))
+
+	client := newPirClientPunc(RandSource(), len(db), nHints)
 
 	server := NewPirServerPunc(RandSource(), db)
 	t.Run(
@@ -68,7 +71,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, remote.Call("PIRServer.SetDBDimensions", DBDimensions{100, 4}, &none))
 	assert.NilError(t, remote.Call("PIRServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
 
-	pir := newPirClientPunc(RandSource(), 100)
+	pir := newPirClientPunc(RandSource(), 100, 10)
 	assert.Assert(t, pir != nil)
 	client, err := NewRpcPirClient(remote, pir)
 	assert.NilError(t, err)
@@ -116,7 +119,10 @@ func BenchmarkHint(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
-		client := newPirClientPunc(randSource, dim.NumRecords)
+		setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
+		nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
+
+		client := newPirClientPunc(randSource, dim.NumRecords, nHints)
 		server := NewPirServerPunc(randSource, db)
 
 		hintReq, err := client.RequestHint()
@@ -160,7 +166,9 @@ func BenchmarkHintOnce(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
 	db := MakeDBWithDimensions(dim)
-	client := newPirClientPunc(randSource, dim.NumRecords)
+	setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
+	nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
+	client := newPirClientPunc(randSource, dim.NumRecords, nHints)
 
 	hintReq, err := client.RequestHint()
 	assert.NilError(b, err)
@@ -264,7 +272,9 @@ func BenchmarkAnswer(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
-		client := newPirClientPunc(randSource, dim.NumRecords)
+		setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
+		nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
+		client := newPirClientPunc(randSource, dim.NumRecords, nHints)
 		server := NewPirServerPunc(randSource, db)
 
 		// Initialize client with valid hint
@@ -323,7 +333,9 @@ func BenchmarkAnswerOverRPC(b *testing.B) {
 		preparedClients := make([]PIRClient, len(preparedValues))
 		preparedQueries := make([]*QueryReq, len(preparedValues))
 		for i := 0; i < len(preparedClients); i++ {
-			preparedClients[i] = newPirClientPunc(randSource, dim.NumRecords)
+			setSize := int(math.Round(math.Sqrt(float64(dim.NumRecords))))
+			nHints := setSize * int(math.Round(math.Log2(float64(dim.NumRecords))))
+			preparedClients[i] = newPirClientPunc(randSource, dim.NumRecords, nHints)
 			hintReq, err := preparedClients[i].RequestHint()
 			assert.NilError(b, err)
 

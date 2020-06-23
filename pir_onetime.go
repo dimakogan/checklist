@@ -80,10 +80,6 @@ func newPirClientOneTime(source *rand.Rand, nRows int, rowLen int) *pirClientOne
 	}
 }
 
-func (c *pirClientOneTime) RequestHintN(nHints int) (*pirOneTimeHintReq, error) {
-	return c.RequestHint()
-}
-
 func (c *pirClientOneTime) RequestHint() (*pirOneTimeHintReq, error) {
 	idx := make([]int, c.nRows)
 	for i := 0; i < c.rowLen; i++ {
