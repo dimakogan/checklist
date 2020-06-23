@@ -65,7 +65,7 @@ func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int) int {
 	return bytes
 }
 
-func NewPirServerPunc(source *rand.Rand, data []Row) PIRServer {
+func NewPirServerPunc(source *rand.Rand, data []Row) *pirServerPunc {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}

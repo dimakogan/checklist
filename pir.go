@@ -28,9 +28,3 @@ type QueryResp struct {
 	// Debug & testing
 	Val Row
 }
-
-// PIRServer is the interface that wraps the server methods.
-type PIRServer interface {
-	Hint(*HintReq, *HintResp) error
-	Answer(*QueryReq, *QueryResp) error
-}

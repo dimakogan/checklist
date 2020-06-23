@@ -39,8 +39,8 @@ func (s PIRServerStub) Answer(q *QueryReq, resp *QueryResp) error {
 type pirClientStub struct {
 }
 
-func NewPIRServerStub(db []Row, numReadsOnHint int, numReadsOnAnswer int, randSource *rand.Rand) PIRServer {
-	return PIRServerStub{
+func NewPIRServerStub(db []Row, numReadsOnHint int, numReadsOnAnswer int, randSource *rand.Rand) *PIRServerStub {
+	return &PIRServerStub{
 		db:               db,
 		numReadsOnHint:   numReadsOnHint,
 		numReadsOnAnswer: numReadsOnAnswer,

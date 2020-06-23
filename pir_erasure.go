@@ -13,7 +13,7 @@ type pirClientErasure struct {
 }
 
 type pirServerErasure struct {
-	server PIRServer
+	server *pirServerPunc
 }
 
 var CHUNK_SIZE = 128
@@ -75,7 +75,7 @@ func encodeDatabase(data []Row) []Row {
 	return encoded
 }
 
-func NewPirServerErasure(source *rand.Rand, data []Row) PIRServer {
+func NewPirServerErasure(source *rand.Rand, data []Row) *pirServerErasure {
 	encdata := encodeDatabase(data)
 	// fmt.Printf("LenIn = %v\n", len(data))
 	// fmt.Printf("LenOut = %v\n", len(encdata))
