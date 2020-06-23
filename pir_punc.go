@@ -26,8 +26,8 @@ type pirClientPunc struct {
 }
 
 type pirServerPunc struct {
+	nRows  int
 	rowLen int
-	db     []Row
 
 	flatDb []byte
 
@@ -46,17 +46,12 @@ func xorInto(a []byte, b []byte) {
 	// }
 }
 
-func (s *pirServerPunc) xorRows(out Row, rows Set, delta int) {
-	// TODO: Parallelize this function.
-	for row := range rows {
-		xorInto(out, s.db[(row+delta)%len(s.db)])
-	}
-}
-
-func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows []int) int {
+func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows Set) int {
 	bytes := 0
-	for _, row := range rows {
-		if row >= len(s.db) {
+	//	setS := setToSlice(set)
+
+	for row, _ := range rows {
+		if row >= s.nRows {
 			continue
 		}
 		xorInto(out, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
@@ -84,7 +79,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row) *pirServerPunc {
 
 	return &pirServerPunc{
 		rowLen:     rowLen,
-		db:         data,
+		nRows:      len(data),
 		flatDb:     flatDb,
 		randSource: source,
 	}
@@ -108,9 +103,7 @@ func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 		set := req.Keys[j].Eval()
-		setS := setToSlice(set)
-
-		bytes = bytes + s.xorRowsFlatSlice(hints[j], setS)
+		bytes = bytes + s.xorRowsFlatSlice(hints[j], set)
 	}
 	//log.Printf("bytes: %v", bytes)
 
@@ -121,7 +114,7 @@ func (s *pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 func (s *pirServerPunc) Answer(q *QueryReq, resp *QueryResp) error {
 	rows := q.Key.Eval()
 	resp.Answer = make(Row, s.rowLen)
-	s.xorRows(resp.Answer, rows, 0)
+	s.xorRowsFlatSlice(resp.Answer, rows)
 	return nil
 }
 
