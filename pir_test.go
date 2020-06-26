@@ -15,7 +15,7 @@ import (
 var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 
 func TestPIRPunc(t *testing.T) {
-	db := MakeDB(256, 10)
+	db := MakeDB(256, 100)
 	nHints := 256 * int(math.Round(math.Log2(float64(256))))
 
 	server := NewPirServerPunc(RandSource(), db)
@@ -28,7 +28,7 @@ func TestPIRPunc(t *testing.T) {
 }
 
 func TestPIRPuncErasure(t *testing.T) {
-	db := MakeDB(256, 10)
+	db := MakeDB(256, 100)
 
 	server := NewPirServerErasure(RandSource(), db)
 	client := NewPirClientErasure(RandSource(), len(db), server)
@@ -64,7 +64,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 }
 
 func TestPIRPuncKrzysztofTrick(t *testing.T) {
-	db := MakeDB(4, 10)
+	db := MakeDB(4, 100)
 	// Set nHints to be very high such that the probability of failure due to
 	// the index being missing from all of the sets is small
 	nHints := 100
@@ -100,7 +100,7 @@ func dbDimensions() []DBDimensions {
 	var dims []DBDimensions
 	numDBRecords :=
 		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
-		[]int{ /*1<<16, 1<<17,*/ 1 << 18 /* 1<<19, 1<<20, 1<<21, 1<<22, 1<<23, 1<<24, 1<<25*/}
+		[]int{ /*1<<16, 1<<17,1 << 18 , 1<<19,*/ 1 << 20 /*, 1<<21, 1<<22, 1<<23, 1<<24, 1<<25*/}
 	dbRecordSize := []int{96}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(2 * 1024 * 1024 * 1024)
@@ -131,7 +131,7 @@ func (s *benchmarkServer) Hint(req *HintReq, resp *HintResp) error {
 				assert.NilError(b, err)
 			}
 		})
-	return nil
+	return s.PuncPirServer.Hint(req, resp)
 }
 
 func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
@@ -165,8 +165,9 @@ func BenchmarkPirPunc(b *testing.B) {
 		err := client.Init()
 		assert.NilError(b, err)
 
-		_, err = client.Read(5)
+		val, err := client.Read(5)
 		assert.NilError(b, err)
+		assert.DeepEqual(b, val, db[5])
 	}
 }
 

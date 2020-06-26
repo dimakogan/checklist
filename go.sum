@@ -13,6 +13,8 @@ github.com/klauspost/reedsolomon v1.9.9 h1:qCL7LZlv17xMixl55nq2/Oa1Y86nfO8EqDfv2
 github.com/klauspost/reedsolomon v1.9.9/go.mod h1:O7yFFHiQwDR6b2t63KPUpccPtNdp5ADgh1gg4fd12wo=
 github.com/lukechampine/fastxor v0.0.0-20190515202756-7d8727055c51 h1:dd1jEaSihbC9gJg+HFf7/PgE93OmSmrJ5MG1BdA06+E=
 github.com/lukechampine/fastxor v0.0.0-20190515202756-7d8727055c51/go.mod h1:iR9Fx69P39Bc9zw/hAK0y2lc0uGUxSnpqBBDZzjeMxI=
+github.com/lukechampine/fastxor v0.0.0-20200124170337-07dbf569dfe7 h1:2NReD10TLBtc4tVf0UE2iXkRuSvgrXJwIZ0I9WLU90w=
+github.com/lukechampine/fastxor v0.0.0-20200124170337-07dbf569dfe7/go.mod h1:iR9Fx69P39Bc9zw/hAK0y2lc0uGUxSnpqBBDZzjeMxI=
 github.com/mailru/easyjson v0.7.0 h1:aizVhC/NAAcKWb+5QsU1iNOZb4Yws5UO2I+aIprQITM=
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
