@@ -193,39 +193,54 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, error) {
 		key = SetGenWith(RandSource(), c.nRows, c.setSize, i)
 	}
 
+	var puncSet, newPuncSet Set
 	coin := c.bernoulli(c.setSize-1, c.nRows)
-	puncSet := make(Set)
 	if coin {
-		for pos, _ := range c.auxRecords {
-			puncSet[pos] = Present_Yes
-		}
-		if _, present := puncSet[i]; !present {
-			var remove int
-			remove = puncSet.RandomMember(c.randSource)
-			delete(puncSet, remove)
-			delete(c.auxRecords, remove)
-			puncSet[i] = Present_Yes
-		} else {
-			delete(c.auxRecords, i)
-		}
+		puncSet = c.auxSetWith(i)
 		c.querySetIdx = len(c.keys)
+		newSet := SetGenWith(RandSource(), c.nRows, c.setSize, i)
+		newPuncSet = newSet.Punc(newSet.RandomMemberExcept(c.randSource, i))
+
 	} else {
 		puncSet = key.Punc(i)
+		newSet := SetGenWith(RandSource(), c.nRows, c.setSize, i)
+		newPuncSet = newSet.Punc(i)
+		if c.querySetIdx >= 0 {
+			c.keys[c.querySetIdx] = newSet
+		}
 	}
 
 	return []QueryReq{
 		QueryReq{PuncturedSet: puncSet},
+		QueryReq{PuncturedSet: newPuncSet},
 	}, nil
 }
 
+func (c *pirClientPunc) auxSetWith(i int) Set {
+	puncSet := make(Set)
+	for pos, _ := range c.auxRecords {
+		puncSet[pos] = Present_Yes
+	}
+	if _, present := puncSet[i]; !present {
+		var remove int
+		remove = puncSet.RandomMember(c.randSource)
+		delete(puncSet, remove)
+		delete(c.auxRecords, remove)
+		puncSet[i] = Present_Yes
+	} else {
+		delete(c.auxRecords, i)
+	}
+	return puncSet
+}
+
 func (c *pirClientPunc) reconstruct(resp []*QueryResp) (Row, error) {
-	if len(resp) != 1 {
-		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 1", len(resp))
+	if len(resp) != 2 {
+		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 2", len(resp))
 	}
 
 	out := make(Row, len(c.hints[0]))
 	if c.querySetIdx < 0 {
-		return nil, errors.New("Fail")
+		return nil, errors.New("couldn't find element in collection")
 	} else if c.querySetIdx == len(c.hints) {
 		for _, record := range c.auxRecords {
 			if record != nil {
@@ -236,6 +251,10 @@ func (c *pirClientPunc) reconstruct(resp []*QueryResp) (Row, error) {
 	} else {
 		xorInto(out, c.hints[c.querySetIdx])
 		xorInto(out, resp[0].Answer)
+		// Update hint with refresh info
+		xorInto(c.hints[c.querySetIdx], c.hints[c.querySetIdx])
+		xorInto(c.hints[c.querySetIdx], resp[1].Answer)
+		xorInto(c.hints[c.querySetIdx], out)
 	}
 
 	return out, nil
@@ -263,12 +282,18 @@ func (c *pirClientPunc) Read(i int) (Row, error) {
 	var queryResp QueryResp
 	err = c.server.Answer(queryReq[0], &queryResp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error on query Answer: %w", err)
 	}
-	val, err := c.reconstruct([]*QueryResp{&queryResp})
+	var refreshResp QueryResp
+	err = c.server.Answer(queryReq[1], &refreshResp)
+	if err != nil {
+		return nil, fmt.Errorf("Error on refresh Answer: %w", err)
+	}
+	val, err := c.reconstruct([]*QueryResp{&queryResp, &refreshResp})
 	if err != nil {
 		return nil, err
 	}
+
 	return val, nil
 }
 

@@ -18,10 +18,32 @@ func TestPIRPunc(t *testing.T) {
 
 	server := NewPirServerPunc(RandSource(), db)
 	client := NewPirClientPunc(RandSource(), len(db), server)
+	// Increase number of hints manually to test happy flow
+	client.nHints = 100
 
 	assert.NilError(t, client.Init())
 	const readIndex = 2
 	val, err := client.Read(readIndex)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, db[readIndex])
+}
+
+func TestPIRRefresh(t *testing.T) {
+	db := MakeDB(256, 100)
+
+	server := NewPirServerPunc(RandSource(), db)
+	client := NewPirClientPunc(RandSource(), len(db), server)
+	// Increase number of hints manually to test happy flow
+	client.nHints = 100
+
+	assert.NilError(t, client.Init())
+	const readIndex = 2
+	val, err := client.Read(readIndex)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, db[readIndex])
+
+	// Read same element second time
+	val, err = client.Read(readIndex)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
