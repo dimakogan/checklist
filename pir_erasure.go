@@ -8,6 +8,7 @@ import (
 )
 
 type pirClientErasure struct {
+	rs         reedsolomon.Encoder
 	puncClient *pirClientPunc
 }
 
@@ -81,10 +82,14 @@ func NewPirServerErasure(source *rand.Rand, data []Row) *pirServerPunc {
 	return NewPirServerPunc(source, encdata)
 }
 
-func NewPirClientErasure(source *rand.Rand, nRows int, server PuncPirServer) *pirClientErasure {
+func NewPirClientErasure(source *rand.Rand, nRows int, server PuncPirServer) (*pirClientErasure, error) {
 	nEnc := nEncodedRows(nRows)
+	rs, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
+	if err != nil {
+		return nil, fmt.Errorf("Could not create RS encoder: %w", err)
+	}
 
-	return &pirClientErasure{puncClient: NewPirClientPunc(source, nEnc, server)}
+	return &pirClientErasure{rs: rs, puncClient: NewPirClientPunc(source, nEnc, server)}, nil
 }
 
 func (c *pirClientErasure) Init() error {
@@ -103,11 +108,7 @@ func (c *pirClientErasure) Read(i int) (Row, error) {
 			goodChunks++
 		}
 	}
-	rs, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
-	if err != nil {
-		return nil, fmt.Errorf("Could not create RS encoder: %w", err)
-	}
-	if err = rs.Reconstruct(toReconstruct); err != nil {
+	if err := c.rs.Reconstruct(toReconstruct); err != nil {
 		return nil, fmt.Errorf("Failed to reconstruct: CHUNK_SIZE: %d, ALLOW_LOSS: %d, goodChunks: %d, numCovered: %d, %w", CHUNK_SIZE, ALLOW_LOSS, goodChunks, c.puncClient.NumCovered(), err)
 	}
 	return toReconstruct[i%CHUNK_SIZE], nil

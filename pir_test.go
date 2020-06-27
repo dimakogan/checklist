@@ -30,7 +30,8 @@ func TestPIRPuncErasure(t *testing.T) {
 	db := MakeDB(256, 100)
 
 	server := NewPirServerErasure(RandSource(), db)
-	client := NewPirClientErasure(RandSource(), len(db), server)
+	client, err := NewPirClientErasure(RandSource(), len(db), server)
+	assert.NilError(t, err)
 	assert.NilError(t, client.Init())
 	const readIndex = 2
 	val, err := client.Read(readIndex)
@@ -208,7 +209,8 @@ func BenchmarkPirErasureHint(b *testing.B) {
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
 		server := NewPirServerErasure(randSource, db)
-		client := NewPirClientErasure(randSource, dim.NumRecords, server)
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, server)
+		assert.NilError(b, err)
 
 		b.Run(
 			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
@@ -226,9 +228,9 @@ func BenchmarkPirErasureAnswer(b *testing.B) {
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
 		server := NewPirServerErasure(randSource, db)
-		client := NewPirClientErasure(randSource, dim.NumRecords, server)
-		err := client.Init()
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, server)
 		assert.NilError(b, err)
+		assert.NilError(b, client.Init())
 
 		b.Run(
 			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
