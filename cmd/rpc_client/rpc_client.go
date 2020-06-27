@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 
@@ -21,8 +20,6 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("Invalid NUM-DB-RECORDS: %s", args[1]))
 	}
-	setSize := int(math.Round(math.Sqrt(float64(numRecords))))
-	nHints := setSize * int(math.Round(math.Log2(float64(numRecords))))
 
 	idx, err := strconv.Atoi(args[2])
 	if err != nil {
@@ -36,7 +33,7 @@ func main() {
 	}
 
 	proxy := b.NewPirRpcProxy(remote)
-	client := b.NewPirClientPunc(b.RandSource(), numRecords, nHints, proxy)
+	client := b.NewPirClientPunc(b.RandSource(), numRecords, proxy)
 
 	val, err := client.Read(idx)
 	if err != nil {

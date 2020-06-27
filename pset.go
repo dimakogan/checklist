@@ -21,6 +21,7 @@ type SetKey struct {
 	SetSize  int
 	Delta    int
 	Key      []byte
+	prp      *PRP
 }
 
 // Go's % operator follows C semantics and can produce
@@ -78,7 +79,11 @@ func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
 	}
 
 	delta := src.Intn(univSize)
-	return &SetKey{univSize, setSize, delta, key}
+	prp, err := NewPRP(key, univSizeBits)
+	if err != nil {
+		panic(fmt.Errorf("Failed to create PRP: %s", err))
+	}
+	return &SetKey{univSize, setSize, delta, key, prp}
 }
 
 func SetGenWith(src *rand.Rand, univSize int, setSize int, val int) *SetKey {
@@ -130,15 +135,8 @@ func (key *SetKey) RandomMemberExcept(randSource *rand.Rand, idx int) int {
 func (key *SetKey) Eval() Set {
 	out := make(Set, key.SetSize)
 
-	univSizeBits := int(math.Log2(float64(key.UnivSize)))
-
-	prp, err := NewPRP(key.Key, univSizeBits)
-	if err != nil {
-		panic(fmt.Errorf("Failed to create PRP: %s", err))
-	}
-
 	for i := 0; i < key.SetSize; i++ {
-		elem := prp.Eval(uint32(i))
+		elem := key.prp.Eval(uint32(i))
 		out[MathMod(int(elem)+key.Delta, key.UnivSize)] = Present_Yes
 	}
 
@@ -164,12 +162,5 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 }
 
 func (key *SetKey) InSet(idx int) bool {
-	univSizeBits := int(math.Log2(float64(key.UnivSize)))
-
-	prp, err := NewPRP(key.Key, univSizeBits)
-	if err != nil {
-		panic(fmt.Errorf("Failed to create PRP: %s", err))
-	}
-
-	return prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize))) < uint32(key.SetSize)
+	return key.prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize))) < uint32(key.SetSize)
 }

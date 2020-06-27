@@ -2,7 +2,6 @@ package boosted
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 
 	"github.com/klauspost/reedsolomon"
@@ -84,9 +83,8 @@ func NewPirServerErasure(source *rand.Rand, data []Row) *pirServerPunc {
 
 func NewPirClientErasure(source *rand.Rand, nRows int, server PuncPirServer) *pirClientErasure {
 	nEnc := nEncodedRows(nRows)
-	nHints := int(math.Round(math.Pow(float64(nEnc), 0.5)))
 
-	return &pirClientErasure{puncClient: NewPirClientPunc(source, nEnc, nHints, server)}
+	return &pirClientErasure{puncClient: NewPirClientPunc(source, nEnc, server)}
 }
 
 func (c *pirClientErasure) Init() error {
@@ -97,10 +95,12 @@ func (c *pirClientErasure) Read(i int) (Row, error) {
 	toReconstruct := make([][]byte, CHUNK_SIZE+ALLOW_LOSS)
 
 	chunkNum := i / CHUNK_SIZE
+	goodChunks := 0
 	for j := 0; j < CHUNK_SIZE+ALLOW_LOSS; j++ {
 		// TODO: add batch Read method to puncClient to avoid multiple rounds over the network
 		if row, err := c.puncClient.Read(chunkNum*(CHUNK_SIZE+ALLOW_LOSS) + j); err == nil {
 			toReconstruct[j] = row
+			goodChunks++
 		}
 	}
 	rs, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
@@ -108,7 +108,7 @@ func (c *pirClientErasure) Read(i int) (Row, error) {
 		return nil, fmt.Errorf("Could not create RS encoder: %w", err)
 	}
 	if err = rs.Reconstruct(toReconstruct); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to reconstruct: CHUNK_SIZE: %d, ALLOW_LOSS: %d, goodChunks: %d, numCovered: %d, %w", CHUNK_SIZE, ALLOW_LOSS, goodChunks, c.puncClient.NumCovered(), err)
 	}
 	return toReconstruct[i%CHUNK_SIZE], nil
 }

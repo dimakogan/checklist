@@ -132,10 +132,11 @@ func (s *pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func NewPirClientPunc(source *rand.Rand, nRows int, nHints int, server PuncPirServer) *pirClientPunc {
+func NewPirClientPunc(source *rand.Rand, nRows int, server PuncPirServer) *pirClientPunc {
 	// TODO: Maybe better to just do this with integer ops.
 	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
+	nHints := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
 
 	return &pirClientPunc{
 		nRows:      nRowsRounded,
@@ -269,4 +270,15 @@ func (c *pirClientPunc) Read(i int) (Row, error) {
 		return nil, err
 	}
 	return val, nil
+}
+
+func (c *pirClientPunc) NumCovered() int {
+	covered := make(map[int]bool)
+	for _, key := range c.keys {
+		set := key.Eval()
+		for elem, _ := range set {
+			covered[elem] = true
+		}
+	}
+	return len(covered)
 }
