@@ -3,6 +3,7 @@ package boosted
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	//	"log"
 	"math"
@@ -18,10 +19,9 @@ type pirClientPunc struct {
 	nHints  int
 	setSize int
 
-	keys        []*SetKey
-	querySetIdx int
-	hints       []Row
-	auxRecords  map[int]Row
+	keys       []*SetKey
+	hints      []Row
+	auxRecords map[int]Row
 
 	randSource *rand.Rand
 
@@ -40,6 +40,7 @@ type pirServerPunc struct {
 type PuncPirServer interface {
 	Hint(req *HintReq, resp *HintResp) error
 	Answer(q QueryReq, resp *QueryResp) error
+	AnswerBatch(q []QueryReq, resp []QueryResp) error
 }
 
 func xorInto(a []byte, b []byte) {
@@ -132,6 +133,16 @@ func (s *pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
+func (s *pirServerPunc) AnswerBatch(queries []QueryReq, resps []QueryResp) error {
+	for i, q := range queries {
+		err := s.Answer(q, &resps[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewPirClientPunc(source *rand.Rand, nRows int, server PuncPirServer) *pirClientPunc {
 	// TODO: Maybe better to just do this with integer ops.
 	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
@@ -181,14 +192,15 @@ func (c *pirClientPunc) findIndex(i int) int {
 	return -1
 }
 
-func (c *pirClientPunc) query(i int) ([]QueryReq, error) {
+func (c *pirClientPunc) query(i int) ([]QueryReq, int) {
 	if len(c.hints) < 1 {
-		return nil, fmt.Errorf("No stored hints. Did you forget to call InitHint?")
+		panic("No stored hints. Did you forget to call InitHint?")
 	}
 
 	var key *SetKey
-	if c.querySetIdx = c.findIndex(i); c.querySetIdx >= 0 {
-		key = c.keys[c.querySetIdx]
+	querySetIdx := 0
+	if querySetIdx = c.findIndex(i); querySetIdx >= 0 {
+		key = c.keys[querySetIdx]
 	} else {
 		key = SetGenWith(RandSource(), c.nRows, c.setSize, i)
 	}
@@ -196,24 +208,24 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, error) {
 	var puncSet, newPuncSet Set
 	coin := c.bernoulli(c.setSize-1, c.nRows)
 	if coin {
-		puncSet = c.auxSetWith(i)
-		c.querySetIdx = len(c.keys)
 		newSet := SetGenWith(RandSource(), c.nRows, c.setSize, i)
+		querySetIdx = -1
 		newPuncSet = newSet.Punc(newSet.RandomMemberExcept(c.randSource, i))
+		puncSet = newPuncSet
 
 	} else {
 		puncSet = key.Punc(i)
 		newSet := SetGenWith(RandSource(), c.nRows, c.setSize, i)
 		newPuncSet = newSet.Punc(i)
-		if c.querySetIdx >= 0 {
-			c.keys[c.querySetIdx] = newSet
+		if querySetIdx >= 0 {
+			c.keys[querySetIdx] = newSet
 		}
 	}
 
 	return []QueryReq{
 		QueryReq{PuncturedSet: puncSet},
 		QueryReq{PuncturedSet: newPuncSet},
-	}, nil
+	}, querySetIdx
 }
 
 func (c *pirClientPunc) auxSetWith(i int) Set {
@@ -233,15 +245,15 @@ func (c *pirClientPunc) auxSetWith(i int) Set {
 	return puncSet
 }
 
-func (c *pirClientPunc) reconstruct(resp []*QueryResp) (Row, error) {
+func (c *pirClientPunc) reconstruct(querySetIdx int, resp []*QueryResp) (Row, error) {
 	if len(resp) != 2 {
 		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 2", len(resp))
 	}
 
 	out := make(Row, len(c.hints[0]))
-	if c.querySetIdx < 0 {
+	if querySetIdx < 0 {
 		return nil, errors.New("couldn't find element in collection")
-	} else if c.querySetIdx == len(c.hints) {
+	} else if querySetIdx == len(c.hints) {
 		for _, record := range c.auxRecords {
 			if record != nil {
 				xorInto(out, record)
@@ -249,12 +261,12 @@ func (c *pirClientPunc) reconstruct(resp []*QueryResp) (Row, error) {
 		}
 		xorInto(out, resp[0].Answer)
 	} else {
-		xorInto(out, c.hints[c.querySetIdx])
+		xorInto(out, c.hints[querySetIdx])
 		xorInto(out, resp[0].Answer)
 		// Update hint with refresh info
-		xorInto(c.hints[c.querySetIdx], c.hints[c.querySetIdx])
-		xorInto(c.hints[c.querySetIdx], resp[1].Answer)
-		xorInto(c.hints[c.querySetIdx], out)
+		xorInto(c.hints[querySetIdx], c.hints[querySetIdx])
+		xorInto(c.hints[querySetIdx], resp[1].Answer)
+		xorInto(c.hints[querySetIdx], out)
 	}
 
 	return out, nil
@@ -273,14 +285,54 @@ func (c *pirClientPunc) Init() error {
 	return c.initHint(&hintResp)
 }
 
-func (c *pirClientPunc) Read(i int) (Row, error) {
-	queryReq, err := c.query(i)
-	if err != nil {
-		return nil, err
+func (c *pirClientPunc) ReadBatch(idxs []int) ([]Row, []error) {
+	leftReqs := make([]QueryReq, len(idxs))
+	rightReqs := make([]QueryReq, len(idxs))
+	errs := make([]error, len(idxs))
+	querySetIdxs := make([]int, len(idxs))
+
+	for pos, i := range idxs {
+		var queryReqs []QueryReq
+		queryReqs, querySetIdxs[pos] = c.query(i)
+		leftReqs[pos] = queryReqs[0]
+		rightReqs[pos] = queryReqs[1]
 	}
 
+	leftResps := make([]QueryResp, len(idxs))
+	rightResps := make([]QueryResp, len(idxs))
+	var rightErr, leftErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		leftErr = c.server.AnswerBatch(leftReqs, leftResps)
+		wg.Done()
+	}()
+	go func() {
+		rightErr = c.server.AnswerBatch(rightReqs, rightResps)
+		wg.Done()
+	}()
+	wg.Wait()
+
+	vals := make([]Row, len(idxs))
+	for i := 0; i < len(idxs); i++ {
+		if leftErr != nil {
+			errs[i] = leftErr
+			continue
+		} else if rightErr != nil {
+			errs[i] = rightErr
+			continue
+		}
+
+		vals[i], errs[i] = c.reconstruct(querySetIdxs[i], []*QueryResp{&leftResps[i], &rightResps[i]})
+	}
+	return vals, errs
+}
+
+func (c *pirClientPunc) Read(i int) (Row, error) {
+	queryReq, querySetIdx := c.query(i)
+
 	var queryResp QueryResp
-	err = c.server.Answer(queryReq[0], &queryResp)
+	err := c.server.Answer(queryReq[0], &queryResp)
 	if err != nil {
 		return nil, fmt.Errorf("Error on query Answer: %w", err)
 	}
@@ -289,7 +341,7 @@ func (c *pirClientPunc) Read(i int) (Row, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error on refresh Answer: %w", err)
 	}
-	val, err := c.reconstruct([]*QueryResp{&queryResp, &refreshResp})
+	val, err := c.reconstruct(querySetIdx, []*QueryResp{&queryResp, &refreshResp})
 	if err != nil {
 		return nil, err
 	}

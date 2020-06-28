@@ -3,6 +3,7 @@ package boosted
 import (
 	"flag"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/rpc"
 	"testing"
@@ -26,6 +27,25 @@ func TestPIRPunc(t *testing.T) {
 	val, err := client.Read(readIndex)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
+}
+
+func TestPIRPuncBatchRead(t *testing.T) {
+	db := MakeDB(256, 100)
+
+	server := NewPirServerPunc(RandSource(), db)
+	client := NewPirClientPunc(RandSource(), len(db), server)
+	// Increase number of hints manually to test happy flow
+	client.nHints = 100
+
+	assert.NilError(t, client.Init())
+	readIndices := []int{2, 5, 10}
+	vals, errs := client.ReadBatch(readIndices)
+	assert.NilError(t, errs[0])
+	assert.NilError(t, errs[1])
+	assert.NilError(t, errs[2])
+	assert.DeepEqual(t, vals[0], db[2])
+	assert.DeepEqual(t, vals[1], db[5])
+	assert.DeepEqual(t, vals[2], db[10])
 }
 
 func TestPIRRefresh(t *testing.T) {
@@ -85,7 +105,8 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.DeepEqual(t, val, Row("Cool"))
 }
 
-func TestPIRPuncKrzysztofTrick(t *testing.T) {
+// Not testing this for now since disabled it
+func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	db := MakeDB(4, 100)
 	src := RandSource()
 
@@ -172,6 +193,18 @@ func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
+func (s *benchmarkServer) AnswerBatch(queries []QueryReq, resps []QueryResp) error {
+	s.b.Run(
+		"Answer/"+s.name,
+		func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := s.PuncPirServer.AnswerBatch(queries, resps)
+				assert.NilError(b, err)
+			}
+		})
+	return nil
+}
+
 func BenchmarkPirPunc(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
@@ -185,6 +218,7 @@ func BenchmarkPirPunc(b *testing.B) {
 		}
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, &benchmarkServer)
+		client.nHints = client.nHints * int(math.Log2(float64(dim.NumRecords)))
 
 		err := client.Init()
 		assert.NilError(b, err)

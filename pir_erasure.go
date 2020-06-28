@@ -37,7 +37,7 @@ func encodeDatabase(data []Row) []Row {
 
 	enc, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
 	if err != nil {
-		panic("Could not create encoder.")
+		fmt.Errorf("Could not create encoder: %s", err)
 	}
 
 	if len(data)%CHUNK_SIZE != 0 {
@@ -101,10 +101,17 @@ func (c *pirClientErasure) Read(i int) (Row, error) {
 
 	chunkNum := i / CHUNK_SIZE
 	goodChunks := 0
-	for j := 0; j < CHUNK_SIZE+ALLOW_LOSS; j++ {
-		// TODO: add batch Read method to puncClient to avoid multiple rounds over the network
-		if row, err := c.puncClient.Read(chunkNum*(CHUNK_SIZE+ALLOW_LOSS) + j); err == nil {
-			toReconstruct[j] = row
+	encodedChunkSize := CHUNK_SIZE + ALLOW_LOSS
+	toRead := make([]int, encodedChunkSize)
+	for j := 0; j < encodedChunkSize; j++ {
+		toRead[j] = chunkNum*encodedChunkSize + j
+	}
+
+	rows, errs := c.puncClient.ReadBatch(toRead)
+
+	for j := 0; j < encodedChunkSize; j++ {
+		if errs[j] == nil {
+			toReconstruct[j] = rows[j]
 			goodChunks++
 		}
 	}
