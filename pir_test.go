@@ -17,8 +17,12 @@ var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for 
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(256, 100)
 
-	server := NewPirServerPunc(RandSource(), db)
-	client := NewPirClientPunc(RandSource(), len(db), server)
+	leftServer := NewPirServerPunc(RandSource(), db)
+	rightServer := NewPirServerPunc(RandSource(), db)
+	client := NewPirClientPunc(
+		RandSource(),
+		len(db),
+		[2]PuncPirServer{leftServer, rightServer})
 	// Increase number of hints manually to test happy flow
 	client.nHints = 100
 
@@ -27,52 +31,29 @@ func TestPIRPunc(t *testing.T) {
 	val, err := client.Read(readIndex)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
-}
 
-func TestPIRPuncBatchRead(t *testing.T) {
-	db := MakeDB(256, 100)
+	// Test refreshing by reading the same item again
+	val, err = client.Read(readIndex)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, db[readIndex])
 
-	server := NewPirServerPunc(RandSource(), db)
-	client := NewPirClientPunc(RandSource(), len(db), server)
-	// Increase number of hints manually to test happy flow
-	client.nHints = 100
-
-	assert.NilError(t, client.Init())
-	readIndices := []int{2, 5, 10}
+	// Test Batch Read
+	readIndices := []int{3, 5, 10}
 	vals, errs := client.ReadBatch(readIndices)
 	assert.NilError(t, errs[0])
 	assert.NilError(t, errs[1])
 	assert.NilError(t, errs[2])
-	assert.DeepEqual(t, vals[0], db[2])
+	assert.DeepEqual(t, vals[0], db[3])
 	assert.DeepEqual(t, vals[1], db[5])
 	assert.DeepEqual(t, vals[2], db[10])
-}
-
-func TestPIRRefresh(t *testing.T) {
-	db := MakeDB(256, 100)
-
-	server := NewPirServerPunc(RandSource(), db)
-	client := NewPirClientPunc(RandSource(), len(db), server)
-	// Increase number of hints manually to test happy flow
-	client.nHints = 100
-
-	assert.NilError(t, client.Init())
-	const readIndex = 2
-	val, err := client.Read(readIndex)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, val, db[readIndex])
-
-	// Read same element second time
-	val, err = client.Read(readIndex)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, val, db[readIndex])
 }
 
 func TestPIRPuncErasure(t *testing.T) {
 	db := MakeDB(256, 100)
 
-	server := NewPirServerErasure(RandSource(), db)
-	client, err := NewPirClientErasure(RandSource(), len(db), server)
+	server, err := NewPirServerErasure(RandSource(), db)
+	assert.NilError(t, err)
+	client, err := NewPirClientErasure(RandSource(), len(db), [2]PuncPirServer{server, server})
 	assert.NilError(t, err)
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -91,11 +72,11 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, err)
 
 	var none int
-	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{100, 4}, &none))
+	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{CHUNK_SIZE, 4}, &none))
 	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
 
 	proxy := NewPirRpcProxy(remote)
-	client := NewPirClientPunc(RandSource(), 100, proxy)
+	client, err := NewPirClientErasure(RandSource(), CHUNK_SIZE, [2]PuncPirServer{proxy, proxy})
 
 	err = client.Init()
 	assert.NilError(t, err)
@@ -113,7 +94,7 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	server := NewPirServerPunc(src, db)
 
 	for i := 0; i < 100; i++ {
-		client := NewPirClientPunc(src, len(db), server)
+		client := NewPirClientPunc(src, len(db), [2]PuncPirServer{server, server})
 		// Set nHints to be very high such that the probability of failure due to
 		// the index being missing from all of the sets is small
 		client.nHints = 100
@@ -193,7 +174,7 @@ func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func (s *benchmarkServer) AnswerBatch(queries []QueryReq, resps []QueryResp) error {
+func (s *benchmarkServer) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
 	s.b.Run(
 		"Answer/"+s.name,
 		func(b *testing.B) {
@@ -217,7 +198,7 @@ func BenchmarkPirPunc(b *testing.B) {
 			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 		}
 
-		client := NewPirClientPunc(randSource, dim.NumRecords, &benchmarkServer)
+		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, server})
 		client.nHints = client.nHints * int(math.Log2(float64(dim.NumRecords)))
 
 		err := client.Init()
@@ -229,7 +210,77 @@ func BenchmarkPirPunc(b *testing.B) {
 	}
 }
 
-func BenchmarkPirPuncRpc(b *testing.B) {
+func BenchmarkPirErasure(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+	for _, dim := range dbDimensions() {
+		db := MakeDBWithDimensions(dim)
+
+		server, err := NewPirServerErasure(randSource, db)
+		assert.NilError(b, err)
+
+		benchmarkServer := benchmarkServer{
+			PuncPirServer: server,
+			b:             b,
+			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+		}
+
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, server})
+		err = client.Init()
+		assert.NilError(b, err)
+
+		val, err := client.Read(5)
+		assert.NilError(b, err)
+		assert.DeepEqual(b, val, db[5])
+	}
+}
+
+func BenchmarkPirErasureHint(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+	for _, dim := range dbDimensions() {
+		db := MakeDBWithDimensions(dim)
+
+		server, err := NewPirServerErasure(randSource, db)
+		assert.NilError(b, err)
+
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{server, server})
+		assert.NilError(b, err)
+
+		b.Run(
+			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					err := client.Init()
+					assert.NilError(b, err)
+				}
+			})
+	}
+}
+
+func BenchmarkPirErasureAnswer(b *testing.B) {
+	randSource := rand.New(rand.NewSource(12345))
+	for _, dim := range dbDimensions() {
+		db := MakeDBWithDimensions(dim)
+
+		server, err := NewPirServerErasure(randSource, db)
+		assert.NilError(b, err)
+
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{server, server})
+		assert.NilError(b, err)
+		assert.NilError(b, client.Init())
+
+		b.Run(
+			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					val, err := client.Read(5)
+					assert.NilError(b, err)
+					assert.DeepEqual(b, val, db[5])
+				}
+			})
+	}
+}
+
+func BenchmarkPirErasureRpc(b *testing.B) {
 	if *serverAddr == "" {
 		b.Skip("No remote address flag set. Skipping remote test.")
 	}
@@ -250,53 +301,13 @@ func BenchmarkPirPuncRpc(b *testing.B) {
 			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 		}
 
-		client := NewPirClientPunc(RandSource(), dim.NumRecords, &benchmarkServer)
-
+		client, err := NewPirClientErasure(RandSource(), dim.NumRecords, [2]PuncPirServer{&benchmarkServer, proxy})
+		assert.NilError(b, err)
 		err = client.Init()
 		assert.NilError(b, err)
 
 		_, err = client.Read(7)
 		assert.NilError(b, err)
-	}
-}
-
-func BenchmarkPirErasureHint(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
-		server := NewPirServerErasure(randSource, db)
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, server)
-		assert.NilError(b, err)
-
-		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					err := client.Init()
-					assert.NilError(b, err)
-				}
-			})
-	}
-}
-
-func BenchmarkPirErasureAnswer(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
-		server := NewPirServerErasure(randSource, db)
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, server)
-		assert.NilError(b, err)
-		assert.NilError(b, client.Init())
-
-		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					val, err := client.Read(5)
-					assert.NilError(b, err)
-					assert.DeepEqual(b, val, db[5])
-				}
-			})
 	}
 }
 
@@ -312,7 +323,7 @@ func BenchmarkHintOnce(b *testing.B) {
 		name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 	}
 
-	client := NewPirClientPunc(randSource, dim.NumRecords, &benchmarkServer)
+	client := NewPirClientPunc(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, server})
 
 	err := client.Init()
 	assert.NilError(b, err)

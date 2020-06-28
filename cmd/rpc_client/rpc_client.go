@@ -32,8 +32,9 @@ func main() {
 		log.Fatal("Connection error: ", err)
 	}
 
-	proxy := b.NewPirRpcProxy(remote)
-	client := b.NewPirClientPunc(b.RandSource(), numRecords, proxy)
+	proxyLeft := b.NewPirRpcProxy(remote)
+	proxyRight := b.NewPirRpcProxy(remote)
+	client := b.NewPirClientPunc(b.RandSource(), numRecords, [2]b.PuncPirServer{proxyLeft, proxyRight})
 
 	val, err := client.Read(idx)
 	if err != nil {

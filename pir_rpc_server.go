@@ -6,32 +6,35 @@ import (
 )
 
 type PirRpcServer struct {
-	*pirServerPunc
+	PuncPirServer
 	randSource *rand.Rand
 	db         []Row
 	server     *rpc.Server
 }
 
-func NewPirRpcServer(db []Row) *PirRpcServer {
+func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
 	randSource := RandSource()
+	server, err := NewPirServerErasure(randSource, db)
+	if err != nil {
+		return nil, err
+	}
 	driver := PirRpcServer{
-		pirServerPunc: NewPirServerPunc(randSource, db),
+		PuncPirServer: server,
 		randSource:    randSource,
 		db:            db,
 	}
-	return &driver
+	return &driver, nil
 }
 
-func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) error {
+func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err error) {
 	driver.db = MakeDBWithDimensions(dim)
-	driver.pirServerPunc = NewPirServerPunc(driver.randSource, driver.db)
-
-	return nil
+	driver.PuncPirServer, err = NewPirServerErasure(driver.randSource, driver.db)
+	return err
 }
 
-func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) error {
+func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) (err error) {
 	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
 	driver.db[rec.Index] = rec.Value
-	driver.pirServerPunc = NewPirServerPunc(driver.randSource, driver.db)
-	return nil
+	driver.PuncPirServer, err = NewPirServerErasure(driver.randSource, driver.db)
+	return err
 }

@@ -13,7 +13,7 @@ type pirClientErasure struct {
 }
 
 type pirServerErasure struct {
-	server *pirServerPunc
+	pirServerPunc
 }
 
 var CHUNK_SIZE = 128
@@ -33,15 +33,15 @@ func nEncodedRows(nRows int) int {
 	return (nRows / CHUNK_SIZE) * (CHUNK_SIZE + ALLOW_LOSS)
 }
 
-func encodeDatabase(data []Row) []Row {
+func encodeDatabase(data []Row) ([]Row, error) {
 
 	enc, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
 	if err != nil {
-		fmt.Errorf("Could not create encoder: %s", err)
+		return nil, fmt.Errorf("Could not create encoder: %s", err)
 	}
 
 	if len(data)%CHUNK_SIZE != 0 {
-		panic("Haven't implemented this case")
+		return nil, fmt.Errorf("DB length: %d is not multiple of CHUNK_SIZE: %d", len(data), CHUNK_SIZE)
 	}
 
 	encRows := nEncodedRows(len(data))
@@ -72,24 +72,27 @@ func encodeDatabase(data []Row) []Row {
 		}
 	}
 
-	return encoded
+	return encoded, nil
 }
 
-func NewPirServerErasure(source *rand.Rand, data []Row) *pirServerPunc {
-	encdata := encodeDatabase(data)
+func NewPirServerErasure(source *rand.Rand, data []Row) (PuncPirServer, error) {
+	encdata, err := encodeDatabase(data)
+	if err != nil {
+		return nil, err
+	}
 	// fmt.Printf("LenIn = %v\n", len(data))
 	// fmt.Printf("LenOut = %v\n", len(encdata))
-	return NewPirServerPunc(source, encdata)
+	return pirServerErasure{NewPirServerPunc(source, encdata)}, nil
 }
 
-func NewPirClientErasure(source *rand.Rand, nRows int, server PuncPirServer) (*pirClientErasure, error) {
+func NewPirClientErasure(source *rand.Rand, nRows int, servers [2]PuncPirServer) (*pirClientErasure, error) {
 	nEnc := nEncodedRows(nRows)
 	rs, err := reedsolomon.New(CHUNK_SIZE, ALLOW_LOSS)
 	if err != nil {
 		return nil, fmt.Errorf("Could not create RS encoder: %w", err)
 	}
 
-	return &pirClientErasure{rs: rs, puncClient: NewPirClientPunc(source, nEnc, server)}, nil
+	return &pirClientErasure{rs: rs, puncClient: NewPirClientPunc(source, nEnc, servers)}, nil
 }
 
 func (c *pirClientErasure) Init() error {

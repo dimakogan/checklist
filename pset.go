@@ -133,6 +133,14 @@ func (key *SetKey) RandomMemberExcept(randSource *rand.Rand, idx int) int {
 }
 
 func (key *SetKey) Eval() Set {
+	// This is a workaround for prp not being serialized yet
+	var err error
+	if key.prp == nil {
+		key.prp, err = NewPRP(key.Key, int(math.Log2(float64(key.UnivSize))))
+		if err != nil {
+			panic(fmt.Errorf("Failed to create PRP: %s", err))
+		}
+	}
 	out := make(Set, key.SetSize)
 
 	for i := 0; i < key.SetSize; i++ {
