@@ -42,7 +42,6 @@ const Right int = 1
 
 type PuncPirServer interface {
 	Hint(req *HintReq, resp *HintResp) error
-	Answer(q QueryReq, resp *QueryResp) error
 	AnswerBatch(q []QueryReq, resp *[]QueryResp) error
 }
 
@@ -130,7 +129,7 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	return nil
 }
 
-func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
+func (s pirServerPunc) answer(q QueryReq, resp *QueryResp) error {
 	resp.Answer = make(Row, s.rowLen)
 	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet)
 	return nil
@@ -139,7 +138,7 @@ func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 func (s pirServerPunc) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
 	*resps = make([]QueryResp, len(queries))
 	for i, q := range queries {
-		err := s.Answer(q, &(*resps)[i])
+		err := s.answer(q, &(*resps)[i])
 		if err != nil {
 			return err
 		}

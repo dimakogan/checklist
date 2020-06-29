@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net/rpc"
+	"sync"
 	"testing"
 
 	"gotest.tools/assert"
@@ -148,6 +149,9 @@ type benchmarkServer struct {
 	PuncPirServer
 	b    *testing.B
 	name string
+
+	// Keep mutex to avoid parallelizm between two "servers" in  tests
+	mutex *sync.Mutex
 }
 
 func (s *benchmarkServer) Hint(req *HintReq, resp *HintResp) error {
@@ -162,21 +166,11 @@ func (s *benchmarkServer) Hint(req *HintReq, resp *HintResp) error {
 	return s.PuncPirServer.Hint(req, resp)
 }
 
-func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
-	s.b.Run(
-		"Answer/"+s.name,
-		func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				err := s.PuncPirServer.Answer(q, resp)
-				assert.NilError(b, err)
-			}
-		})
-	return nil
-}
-
 func (s *benchmarkServer) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.b.Run(
-		"Answer/"+s.name,
+		"AnswerBatch/"+s.name,
 		func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				err := s.PuncPirServer.AnswerBatch(queries, resps)
@@ -192,13 +186,15 @@ func BenchmarkPirPunc(b *testing.B) {
 		db := MakeDBWithDimensions(dim)
 
 		server := NewPirServerPunc(randSource, db)
+		var mutex sync.Mutex
 		benchmarkServer := benchmarkServer{
 			PuncPirServer: server,
 			b:             b,
 			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:         &mutex,
 		}
 
-		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, server})
+		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, &benchmarkServer})
 		client.nHints = client.nHints * int(math.Log2(float64(dim.NumRecords)))
 
 		err := client.Init()
@@ -218,13 +214,22 @@ func BenchmarkPirErasure(b *testing.B) {
 		server, err := NewPirServerErasure(randSource, db)
 		assert.NilError(b, err)
 
-		benchmarkServer := benchmarkServer{
+		var mutex sync.Mutex
+		leftServer := benchmarkServer{
 			PuncPirServer: server,
 			b:             b,
-			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			name:          fmt.Sprintf("Left/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:         &mutex,
 		}
 
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, server})
+		rightServer := benchmarkServer{
+			PuncPirServer: server,
+			b:             b,
+			name:          fmt.Sprintf("Right/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:         &mutex,
+		}
+
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{&leftServer, &rightServer})
 		err = client.Init()
 		assert.NilError(b, err)
 
@@ -234,44 +239,51 @@ func BenchmarkPirErasure(b *testing.B) {
 	}
 }
 
-func BenchmarkPirErasureHint(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
+type pauseTimingServer struct {
+	PuncPirServer
+	b *testing.B
 
-		server, err := NewPirServerErasure(randSource, db)
-		assert.NilError(b, err)
-
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{server, server})
-		assert.NilError(b, err)
-
-		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					err := client.Init()
-					assert.NilError(b, err)
-				}
-			})
-	}
+	// Keep mutex to avoid parallelizm between two "servers" in  tests
+	mutex *sync.Mutex
 }
 
-func BenchmarkPirErasureAnswer(b *testing.B) {
+func (s *pauseTimingServer) Hint(req *HintReq, resp *HintResp) error {
+	err := s.PuncPirServer.Hint(req, resp)
+	return err
+}
+
+func (s *pauseTimingServer) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.b.StopTimer()
+	var err error
+	err = s.PuncPirServer.AnswerBatch(queries, resps)
+	s.b.StartTimer()
+	return err
+}
+
+func BenchmarkPirErasureClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
-
 		server, err := NewPirServerErasure(randSource, db)
 		assert.NilError(b, err)
 
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{server, server})
-		assert.NilError(b, err)
+		var mutex sync.Mutex
+		pauseServer := pauseTimingServer{
+			PuncPirServer: server,
+			mutex:         &mutex,
+		}
+
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{&pauseServer, &pauseServer})
+		err = client.Init()
 		assert.NilError(b, client.Init())
 
 		b.Run(
 			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 			func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
+					pauseServer.b = b
 					val, err := client.Read(5)
 					assert.NilError(b, err)
 					assert.DeepEqual(b, val, db[5])

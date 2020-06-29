@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/c2h5oh/datasize v0.0.0-20171227191756-4eba002a5eae // indirect
+	github.com/cespare/prettybench v0.0.0-20150116022406-03b8cfe5406c // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gorilla/rpc v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect

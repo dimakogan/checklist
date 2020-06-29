@@ -18,10 +18,6 @@ func (p PirRpcProxy) Hint(req *HintReq, resp *HintResp) error {
 	return p.remote.Call("PirRpcServer.Hint", req, &resp)
 }
 
-func (p PirRpcProxy) Answer(q QueryReq, resp *QueryResp) error {
-	return p.remote.Call("PirRpcServer.Answer", q, &resp)
-}
-
 func (p PirRpcProxy) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
 	return p.remote.Call("PirRpcServer.AnswerBatch", queries, resps)
 }
