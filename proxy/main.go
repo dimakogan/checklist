@@ -12,10 +12,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/safebrowsing"
@@ -33,8 +31,9 @@ const (
 	firefoxQueryRequestKey = "$req"
 )
 
-func GetUnexportedField(field reflect.Value) interface{} {
-	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
+type proxyState struct {
+	cfg        safebrowsing.Config
+	localIndex *LocalIndex
 }
 
 func handleUpdate(w http.ResponseWriter, req *http.Request) {
@@ -78,7 +77,7 @@ func unmarshal(req *http.Request) (*FindFullHashesRequest, error) {
 	return findHash, err
 }
 
-func handleFind(cfg *safebrowsing.Config, w http.ResponseWriter, req *http.Request) {
+func handleFind(state *proxyState, w http.ResponseWriter, req *http.Request) {
 	hashReq := new(FindFullHashesRequest)
 	hashReq, err := unmarshal(req)
 	if err != nil {
@@ -92,12 +91,13 @@ func handleFind(cfg *safebrowsing.Config, w http.ResponseWriter, req *http.Reque
 	} else {
 		entries := hashReq.ThreatInfo.ThreatEntries
 		for i, e := range entries {
-			log.Printf("Hash[%v] = %v", i, e.Hash)
+			idx, _ := state.localIndex.GetIndex(hashPrefix(e.Hash))
+			log.Printf("Hash[%v] = %v [index %v]", i, e.Hash, idx)
 		}
 	}
 }
 
-func handleHTTP(cfg *safebrowsing.Config, w http.ResponseWriter, req *http.Request) {
+func handleHTTP(state *proxyState, w http.ResponseWriter, req *http.Request) {
 	log.Printf("%v", req.Host)
 	log.Printf("%v", req.URL)
 	log.Printf("%v", req.URL.Host)
@@ -108,7 +108,7 @@ func handleHTTP(cfg *safebrowsing.Config, w http.ResponseWriter, req *http.Reque
 		return
 	} else if strings.HasPrefix(req.URL.Path, pathFind) {
 		log.Printf("FIND")
-		handleFind(cfg, w, req)
+		handleFind(state, w, req)
 		return
 	}
 
@@ -145,10 +145,14 @@ func main() {
 		log.Fatal("Cannot create temporary file", err)
 	}
 	dbFile.Close()
-
 	defer os.Remove(dbFile.Name())
-	cfg := getConfig(dbFile.Name())
-	sb, err := safebrowsing.NewSafeBrowser(cfg)
+
+	state := proxyState{
+		cfg:        getConfig(dbFile.Name()),
+		localIndex: NewLocalIndex(dbFile.Name())}
+	defer state.localIndex.Close()
+
+	sb, err := safebrowsing.NewSafeBrowser(state.cfg)
 
 	if err != nil {
 		log.Fatalf("Cannot create SafeBrowser: %v", err)
@@ -159,7 +163,7 @@ func main() {
 	server := &http.Server{
 		Addr: ":8888",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handleHTTP(&cfg, w, r)
+			handleHTTP(&state, w, r)
 		}),
 		// Disable HTTP/2.
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),

@@ -1,6 +1,5 @@
 package main
 
-/*
 import (
 	"bytes"
 	"compress/gzip"
@@ -12,10 +11,6 @@ import (
 
 	"github.com/google/safebrowsing"
 )
-
-func hashToIndex(dbFile string) {
-
-}
 
 // From google/safebrowsing/hash.go
 
@@ -88,4 +83,3 @@ func loadDatabase(path string) (db databaseFormat, err error) {
 	}
 	return db, nil
 }
-*/
