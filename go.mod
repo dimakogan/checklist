@@ -5,7 +5,10 @@ go 1.13
 require (
 	github.com/c2h5oh/datasize v0.0.0-20171227191756-4eba002a5eae // indirect
 	github.com/cespare/prettybench v0.0.0-20150116022406-03b8cfe5406c // indirect
-	github.com/google/go-cmp v0.3.1 // indirect
+	github.com/fsnotify/fsnotify v1.4.9
+	github.com/gogo/protobuf v1.3.1
+	github.com/golang/protobuf v1.4.2
+	github.com/google/safebrowsing v0.0.0-20190624211811-bbf0d20d26b3
 	github.com/gorilla/rpc v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.9
@@ -17,5 +20,6 @@ require (
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20191116160921-f9c825593386 // indirect
 	golang.org/x/text v0.3.2 // indirect
+	google.golang.org/protobuf v1.23.0
 	gotest.tools v2.2.0+incompatible
 )
