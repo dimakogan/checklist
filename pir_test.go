@@ -3,7 +3,6 @@ package boosted
 import (
 	"flag"
 	"fmt"
-	"math"
 	"math/rand"
 	"net/rpc"
 	"sync"
@@ -129,9 +128,11 @@ func dbDimensions() []DBDimensions {
 		[]int{
 			/*1<<16, 1<<17,1 << 18 , 1<<19, 1 << 20 , 1<<21, 1<<22, 1<<23, 1<<24, 1<<25*/
 			//1 << 16, 1 << 17, 1 << 18, 1 << 19, 1 << 20, 1 << 21, 1 << 22, 1 << 23,
-			1 << 12, 1 << 14, 1 << 16, 1 << 18, //1 << 20, 1 << 22, 1 << 24,
+			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24, 1 << 26, 1 << 28,
+			1 << 16,
 		}
-	dbRecordSize := []int{32}
+
+	dbRecordSize := []int{2048}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(2 * 1024 * 1024 * 1024)
 
@@ -196,7 +197,7 @@ func BenchmarkPirPunc(b *testing.B) {
 		}
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PuncPirServer{&benchmarkServer, &benchmarkServer})
-		client.nHints = client.nHints * int(math.Log2(float64(dim.NumRecords)))
+		client.nHints = client.nHints * 128
 
 		err := client.Init()
 		assert.NilError(b, err)
