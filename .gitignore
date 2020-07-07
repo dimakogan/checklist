@@ -18,3 +18,6 @@ compare/ntl-11.4.1/
 /compare/SealPIR
 prof*.svg
 profile.out
+proxy/proxy.exe
+compare/fig/*.pdf
+compare/fig/__pycache__/

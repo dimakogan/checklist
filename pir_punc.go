@@ -57,16 +57,21 @@ func xorInto(a []byte, b []byte) {
 	// }
 }
 
-func (s *pirServerPunc) xorRowsFlatSlice(out Row, rows Set) int {
+func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
 	bytes := 0
 	//	setS := setToSlice(set)
-
 	for row, _ := range rows {
 		if row >= s.nRows {
 			continue
 		}
-		xorInto(out, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
-		bytes += s.rowLen
+		end := s.rowLen*row + len(out)
+		if end > len(s.flatDb) {
+			end = len(s.flatDb)
+		}
+		effLen := end - s.rowLen*row
+		//fmt.Printf("start: %d, end: %d, effLen: %d, len(s.flatDb): %d", s.rowLen*row, end, effLen, len(s.flatDb))
+		xorInto(out[0:effLen], s.flatDb[s.rowLen*row:end])
+		bytes += effLen
 	}
 	return bytes
 }
@@ -116,15 +121,16 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 		set := req.Sets[j].Eval()
 		bytes = bytes + s.xorRowsFlatSlice(hints[j], set)
 	}
+	//fmt.Printf("nHints: %d, bytes: %d\n", nHints, bytes)
 	resp.Hints = hints
 
-	auxSet := req.AuxRecordsSet.Eval()
-	resp.AuxRecords = make(map[int]Row)
-	for row := range auxSet {
-		if row < s.nRows {
-			resp.AuxRecords[row] = s.flatDb[s.rowLen*row : s.rowLen*(row+1)]
-		}
-	}
+	// auxSet := req.AuxRecordsSet.Eval()
+	// resp.AuxRecords = make(map[int]Row)
+	// for row := range auxSet {
+	// 	if row < s.nRows {
+	// 		resp.AuxRecords[row] = s.flatDb[s.rowLen*row : s.rowLen*(row+1)]
+	// 	}
+	// }
 
 	return nil
 }

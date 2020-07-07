@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import custom_style
 from custom_style import setup_columns,col
 import matplotlib.pyplot as plt
@@ -43,11 +45,11 @@ ax.set_yticks([1,10,100,1000,10000])
 (x,y) = get_data(1)
 y2 = [2*p for p in y]
 y = y2
-plt.plot(x, y, "-o", label="No robustness")
+plt.plot(x, y, "-o", label="Matrix (x2)")
 #, ":", label="Ideal", color="gray")
 
 (x,y) = get_data(2)
-plt.plot(x, y, "-o", label="Prio-MPC")
+plt.plot(x, y, "-o", label="Boosted Hint")
 #, ":", label="Ideal", color="gray")
 
 custom_style.remove_chart_junk(plt, ax,grid=True)
@@ -56,6 +58,6 @@ custom_style.remove_chart_junk(plt, ax,grid=True)
 plt.xlabel('Database table size (96-byte rows)')
 plt.ylabel('Running time (ms, log scale)')
 
-#plt.legend(loc='upper right', frameon=False, bbox_to_anchor=(0.1, 1.02, 1., .102), ncol=2)
+plt.legend()
 custom_style.save_fig(fig, out_name, [3, 1.75])
 #plt.show()
