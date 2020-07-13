@@ -77,6 +77,33 @@ func unmarshal(req *http.Request) (*FindFullHashesRequest, error) {
 	return findHash, err
 }
 
+func marshal(resp http.ResponseWriter, pbResp proto.Message) error {
+	resp.Header().Set("Content-Type", mimeProto)
+	body, err := proto.Marshal(pbResp)
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := resp.Write(body); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func newThreatMatch(tt ThreatType, bytesIn []byte) *ThreatMatch {
+	tm := new(ThreatMatch)
+	tm.ThreatType = tt
+	tm.PlatformType = PlatformType_ALL_PLATFORMS
+	tm.ThreatEntryType = ThreatEntryType_URL
+
+	tm.Threat = new(ThreatEntry)
+	tm.Threat.Hash = bytesIn
+	return tm
+
+}
+
 func handleFind(state *proxyState, w http.ResponseWriter, req *http.Request) {
 	hashReq := new(FindFullHashesRequest)
 	hashReq, err := unmarshal(req)
@@ -88,13 +115,23 @@ func handleFind(state *proxyState, w http.ResponseWriter, req *http.Request) {
 	threats := hashReq.ThreatInfo
 	if threats == nil {
 		log.Printf("No threats")
-	} else {
-		entries := hashReq.ThreatInfo.ThreatEntries
-		for i, e := range entries {
-			idx, _ := state.localIndex.GetIndex(hashPrefix(e.Hash))
-			log.Printf("Hash[%v] = %v [index %v]", i, e.Hash, idx)
-		}
+		return
 	}
+
+	entries := hashReq.ThreatInfo.ThreatEntries
+	nThreats := len(entries)
+
+	resp := new(FindFullHashesResponse)
+	resp.Matches = make([]*ThreatMatch, nThreats)
+	for i, e := range entries {
+		idx, _ := state.localIndex.GetIndex(hashPrefix(e.Hash))
+		h := queryForHash(idx)
+		log.Printf("Hash[%v] = %x [index %v]", i, e.Hash, idx)
+		resp.Matches[i] = newThreatMatch(hashReq.ThreatInfo.ThreatTypes[0], h)
+		log.Printf("Returning hash: %x", h)
+	}
+
+	marshal(w, resp)
 }
 
 func handleHTTP(state *proxyState, w http.ResponseWriter, req *http.Request) {

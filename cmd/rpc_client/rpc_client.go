@@ -26,8 +26,8 @@ func main() {
 		panic(fmt.Sprintf("Invalid INDEX-TO-READ: %s", args[2]))
 	}
 
-	// Create a TCP connection to localhost on port 1234
-	remote, err := rpc.DialHTTP("tcp", "localhost:1234")
+	// Create a TCP connection to localhost on port 12345
+	remote, err := rpc.DialHTTP("tcp", "localhost:12345")
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
