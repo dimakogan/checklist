@@ -115,13 +115,16 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	nHints := len(req.Sets)
 	hints := make([]Row, nHints)
 
+	totalRows := 0
+
 	bytes := 0
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 		set := req.Sets[j].Eval()
+		totalRows += len(set)
 		bytes = bytes + s.xorRowsFlatSlice(hints[j], set)
 	}
-	//fmt.Printf("nHints: %d, bytes: %d\n", nHints, bytes)
+	//fmt.Printf("nHints: %d, total Rows: %d, bytes: %d\n", nHints, totalRows, bytes)
 	resp.Hints = hints
 
 	// auxSet := req.AuxRecordsSet.Eval()
@@ -142,13 +145,16 @@ func (s pirServerPunc) answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (s pirServerPunc) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
+	totalRows := 0
 	*resps = make([]QueryResp, len(queries))
 	for i, q := range queries {
+		totalRows += len(q.PuncturedSet)
 		err := s.answer(q, &(*resps)[i])
 		if err != nil {
 			return err
 		}
 	}
+	//fmt.Printf("AnswerBatch total rows read: %d\n", totalRows)
 	return nil
 }
 
@@ -295,17 +301,31 @@ func (c *pirClientPunc) Init() error {
 }
 
 func (c *pirClientPunc) ReadBatch(idxs []int) ([]Row, []error) {
-	reqs := [][]QueryReq{make([]QueryReq, len(idxs)), make([]QueryReq, len(idxs))}
+	return c.ReadBatchAtLeast(idxs, len(idxs))
+}
+
+// TODO: need to bring back KP's trick since as is, this does not send the query
+// in the bad coin-flip case, thus leaking.
+func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
+	reqs := [][]QueryReq{make([]QueryReq, n), make([]QueryReq, n)}
 	querySetIdxs := make([]int, len(idxs))
 
+	nOk := 0
 	for pos, i := range idxs {
 		var queryReqs []QueryReq
 		queryReqs, querySetIdxs[pos] = c.query(i)
-		reqs[Left][pos] = queryReqs[Left]
-		reqs[Right][pos] = queryReqs[Right]
+		if querySetIdxs[pos] >= 0 {
+			reqs[Left][nOk] = queryReqs[Left]
+			reqs[Right][nOk] = queryReqs[Right]
+			nOk++
+		}
+		// Only issue first n non-failing queries
+		if nOk == n {
+			break
+		}
 	}
 
-	resps := [][]QueryResp{make([]QueryResp, len(idxs)), make([]QueryResp, len(idxs))}
+	resps := [][]QueryResp{make([]QueryResp, n), make([]QueryResp, n)}
 	err := make([]error, 2)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -328,8 +348,15 @@ func (c *pirClientPunc) ReadBatch(idxs []int) ([]Row, []error) {
 		return nil, errs
 	}
 	vals := make([]Row, len(idxs))
+	nOk = 0
 	for i := 0; i < len(idxs); i++ {
-		vals[i], errs[i] = c.reconstruct(querySetIdxs[i], []*QueryResp{&resps[Left][i], &resps[Right][i]})
+		if querySetIdxs[i] >= 0 && nOk < n {
+			vals[i], errs[i] = c.reconstruct(querySetIdxs[i], []*QueryResp{&resps[Left][nOk], &resps[Right][nOk]})
+			nOk++
+		} else {
+			vals[i] = nil
+			errs[i] = errors.New("couldn't find element in collection")
+		}
 	}
 	return vals, errs
 }

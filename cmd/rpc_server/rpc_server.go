@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Some easy to test initial values.
-	var db = make([]b.Row, b.CHUNK_SIZE)
+	var db = make([]b.Row, b.DEFAULT_CHUNK_SIZE)
 	for i := 0; i < len(db); i++ {
 		db[i] = b.Row{byte('A' + i), byte('A' + i), byte('A' + i)}
 	}

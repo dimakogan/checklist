@@ -51,9 +51,9 @@ func TestPIRPunc(t *testing.T) {
 func TestPIRPuncErasure(t *testing.T) {
 	db := MakeDB(256, 100)
 
-	server, err := NewPirServerErasure(RandSource(), db)
+	server, err := NewPirServerErasure(RandSource(), db, DEFAULT_CHUNK_SIZE)
 	assert.NilError(t, err)
-	client, err := NewPirClientErasure(RandSource(), len(db), [2]PuncPirServer{server, server})
+	client, err := NewPirClientErasure(RandSource(), len(db), DEFAULT_CHUNK_SIZE, [2]PuncPirServer{server, server})
 	assert.NilError(t, err)
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -72,11 +72,11 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, err)
 
 	var none int
-	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{CHUNK_SIZE, 4}, &none))
+	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{1000, 4}, &none))
 	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
 
 	proxy := NewPirRpcProxy(remote)
-	client, err := NewPirClientErasure(RandSource(), CHUNK_SIZE, [2]PuncPirServer{proxy, proxy})
+	client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PuncPirServer{proxy, proxy})
 
 	err = client.Init()
 	assert.NilError(t, err)
@@ -129,12 +129,13 @@ func dbDimensions() []DBDimensions {
 			/*1<<16, 1<<17,1 << 18 , 1<<19, 1 << 20 , 1<<21, 1<<22, 1<<23, 1<<24, 1<<25*/
 			//1 << 16, 1 << 17, 1 << 18, 1 << 19, 1 << 20, 1 << 21, 1 << 22, 1 << 23,
 			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24, 1 << 26, 1 << 28,
-			1 << 16,
+			1 << 18,
+			// 1 << 16,
 		}
 
 	dbRecordSize := []int{2048}
 	// Set maximum on total size to avoid really large DBs.
-	maxDBSizeBytes := int64(2 * 1024 * 1024 * 1024)
+	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
 
 	for _, n := range numDBRecords {
 		for _, recSize := range dbRecordSize {
@@ -146,6 +147,8 @@ func dbDimensions() []DBDimensions {
 	}
 	return dims
 }
+
+var chunkSizes = []int{3, 4, 6, 8, 10, 12, 14, 16, 18, 20}
 
 type benchmarkServer struct {
 	PuncPirServer
@@ -208,36 +211,43 @@ func BenchmarkPirPunc(b *testing.B) {
 	}
 }
 
-func BenchmarkPirErasure(b *testing.B) {
+func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
 	randSource := rand.New(rand.NewSource(12345))
+	db := MakeDBWithDimensions(dim)
+
+	server, err := NewPirServerErasure(randSource, db, chunkSize)
+	assert.NilError(b, err)
+
+	var mutex sync.Mutex
+	leftServer := benchmarkServer{
+		PuncPirServer: server,
+		b:             b,
+		name:          fmt.Sprintf("Left/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
+		mutex:         &mutex,
+	}
+
+	rightServer := benchmarkServer{
+		PuncPirServer: server,
+		b:             b,
+		name:          fmt.Sprintf("Right/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
+		mutex:         &mutex,
+	}
+
+	client, err := NewPirClientErasure(randSource, dim.NumRecords, chunkSize, [2]PuncPirServer{&leftServer, &rightServer})
+	err = client.Init()
+	assert.NilError(b, err)
+
+	val, err := client.Read(5)
+	assert.NilError(b, err)
+	assert.DeepEqual(b, val, db[5])
+
+}
+
+func BenchmarkPirErasure(b *testing.B) {
 	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
-
-		server, err := NewPirServerErasure(randSource, db)
-		assert.NilError(b, err)
-
-		var mutex sync.Mutex
-		leftServer := benchmarkServer{
-			PuncPirServer: server,
-			b:             b,
-			name:          fmt.Sprintf("Left/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			mutex:         &mutex,
+		for _, cs := range chunkSizes {
+			runPirErasure(b, dim, cs)
 		}
-
-		rightServer := benchmarkServer{
-			PuncPirServer: server,
-			b:             b,
-			name:          fmt.Sprintf("Right/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			mutex:         &mutex,
-		}
-
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{&leftServer, &rightServer})
-		err = client.Init()
-		assert.NilError(b, err)
-
-		val, err := client.Read(5)
-		assert.NilError(b, err)
-		assert.DeepEqual(b, val, db[5])
 	}
 }
 
@@ -268,7 +278,7 @@ func BenchmarkPirErasureClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)
-		server, err := NewPirServerErasure(randSource, db)
+		server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
 		assert.NilError(b, err)
 
 		var mutex sync.Mutex
@@ -277,7 +287,7 @@ func BenchmarkPirErasureClient(b *testing.B) {
 			mutex:         &mutex,
 		}
 
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, [2]PuncPirServer{&pauseServer, &pauseServer})
+		client, err := NewPirClientErasure(randSource, dim.NumRecords, DEFAULT_CHUNK_SIZE, [2]PuncPirServer{&pauseServer, &pauseServer})
 		err = client.Init()
 		assert.NilError(b, client.Init())
 
@@ -315,7 +325,7 @@ func BenchmarkPirErasureRpc(b *testing.B) {
 			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 		}
 
-		client, err := NewPirClientErasure(RandSource(), dim.NumRecords, [2]PuncPirServer{&benchmarkServer, proxy})
+		client, err := NewPirClientErasure(RandSource(), dim.NumRecords, DEFAULT_CHUNK_SIZE, [2]PuncPirServer{&benchmarkServer, proxy})
 		assert.NilError(b, err)
 		err = client.Init()
 		assert.NilError(b, err)
