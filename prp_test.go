@@ -13,15 +13,15 @@ func TestPRP(t *testing.T) {
 	assert.NilError(t, err)
 
 	domainSize := 1 << blockLenBits
-	outs := make(map[uint32]bool)
+	outs := make(map[int]bool)
 
 	for i := 0; i < domainSize; i++ {
-		val := prp.Eval(uint32(i))
-		assert.Equal(t, prp.Invert(val), uint32(i))
+		val := prp.Eval(i)
+		assert.Equal(t, prp.Invert(val), i)
 		outs[val] = true
 	}
 	assert.Equal(t, len(outs), domainSize)
 	for i := 0; i < domainSize; i++ {
-		assert.Check(t, outs[uint32(i)])
+		assert.Check(t, outs[i])
 	}
 }

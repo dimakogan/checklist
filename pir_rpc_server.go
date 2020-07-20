@@ -6,7 +6,7 @@ import (
 )
 
 type PirRpcServer struct {
-	PuncPirServer
+	PirServer
 	randSource *rand.Rand
 	db         []Row
 	server     *rpc.Server
@@ -19,7 +19,7 @@ func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
 		return nil, err
 	}
 	driver := PirRpcServer{
-		PuncPirServer: server,
+		PirServer: server,
 		randSource:    randSource,
 		db:            db,
 	}
@@ -28,13 +28,13 @@ func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
 
 func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err error) {
 	driver.db = MakeDBWithDimensions(dim)
-	driver.PuncPirServer, err = NewPirServerErasure(driver.randSource, driver.db, DEFAULT_CHUNK_SIZE)
+	driver.PirServer, err = NewPirServerErasure(driver.randSource, driver.db, DEFAULT_CHUNK_SIZE)
 	return err
 }
 
 func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) (err error) {
 	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
 	driver.db[rec.Index] = rec.Value
-	driver.PuncPirServer, err = NewPirServerErasure(driver.randSource, driver.db, DEFAULT_CHUNK_SIZE)
+	driver.PirServer, err = NewPirServerErasure(driver.randSource, driver.db, DEFAULT_CHUNK_SIZE)
 	return err
 }

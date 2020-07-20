@@ -144,7 +144,7 @@ func (key *SetKey) Eval() Set {
 	out := make(Set, key.SetSize)
 
 	for i := 0; i < key.SetSize; i++ {
-		elem := key.prp.Eval(uint32(i))
+		elem := key.prp.Eval(i)
 		out[MathMod(int(elem)+key.Delta, key.UnivSize)] = Present_Yes
 	}
 
@@ -170,5 +170,5 @@ func (key *SetKey) FindShift(idx int, deltas []int) int {
 }
 
 func (key *SetKey) InSet(idx int) bool {
-	return key.prp.Invert(uint32(MathMod(idx-key.Delta, key.UnivSize))) < uint32(key.SetSize)
+	return key.prp.Invert(MathMod(idx-key.Delta, key.UnivSize)) < key.SetSize
 }

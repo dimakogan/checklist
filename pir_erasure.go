@@ -109,7 +109,7 @@ func encodeDatabase(data []Row, chunkSize int, allowLoss int) ([]Row, error) {
 	return encoded, nil
 }
 
-func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PuncPirServer, error) {
+func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PirServer, error) {
 	allowLoss := computeAllowedLoss(chunkSize, NUM_HINTS_MULTIPLIER)
 	encdata, err := encodeDatabase(data, chunkSize, allowLoss)
 	if err != nil {
@@ -120,7 +120,7 @@ func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PuncPirS
 	return pirServerErasure{NewPirServerPunc(source, encdata)}, nil
 }
 
-func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int, servers [2]PuncPirServer) (*pirClientErasure, error) {
+func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int, servers [2]PirServer) (*pirClientErasure, error) {
 	allowLoss := computeAllowedLoss(chunkSize, NUM_HINTS_MULTIPLIER)
 	nEnc := nEncodedRows(nRows, chunkSize, allowLoss)
 	rs, err := reedsolomon.New(chunkSize, allowLoss)

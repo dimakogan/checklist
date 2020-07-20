@@ -81,10 +81,10 @@ func NewPRP(key []byte, blockLenBits int) (*PRP, error) {
 	return &prp, nil
 }
 
-func (prp *PRP) Eval(in uint32) uint32 {
+func (prp *PRP) Eval(in int) int {
 	// Parse input to binary
-	binary.LittleEndian.PutUint32(prp.u, in&((1<<(prp.blockLenBits/2))-1))
-	binary.LittleEndian.PutUint32(prp.v, in>>(prp.blockLenBits/2))
+	binary.LittleEndian.PutUint32(prp.u, uint32(in)&((1<<(prp.blockLenBits/2))-1))
+	binary.LittleEndian.PutUint32(prp.v, uint32(in)>>(prp.blockLenBits/2))
 
 	prp.prf(prp.round1, prp.w, prp.v)
 	fastxor.Bytes(prp.w, prp.w, prp.u)
@@ -95,13 +95,13 @@ func (prp *PRP) Eval(in uint32) uint32 {
 	prp.prf(prp.round3, prp.y, prp.x)
 	fastxor.Bytes(prp.y, prp.y, prp.w)
 
-	return binary.LittleEndian.Uint32(prp.x) + binary.LittleEndian.Uint32(prp.y)<<(prp.blockLenBits/2)
+	return int(binary.LittleEndian.Uint32(prp.x) + binary.LittleEndian.Uint32(prp.y)<<(prp.blockLenBits/2))
 }
 
-func (prp *PRP) Invert(in uint32) uint32 {
+func (prp *PRP) Invert(in int) int {
 	// Parse input to binary
-	binary.LittleEndian.PutUint32(prp.x, in&((1<<(prp.blockLenBits/2))-1))
-	binary.LittleEndian.PutUint32(prp.y, in>>(prp.blockLenBits/2))
+	binary.LittleEndian.PutUint32(prp.x, uint32(in)&((1<<(prp.blockLenBits/2))-1))
+	binary.LittleEndian.PutUint32(prp.y, uint32(in)>>(prp.blockLenBits/2))
 
 	prp.prf(prp.round3, prp.w, prp.x)
 	fastxor.Bytes(prp.w, prp.w, prp.y)
@@ -112,7 +112,7 @@ func (prp *PRP) Invert(in uint32) uint32 {
 	prp.prf(prp.round1, prp.u, prp.v)
 	fastxor.Bytes(prp.u, prp.u, prp.w)
 
-	return binary.LittleEndian.Uint32(prp.u) + binary.LittleEndian.Uint32(prp.v)<<(prp.blockLenBits/2)
+	return int(binary.LittleEndian.Uint32(prp.u) + binary.LittleEndian.Uint32(prp.v)<<(prp.blockLenBits/2))
 }
 
 func (prp *PRP) prf(c cipher.Block, dst []byte, src []byte) {

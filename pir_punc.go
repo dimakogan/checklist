@@ -25,7 +25,7 @@ type pirClientPunc struct {
 
 	randSource *rand.Rand
 
-	servers [2]PuncPirServer
+	servers [2]PirServer
 }
 
 type pirServerPunc struct {
@@ -40,7 +40,7 @@ type pirServerPunc struct {
 const Left int = 0
 const Right int = 1
 
-type PuncPirServer interface {
+type PirServer interface {
 	Hint(req *HintReq, resp *HintResp) error
 	AnswerBatch(q []QueryReq, resp *[]QueryResp) error
 }
@@ -77,26 +77,10 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
 }
 
 func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
-	if len(data) < 1 {
-		panic("Database must contain at least one row")
-	}
-
-	rowLen := len(data[0])
-	flatDb := make([]byte, rowLen*len(data))
-
-	for i, v := range data {
-		if len(v) != rowLen {
-			fmt.Printf("Got row[%v] %v %v\n", i, len(v), rowLen)
-			panic("Database rows must all be of the same length")
-		}
-
-		copy(flatDb[i*rowLen:], v[:])
-	}
-
 	return pirServerPunc{
-		rowLen:     rowLen,
+		rowLen:     len(data[0]),
 		nRows:      len(data),
-		flatDb:     flatDb,
+		flatDb:     flattenDb(data),
 		randSource: source,
 	}
 }
@@ -117,14 +101,13 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 
 	totalRows := 0
 
-	bytes := 0
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 		set := req.Sets[j].Eval()
 		totalRows += len(set)
-		bytes = bytes + s.xorRowsFlatSlice(hints[j], set)
+		xorRowsFlatSlice(s.flatDb, s.rowLen, set, hints[j])
 	}
-	//fmt.Printf("nHints: %d, total Rows: %d, bytes: %d\n", nHints, totalRows, bytes)
+	//fmt.Printf("nHints: %d, total Rows: %d \n", nHints, totalRows)
 	resp.Hints = hints
 
 	// auxSet := req.AuxRecordsSet.Eval()
@@ -158,7 +141,7 @@ func (s pirServerPunc) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error
 	return nil
 }
 
-func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PuncPirServer) *pirClientPunc {
+func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirClientPunc {
 	// TODO: Maybe better to just do this with integer ops.
 	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))

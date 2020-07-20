@@ -34,7 +34,7 @@ func main() {
 
 	proxyLeft := b.NewPirRpcProxy(remote)
 	proxyRight := b.NewPirRpcProxy(remote)
-	client := b.NewPirClientPunc(b.RandSource(), numRecords, [2]b.PuncPirServer{proxyLeft, proxyRight})
+	client := b.NewPirClientPunc(b.RandSource(), numRecords, [2]b.PirServer{proxyLeft, proxyRight})
 
 	val, err := client.Read(idx)
 	if err != nil {
