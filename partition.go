@@ -44,14 +44,15 @@ func NewPartitionFromKey(key []byte, univSize, numSets int) (*partition, error) 
 	}, nil
 }
 
-func (p *partition) Find(i int) int {
-	return p.findPos(i) / p.setSize
+func (p *partition) Find(i int) (setNum int, posInSet int) {
+	pos := p.findPos(i)
+	return (pos / p.setSize), (pos % p.setSize)
 }
 
 func (p *partition) Set(j int) Set {
-	set := make(Set)
+	set := make(Set, p.setSize)
 	for i := 0; i < p.setSize; i++ {
-		set[p.elemAt(j*p.setSize+i)] = Present_Yes
+		set[i] = p.elemAt(j*p.setSize + i)
 	}
 	return set
 }

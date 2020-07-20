@@ -10,11 +10,7 @@ type Present int
 
 const Present_Yes Present = 0
 
-// This represents a set. If if key `k` is in the map,
-// it means that `k` is in the set. We could use `bool` types
-// here instead, but then a key can be defined and its value
-// is `false`, which is confusing.
-type Set map[int]Present
+type Set []int
 
 type SetKey struct {
 	UnivSize int
@@ -36,23 +32,6 @@ func MathMod(x int, mod int) int {
 	}
 
 	return out
-}
-
-func (s Set) RandomMember(src *rand.Rand) int {
-	keys := make([]int, len(s))
-	i := 0
-	for k := range s {
-		keys[i] = k
-		i += 1
-	}
-
-	choose := src.Intn(len(keys))
-	return keys[choose]
-}
-
-func (s Set) Has(elm int) bool {
-	_, okay := s[elm]
-	return okay
 }
 
 func SetGen(src *rand.Rand, univSize int, setSize int) *SetKey {
@@ -91,31 +70,22 @@ func SetGenWith(src *rand.Rand, univSize int, setSize int, val int) *SetKey {
 	key.Delta = 0
 
 	// TODO: Implement this more efficiently.
-	set := key.Eval()
-	choose := set.RandomMember(src)
-	key.Delta = MathMod(val-choose, univSize)
+	pos := src.Intn(setSize)
+	key.Delta = MathMod(val-key.elemAt(pos), univSize)
 
 	return key
 }
 
-func (key *SetKey) Shift(amount int) {
-	key.Delta = MathMod(key.Delta+amount, key.UnivSize)
-}
-
 func (key *SetKey) Punc(idx int) Set {
-	set := key.Eval()
+	out := make(Set, 0, key.SetSize-1)
 
-	if _, okay := set[idx]; !okay {
-		panic("Can't puncture at this point!")
+	for i := 0; i < key.SetSize; i++ {
+		elem := key.elemAt(i)
+		if elem != idx {
+			out = append(out, elem)
+		}
 	}
-
-	delete(set, idx)
-
-	return set
-}
-
-func (key *SetKey) RandomMember(randSource *rand.Rand) int {
-	return key.Eval().RandomMember(randSource)
+	return out
 }
 
 // Sample a random element of the set that is not equal to `idx`.
@@ -125,7 +95,7 @@ func (key *SetKey) RandomMemberExcept(randSource *rand.Rand, idx int) int {
 		// pick the random element.
 		//
 		// Use rejection sampling.
-		val := key.Eval().RandomMember(randSource)
+		val := key.elemAt(randSource.Intn(key.SetSize))
 		if val != idx {
 			return val
 		}
@@ -141,34 +111,20 @@ func (key *SetKey) Eval() Set {
 			panic(fmt.Errorf("Failed to create PRP: %s", err))
 		}
 	}
-	out := make(Set, key.SetSize)
+	out := make(Set, 0, key.SetSize)
 
 	for i := 0; i < key.SetSize; i++ {
-		elem := key.prp.Eval(i)
-		out[MathMod(int(elem)+key.Delta, key.UnivSize)] = Present_Yes
+		out = append(out, key.elemAt(i))
 	}
 
 	return out
 }
 
-// Given set key `key`, an element of the universe `idx`, and a slice
-// `deltas` of shift values, find a `j` in `deltas` such that `idx` is
-// in the set `key.Shift(deltas[j])`.
-//
-// Returns -1 if no such value exists.
-func (key *SetKey) FindShift(idx int, deltas []int) int {
-	set := key.Eval()
-
-	for j, delta := range deltas {
-		shift := MathMod(idx-delta, key.UnivSize)
-		if set.Has(shift) {
-			return j
-		}
-	}
-
-	return -1
-}
-
 func (key *SetKey) InSet(idx int) bool {
 	return key.prp.Invert(MathMod(idx-key.Delta, key.UnivSize)) < key.SetSize
+}
+
+func (key *SetKey) elemAt(pos int) int {
+	elem := key.prp.Eval(pos)
+	return MathMod(int(elem)+key.Delta, key.UnivSize)
 }

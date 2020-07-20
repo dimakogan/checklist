@@ -36,6 +36,9 @@ type QueryReq struct {
 type QueryResp struct {
 	Answer Row
 
+	// For PirPerm trial
+	Values []Row
+
 	// Debug & testing
 	Val Row
 }
@@ -61,7 +64,7 @@ func flattenDb(data []Row) []byte {
 
 func xorRowsFlatSlice(flatDb []byte, rowLen int, rows Set, out []byte) {
 	nRows := len(flatDb) / rowLen
-	for row := range rows {
+	for _, row := range rows {
 		if row >= nRows {
 			continue
 		}

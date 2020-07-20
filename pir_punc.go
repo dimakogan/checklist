@@ -60,7 +60,7 @@ func xorInto(a []byte, b []byte) {
 func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
 	bytes := 0
 	//	setS := setToSlice(set)
-	for row, _ := range rows {
+	for _, row := range rows {
 		if row >= s.nRows {
 			continue
 		}
@@ -88,7 +88,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
 func setToSlice(set Set) []int {
 	out := make([]int, len(set))
 	i := 0
-	for k := range set {
+	for _, k := range set {
 		out[i] = k
 		i += 1
 	}
@@ -227,19 +227,18 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, int) {
 }
 
 func (c *pirClientPunc) auxSetWith(i int) Set {
-	puncSet := make(Set)
+	puncSet := make(Set, 0, len(c.auxRecords))
 	for pos, _ := range c.auxRecords {
-		puncSet[pos] = Present_Yes
+		puncSet = append(puncSet, pos)
 	}
-	if _, present := puncSet[i]; !present {
-		var remove int
-		remove = puncSet.RandomMember(c.randSource)
-		delete(puncSet, remove)
-		delete(c.auxRecords, remove)
-		puncSet[i] = Present_Yes
+	if _, present := c.auxRecords[i]; !present {
+		replace := c.randSource.Intn(len(puncSet))
+		delete(c.auxRecords, puncSet[replace])
+		puncSet[replace] = i
 	} else {
 		delete(c.auxRecords, i)
 	}
+
 	return puncSet
 }
 
@@ -353,7 +352,7 @@ func (c *pirClientPunc) NumCovered() int {
 	covered := make(map[int]bool)
 	for _, key := range c.keys {
 		set := key.Eval()
-		for elem := range set {
+		for _, elem := range set {
 			covered[elem] = true
 		}
 	}

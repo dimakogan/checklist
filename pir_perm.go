@@ -64,7 +64,7 @@ func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
 	}
 
 	for i := 0; i < s.nRows; i++ {
-		j := partition.Find(i)
+		j, _ := partition.Find(i)
 		xorInto(hints[j], s.flatDb[s.rowLen*i:s.rowLen*(i+1)])
 	}
 	resp.Hints = hints
@@ -73,8 +73,14 @@ func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
 }
 
 func (s pirPermServer) answer(q QueryReq, resp *QueryResp) error {
-	resp.Answer = make(Row, s.rowLen)
-	xorRowsFlatSlice(s.flatDb, s.rowLen, q.PuncturedSet, resp.Answer)
+	resp.Values = make([]Row, 0, len(q.PuncturedSet))
+	for _, row := range q.PuncturedSet {
+		if row < s.nRows {
+			resp.Values = append(resp.Values, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
+		} else {
+			resp.Values = append(resp.Values, nil)
+		}
+	}
 	return nil
 }
 
@@ -125,29 +131,41 @@ func (c *pirPermClient) Read(i int) (Row, error) {
 }
 
 type qCtx struct {
-	i      int
-	setIdx int
-	decoy  int
+	i        int
+	setIdx   int
+	posInSet int
+	decoy    int
 }
 
 func (c *pirPermClient) query(i int) (QueryReq, qCtx) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
-	setNumber := c.partition.Find(i)
-	puncSet := c.partition.Set(setNumber)
-	delete(puncSet, i)
+	setNumber, posInSet := c.partition.Find(i)
 	decoy := c.randSource.Intn(c.nRows)
 	if decoy != i {
 		c.partition.Swap(i, decoy)
 	}
+	puncSet := c.partition.Set(setNumber)
 
-	return QueryReq{PuncturedSet: puncSet}, qCtx{i, setNumber, decoy}
+	return QueryReq{PuncturedSet: puncSet}, qCtx{i, setNumber, posInSet, decoy}
 }
 
 func (c *pirPermClient) reconstruct(ctx qCtx, resp QueryResp) (Row, error) {
-	out := make(Row, len(c.hints[0]))
-	xorInto(out, c.hints[ctx.setIdx])
-	xorInto(out, resp.Answer)
-	return out, nil
+	if ctx.decoy == ctx.i {
+		return resp.Values[ctx.posInSet], nil
+	}
+	decoyVal := resp.Values[ctx.posInSet]
+	iVal := make(Row, len(c.hints[ctx.setIdx]))
+	xorInto(iVal, c.hints[ctx.setIdx])
+	for pos, val := range resp.Values {
+		if pos != ctx.posInSet {
+			xorInto(iVal, val)
+		}
+	}
+	newSetNumber, _ := c.partition.Find(ctx.i)
+	xorInto(c.hints[newSetNumber], decoyVal)
+	xorInto(c.hints[newSetNumber], iVal)
+
+	return iVal, nil
 }
