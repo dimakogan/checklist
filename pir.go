@@ -1,6 +1,9 @@
 package boosted
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // One database row.
 type Row []byte
@@ -11,8 +14,8 @@ type HintReq struct {
 	AuxRecordsSet *SetKey
 
 	// For PirPerm trial
-	NumHints int
-	PrpKey   []byte
+	NumHints     int
+	PartitionKey []byte
 }
 
 //HintResp is a response to a hint request.
@@ -64,4 +67,9 @@ func xorRowsFlatSlice(flatDb []byte, rowLen int, rows Set, out []byte) {
 		}
 		xorInto(out, flatDb[rowLen*row:rowLen*(row+1)])
 	}
+}
+
+func numRecordsToUnivSizeBits(nRecords int) int {
+	// Round univsize to next power of 4
+	return ((int(math.Log2(float64(nRecords)))-1)/2 + 1) * 2
 }

@@ -11,11 +11,12 @@ type pirPermClient struct {
 	setSize int
 	nHints  int
 
+	partition *partition
+
 	hints []Row
 
 	randSource *rand.Rand
 
-	prp     *PRP
 	servers [2]PirServer
 }
 
@@ -24,40 +25,38 @@ type pirPermServer struct {
 	rowLen int
 
 	flatDb []byte
-
-	randSource *rand.Rand
 }
 
 func NewPirPermClient(src *rand.Rand, nRows int, servers [2]PirServer) *pirPermClient {
 	setSize := int(math.Sqrt(float64(nRows)))
+	nHints := (nRows-1)/setSize + 1
+	partition, err := NewPartition(src, nRows, nHints)
+	if err != nil {
+		panic(fmt.Sprintf("Client failed to create partition: %s", err))
+	}
 	return &pirPermClient{
 		nRows:      nRows,
 		setSize:    setSize,
-		nHints:     (nRows-1)/setSize + 1,
+		nHints:     nHints,
+		partition:  partition,
 		randSource: src,
 		servers:    servers,
 	}
 }
 
-func NewPirPermServer(source *rand.Rand, data []Row) pirPermServer {
+func NewPirPermServer(data []Row) pirPermServer {
 	return pirPermServer{
-		rowLen:     len(data[0]),
-		nRows:      len(data),
-		flatDb:     flattenDb(data),
-		randSource: source,
+		rowLen: len(data[0]),
+		nRows:  len(data),
+		flatDb: flattenDb(data),
 	}
-}
-
-func numRecordsToUnivSizeBits(nRecords int) int {
-	// Round univsize to next power of 4
-	return ((int(math.Log2(float64(nRecords)))-1)/2 + 1) * 2
 }
 
 func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
 	hints := make([]Row, req.NumHints)
-	prp, err := NewPRP(req.PrpKey, numRecordsToUnivSizeBits(s.nRows))
+	partition, err := NewPartitionFromKey(req.PartitionKey, s.nRows, req.NumHints)
 	if err != nil {
-		panic(fmt.Errorf("Failed to create PRP: %s", err))
+		return fmt.Errorf("Server failed to create partition: %s", err)
 	}
 
 	for j := range hints {
@@ -65,7 +64,7 @@ func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
 	}
 
 	for i := 0; i < s.nRows; i++ {
-		j := prp.Invert(i) / req.NumHints
+		j := partition.Find(i)
 		xorInto(hints[j], s.flatDb[s.rowLen*i:s.rowLen*(i+1)])
 	}
 	resp.Hints = hints
@@ -104,20 +103,9 @@ func (c *pirPermClient) Init() error {
 }
 
 func (c *pirPermClient) requestHint() (*HintReq, error) {
-	univSizeBits := numRecordsToUnivSizeBits(c.nRows)
-	key := make([]byte, 16)
-	if l, err := c.randSource.Read(key); l != len(key) || err != nil {
-		panic(err)
-	}
-	var err error
-	c.prp, err = NewPRP(key, univSizeBits)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create PRP: %s", err)
-	}
-
 	return &HintReq{
-		NumHints: c.nHints,
-		PrpKey:   key,
+		NumHints:     c.nHints,
+		PartitionKey: c.partition.Key(),
 	}, nil
 }
 
@@ -140,23 +128,16 @@ func (c *pirPermClient) query(i int) QueryReq {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
-	iPos := c.prp.Invert(i)
-	setNumber := iPos / c.setSize
-	puncSet := make(Set, c.setSize-1)
-	for j := 0; j < c.setSize; j++ {
-		pos := c.setSize*setNumber + j
-		if pos != iPos {
-			puncSet[c.prp.Eval(pos)] = Present_Yes
-		}
-	}
+	setNumber := c.partition.Find(i)
+	puncSet := c.partition.Set(setNumber)
+	delete(puncSet, i)
 
 	return QueryReq{PuncturedSet: puncSet}
 }
 
 func (c *pirPermClient) reconstruct(i int, resp QueryResp) (Row, error) {
 	out := make(Row, len(c.hints[0]))
-	iPos := c.prp.Invert(i)
-	setNumber := iPos / c.setSize
+	setNumber := c.partition.Find(i)
 	xorInto(out, c.hints[setNumber])
 	xorInto(out, resp.Answer)
 	return out, nil

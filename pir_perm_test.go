@@ -9,8 +9,8 @@ import (
 func TestPIRPerm(t *testing.T) {
 	db := MakeDB(256, 100)
 
-	leftServer := NewPirPermServer(RandSource(), db)
-	rightServer := NewPirPermServer(RandSource(), db)
+	leftServer := NewPirPermServer(db)
+	rightServer := NewPirPermServer(db)
 	client := NewPirPermClient(
 		RandSource(),
 		len(db),
