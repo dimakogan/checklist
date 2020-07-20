@@ -129,11 +129,11 @@ func dbDimensions() []DBDimensions {
 			/*1<<16, 1<<17,1 << 18 , 1<<19, 1 << 20 , 1<<21, 1<<22, 1<<23, 1<<24, 1<<25*/
 			//1 << 16, 1 << 17, 1 << 18, 1 << 19, 1 << 20, 1 << 21, 1 << 22, 1 << 23,
 			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24, 1 << 26, 1 << 28,
+			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24,
 			1 << 18,
-			// 1 << 16,
 		}
 
-	dbRecordSize := []int{2048}
+	dbRecordSize := []int{32}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
 
@@ -148,7 +148,7 @@ func dbDimensions() []DBDimensions {
 	return dims
 }
 
-var chunkSizes = []int{3, 4, 6, 8, 10, 12, 14, 16, 18, 20}
+var chunkSizes = []int{4}
 
 type benchmarkServer struct {
 	PirServer
@@ -194,9 +194,9 @@ func BenchmarkPirPunc(b *testing.B) {
 		var mutex sync.Mutex
 		benchmarkServer := benchmarkServer{
 			PirServer: server,
-			b:             b,
-			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			mutex:         &mutex,
+			b:         b,
+			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:     &mutex,
 		}
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, &benchmarkServer})
@@ -221,16 +221,16 @@ func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
 	var mutex sync.Mutex
 	leftServer := benchmarkServer{
 		PirServer: server,
-		b:             b,
-		name:          fmt.Sprintf("Left/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
-		mutex:         &mutex,
+		b:         b,
+		name:      fmt.Sprintf("Left/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
+		mutex:     &mutex,
 	}
 
 	rightServer := benchmarkServer{
 		PirServer: server,
-		b:             b,
-		name:          fmt.Sprintf("Right/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
-		mutex:         &mutex,
+		b:         b,
+		name:      fmt.Sprintf("Right/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
+		mutex:     &mutex,
 	}
 
 	client, err := NewPirClientErasure(randSource, dim.NumRecords, chunkSize, [2]PirServer{&leftServer, &rightServer})
@@ -284,7 +284,7 @@ func BenchmarkPirErasureClient(b *testing.B) {
 		var mutex sync.Mutex
 		pauseServer := pauseTimingServer{
 			PirServer: server,
-			mutex:         &mutex,
+			mutex:     &mutex,
 		}
 
 		client, err := NewPirClientErasure(randSource, dim.NumRecords, DEFAULT_CHUNK_SIZE, [2]PirServer{&pauseServer, &pauseServer})
@@ -321,8 +321,8 @@ func BenchmarkPirErasureRpc(b *testing.B) {
 		proxy := NewPirRpcProxy(remote)
 		benchmarkServer := benchmarkServer{
 			PirServer: proxy,
-			b:             b,
-			name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			b:         b,
+			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 		}
 
 		client, err := NewPirClientErasure(RandSource(), dim.NumRecords, DEFAULT_CHUNK_SIZE, [2]PirServer{&benchmarkServer, proxy})
@@ -343,8 +343,8 @@ func BenchmarkHintOnce(b *testing.B) {
 	server := NewPirServerPunc(randSource, db)
 	benchmarkServer := benchmarkServer{
 		PirServer: server,
-		b:             b,
-		name:          fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+		b:         b,
+		name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 	}
 
 	client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, server})

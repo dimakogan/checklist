@@ -12,6 +12,7 @@ in_name = sys.argv[2]
 
 fig, ax = plt.subplots()
 
+ax.set_xscale('log')
 ax.set_yscale('log')
 
 ax.tick_params('x', pad=0.5)
