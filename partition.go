@@ -45,17 +45,42 @@ func NewPartitionFromKey(key []byte, univSize, numSets int) (*partition, error) 
 }
 
 func (p *partition) Find(i int) int {
-	return p.prp.Invert(i) / p.setSize
+	return p.findPos(i) / p.setSize
 }
 
 func (p *partition) Set(j int) Set {
 	set := make(Set)
 	for i := 0; i < p.setSize; i++ {
-		set[p.prp.Eval(j*p.setSize+i)] = Present_Yes
+		set[p.elemAt(j*p.setSize+i)] = Present_Yes
 	}
 	return set
 }
 
 func (p *partition) Key() []byte {
 	return p.key
+}
+
+func (p *partition) elemAt(pos int) int {
+	if i, ok := p.fwd[pos]; ok {
+		return i
+	} else {
+		return p.prp.Eval(pos)
+	}
+}
+
+func (p *partition) findPos(i int) int {
+	if pos, ok := p.back[i]; ok {
+		return pos
+	} else {
+		return p.prp.Invert(i)
+	}
+}
+
+func (p *partition) Swap(i, j int) {
+	iPos := p.findPos(i)
+	jPos := p.findPos(j)
+	p.fwd[iPos] = j
+	p.fwd[jPos] = i
+	p.back[i] = jPos
+	p.back[j] = iPos
 }

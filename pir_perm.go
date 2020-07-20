@@ -115,30 +115,39 @@ func (c *pirPermClient) initHint(resp *HintResp) error {
 }
 
 func (c *pirPermClient) Read(i int) (Row, error) {
-	queryReq := c.query(i)
+	queryReq, ctx := c.query(i)
 	responses := make([]QueryResp, 1)
 	err := c.servers[Right].AnswerBatch([]QueryReq{queryReq}, &responses)
 	if err != nil {
 		return nil, err
 	}
-	return c.reconstruct(i, responses[0])
+	return c.reconstruct(ctx, responses[0])
 }
 
-func (c *pirPermClient) query(i int) QueryReq {
+type qCtx struct {
+	i      int
+	setIdx int
+	decoy  int
+}
+
+func (c *pirPermClient) query(i int) (QueryReq, qCtx) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
 	setNumber := c.partition.Find(i)
 	puncSet := c.partition.Set(setNumber)
 	delete(puncSet, i)
+	decoy := c.randSource.Intn(c.nRows)
+	if decoy != i {
+		c.partition.Swap(i, decoy)
+	}
 
-	return QueryReq{PuncturedSet: puncSet}
+	return QueryReq{PuncturedSet: puncSet}, qCtx{i, setNumber, decoy}
 }
 
-func (c *pirPermClient) reconstruct(i int, resp QueryResp) (Row, error) {
+func (c *pirPermClient) reconstruct(ctx qCtx, resp QueryResp) (Row, error) {
 	out := make(Row, len(c.hints[0]))
-	setNumber := c.partition.Find(i)
-	xorInto(out, c.hints[setNumber])
+	xorInto(out, c.hints[ctx.setIdx])
 	xorInto(out, resp.Answer)
 	return out, nil
 }
