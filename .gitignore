@@ -23,3 +23,4 @@ compare/fig/*.pdf
 compare/fig/__pycache__/
 /*.pdf
 /*.csv
+/*.txt
