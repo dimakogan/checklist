@@ -24,3 +24,4 @@ compare/fig/__pycache__/
 /*.pdf
 /*.csv
 /*.txt
+/.ipynb_checkpoints/
