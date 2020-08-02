@@ -24,18 +24,19 @@ func TestMathMod(t *testing.T) {
 func checkSet(t *testing.T, set Set, univSize int, setSize int) {
 	assert.Equal(t, len(set), setSize)
 
-	for v := range set {
+	for _, v := range set {
 		assert.Assert(t, v < univSize && v >= 0)
 	}
 }
 
-func testPuncSetGenOnce(t *testing.T, univSize int, setSize int) {
-	key := SetGen(RandSource(), univSize, setSize)
+func testPuncSetGenOnce(t *testing.T, gen SetGenerator, univSize int, setSize int) {
+	key := gen.SetGen(univSize, setSize)
 	set := key.Eval()
 	checkSet(t, set, univSize, setSize)
 }
 
 func TestPuncSetGen(t *testing.T) {
+	gen := NewPrpSetGenerator(RandSource())
 	tests := []struct {
 		UnivSize int
 		setSize  int
@@ -48,18 +49,18 @@ func TestPuncSetGen(t *testing.T) {
 	for _, pair := range tests {
 		t.Run(fmt.Sprintf("%v %v", pair.UnivSize, pair.setSize),
 			func(t *testing.T) {
-				testPuncSetGenOnce(t, pair.UnivSize, pair.setSize)
+				testPuncSetGenOnce(t, gen, pair.UnivSize, pair.setSize)
 			})
 	}
 }
 
-func testPuncSetGenWith(t *testing.T, univSize int, setSize int, with int) {
-	key := SetGenWith(RandSource(), univSize, setSize, with)
+func testPuncSetGenWith(t *testing.T, gen SetGenerator, univSize int, setSize int, with int) {
+	key := SetGenWith(gen, RandSource(), univSize, setSize, with)
 	set := key.Eval()
 	checkSet(t, set, univSize, setSize)
 
 	inSet := false
-	for v := range set {
+	for _, v := range set {
 		inSet = inSet || (with == v)
 	}
 
@@ -67,6 +68,7 @@ func testPuncSetGenWith(t *testing.T, univSize int, setSize int, with int) {
 }
 
 func TestPuncSetGenWith(t *testing.T) {
+	gen := NewPrpSetGenerator(RandSource())
 	tests := []struct {
 		UnivSize int
 		setSize  int
@@ -80,13 +82,33 @@ func TestPuncSetGenWith(t *testing.T) {
 	for _, pair := range tests {
 		t.Run(fmt.Sprintf("%v %v %v", pair.UnivSize, pair.setSize, pair.with),
 			func(t *testing.T) {
-				testPuncSetGenWith(t, pair.UnivSize, pair.setSize, pair.with)
+				testPuncSetGenWith(t, gen, pair.UnivSize, pair.setSize, pair.with)
 			})
 	}
 }
 
-func testPuncSetGenWithPunc(t *testing.T, univSize int, setSize int, with int) {
-	key := SetGenWith(RandSource(), univSize, setSize, with)
+func testPuncSetPunc(t *testing.T, gen SetGenerator, univSize int, setSize int) {
+	key := gen.SetGen(univSize, setSize)
+	set := key.Eval()
+	checkSet(t, set, univSize, setSize)
+
+	for i := 0; i < set.Size(); i++ {
+		hole := set[i]
+		pset := key.Punc(hole)
+		assert.Equal(t, pset.Size(), setSize-1)
+
+		inSet := false
+		for _, v := range pset.Eval() {
+			inSet = inSet || (hole == v)
+			assert.Assert(t, key.InSet(v), "Element %d in punctured set %v but not in original set %v", v, pset.Eval(), set)
+		}
+
+		assert.Assert(t, !inSet)
+	}
+}
+
+func testPuncSetGenWithPunc(t *testing.T, gen SetGenerator, univSize int, setSize int, with int) {
+	key := SetGenWith(gen, RandSource(), univSize, setSize, with)
 	set := key.Eval()
 	checkSet(t, set, univSize, setSize)
 
@@ -97,17 +119,21 @@ func testPuncSetGenWithPunc(t *testing.T, univSize int, setSize int, with int) {
 	assert.Assert(t, inSet)
 
 	pset := key.Punc(with)
-	assert.Equal(t, len(pset), setSize-1)
+	assert.Equal(t, pset.Size(), setSize-1)
 
 	inSet = false
-	for _, v := range pset {
+	for _, v := range pset.Eval() {
+		//		assert.Equal(t, v, pset.ElemAt(i))
 		inSet = inSet || (with == v)
+		assert.Assert(t, key.InSet(v), "Element %d in punctured set %v, %v but not in original set %v", v, pset.Eval(), pset.Eval(), set)
 	}
 
 	assert.Assert(t, !inSet)
 }
 
 func TestPuncSetGenWithPunc(t *testing.T) {
+	gen := NewPrpSetGenerator(RandSource())
+
 	tests := []struct {
 		UnivSize int
 		setSize  int
@@ -121,7 +147,7 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 	for _, pair := range tests {
 		t.Run(fmt.Sprintf("%v %v %v", pair.UnivSize, pair.setSize, pair.with),
 			func(t *testing.T) {
-				testPuncSetGenWithPunc(t, pair.UnivSize, pair.setSize, pair.with)
+				testPuncSetGenWithPunc(t, gen, pair.UnivSize, pair.setSize, pair.with)
 			})
 	}
 }
@@ -134,23 +160,14 @@ func getElement(set Set) int {
 	return 0
 }
 
-func TestRandomMemberExcept(t *testing.T) {
-	key := SetGen(RandSource(), 1<<16, 2)
-	set := key.Eval()
-
-	v1 := getElement(set)
-	v2 := key.RandomMemberExcept(RandSource(), v1)
-	assert.Assert(t, v1 != v2)
-
-	for _, k := range set {
-		assert.Assert(t, k == v1 || k == v2)
-	}
+func TestPRPInSet(t *testing.T) {
+	testInSet(t, NewPrpSetGenerator(RandSource()))
 }
 
-func TestInSet(t *testing.T) {
+func testInSet(t *testing.T, gen SetGenerator) {
 	univSize := 1 << 4
 	setSize := 4
-	key := SetGen(RandSource(), univSize, setSize)
+	key := gen.SetGen(univSize, setSize)
 	set := key.Eval()
 	setHash := make(map[int]bool)
 	for _, elem := range set {
@@ -158,9 +175,9 @@ func TestInSet(t *testing.T) {
 	}
 	for i := 0; i < univSize; i++ {
 		if _, exists := setHash[i]; exists {
-			assert.Check(t, key.InSet(i))
+			assert.Assert(t, key.InSet(i), "%v should have contained %d", set, i)
 		} else {
-			assert.Check(t, !key.InSet(i))
+			assert.Assert(t, !key.InSet(i), "%v should not contain %d", set, i)
 		}
 	}
 }

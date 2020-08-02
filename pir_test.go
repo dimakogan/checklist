@@ -25,6 +25,8 @@ func TestPIRPunc(t *testing.T) {
 		[2]PirServer{leftServer, rightServer})
 	// Increase number of hints manually to test happy flow
 	client.nHints = 100
+	// Set Puncturable-Set type
+	client.setGen = NewGGMSetGenerator(RandSource())
 
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -130,10 +132,11 @@ func dbDimensions() []DBDimensions {
 			//1 << 16, 1 << 17, 1 << 18, 1 << 19, 1 << 20, 1 << 21, 1 << 22, 1 << 23,
 			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24, 1 << 26, 1 << 28,
 			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24,
-			1 << 18,
+			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
+			1 << 14,
 		}
 
-	dbRecordSize := []int{32}
+	dbRecordSize := []int{2048}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
 
@@ -148,7 +151,7 @@ func dbDimensions() []DBDimensions {
 	return dims
 }
 
-var chunkSizes = []int{4}
+var chunkSizes = []int{DEFAULT_CHUNK_SIZE}
 
 type benchmarkServer struct {
 	PirServer
@@ -201,6 +204,8 @@ func BenchmarkPirPunc(b *testing.B) {
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, &benchmarkServer})
 		client.nHints = client.nHints * 128
+		// Set Puncturable-Set type
+		client.setGen = NewGGMSetGenerator(RandSource())
 
 		err := client.Init()
 		assert.NilError(b, err)

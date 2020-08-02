@@ -24,9 +24,9 @@ type pirServerErasure struct {
 
 var SEC_PARAM = 128
 
-var DEFAULT_CHUNK_SIZE = 10
+var DEFAULT_CHUNK_SIZE = 50
 
-var NUM_HINTS_MULTIPLIER = 10
+var NUM_HINTS_MULTIPLIER = 1
 
 func prAtLeastChernoff(p float64, n int, k int) float64 {
 	a := float64(k)/float64(n) - p

@@ -19,11 +19,12 @@ type pirClientPunc struct {
 	nHints  int
 	setSize int
 
-	keys       []*SetKey
+	keys       []SetKey
 	hints      []Row
 	auxRecords map[int]Row
 
 	randSource *rand.Rand
+	setGen     SetGenerator
 
 	servers [2]PirServer
 }
@@ -123,7 +124,7 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 
 func (s pirServerPunc) answer(q QueryReq, resp *QueryResp) error {
 	resp.Answer = make(Row, s.rowLen)
-	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet)
+	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
 	return nil
 }
 
@@ -131,7 +132,7 @@ func (s pirServerPunc) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error
 	totalRows := 0
 	*resps = make([]QueryResp, len(queries))
 	for i, q := range queries {
-		totalRows += len(q.PuncturedSet)
+		totalRows += q.PuncturedSet.Size()
 		err := s.answer(q, &(*resps)[i])
 		if err != nil {
 			return err
@@ -152,19 +153,20 @@ func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirCl
 		setSize:    setSize,
 		nHints:     nHints,
 		hints:      nil,
+		setGen:     NewPrpSetGenerator(source),
 		randSource: source,
 		servers:    servers,
 	}
 }
 
 func (c *pirClientPunc) requestHint() (*HintReq, error) {
-	c.keys = make([]*SetKey, c.nHints)
+	c.keys = make([]SetKey, c.nHints)
 	for i := 0; i < c.nHints; i++ {
-		c.keys[i] = SetGen(c.randSource, c.nRows, c.setSize)
+		c.keys[i] = c.setGen.SetGen(c.nRows, c.setSize)
 	}
 	return &HintReq{
 		Sets:          c.keys,
-		AuxRecordsSet: SetGen(c.randSource, c.nRows, c.setSize),
+		AuxRecordsSet: c.setGen.SetGen(c.nRows, c.setSize),
 	}, nil
 }
 
@@ -195,25 +197,25 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, int) {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
 
-	var key *SetKey
+	var key SetKey
 	querySetIdx := 0
 	if querySetIdx = c.findIndex(i); querySetIdx >= 0 {
 		key = c.keys[querySetIdx]
 	} else {
-		key = SetGenWith(RandSource(), c.nRows, c.setSize, i)
+		key = SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 	}
 
-	var puncSet, newPuncSet Set
+	var puncSet, newPuncSet SetKey
 	coin := c.bernoulli(c.setSize-1, c.nRows)
 	if coin {
-		newSet := SetGenWith(RandSource(), c.nRows, c.setSize, i)
+		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 		querySetIdx = -1
-		newPuncSet = newSet.Punc(newSet.RandomMemberExcept(c.randSource, i))
+		newPuncSet = newSet.Punc(c.randomMemberExcept(newSet, i))
 		puncSet = newPuncSet
 
 	} else {
 		puncSet = key.Punc(i)
-		newSet := SetGenWith(RandSource(), c.nRows, c.setSize, i)
+		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 		newPuncSet = newSet.Punc(i)
 		if querySetIdx >= 0 {
 			c.keys[querySetIdx] = newSet
@@ -357,4 +359,22 @@ func (c *pirClientPunc) NumCovered() int {
 		}
 	}
 	return len(covered)
+}
+
+// Sample a random element of the set that is not equal to `idx`.
+func (c *pirClientPunc) randomMemberExcept(key SetKey, idx int) int {
+	for {
+		// TODO: If this is slow, use a more clever way to
+		// pick the random element.
+		//
+		// Use rejection sampling.
+		val := key.ElemAt(c.randSource.Intn(c.setSize))
+		if val != idx {
+			return val
+		}
+	}
+}
+
+func (c *pirClientPunc) setGenWith(univSize int, setSize int, val int) SetKey {
+	return nil
 }

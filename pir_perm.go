@@ -73,8 +73,8 @@ func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
 }
 
 func (s pirPermServer) answer(q QueryReq, resp *QueryResp) error {
-	resp.Values = make([]Row, 0, len(q.PuncturedSet))
-	for _, row := range q.PuncturedSet {
+	resp.Values = make([]Row, 0, q.PuncturedSet.Size())
+	for _, row := range q.PuncturedSet.Eval() {
 		if row < s.nRows {
 			resp.Values = append(resp.Values, s.flatDb[s.rowLen*row:s.rowLen*(row+1)])
 		} else {
@@ -148,7 +148,7 @@ func (c *pirPermClient) query(i int) (QueryReq, qCtx) {
 	}
 	puncSet := c.partition.Set(setNumber)
 
-	return QueryReq{PuncturedSet: puncSet}, qCtx{i, setNumber, posInSet, decoy}
+	return QueryReq{PuncturedSet: &puncSet}, qCtx{i, setNumber, posInSet, decoy}
 }
 
 func (c *pirPermClient) reconstruct(ctx qCtx, resp QueryResp) (Row, error) {
