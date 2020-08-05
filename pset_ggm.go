@@ -2,7 +2,9 @@ package boosted
 
 import (
 	"crypto/aes"
+	"crypto/cipher"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"math/rand"
 )
@@ -12,14 +14,21 @@ type psetGGM struct {
 	setSize  int
 	univSize int
 	height   int
+	prg      cipher.Block
 }
 
 type ggmSetGenerator struct {
 	src *rand.Rand
+	prg cipher.Block
 }
 
 func NewGGMSetGenerator(src *rand.Rand) SetGenerator {
-	return &ggmSetGenerator{src: src}
+	prg, err := aes.NewCipher(zeroBlock)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create AES cipher: %s", err))
+	}
+
+	return &ggmSetGenerator{src: src, prg: prg}
 }
 
 func (g *ggmSetGenerator) SetGen(univSize int, setSize int) SetKey {
@@ -29,7 +38,10 @@ func (g *ggmSetGenerator) SetGen(univSize int, setSize int) SetKey {
 		if l, err := g.src.Read(key); l != len(key) || err != nil {
 			panic(err)
 		}
-		set := psetGGM{key: key, setSize: setSize, height: height, univSize: univSize}
+
+		set := psetGGM{key: key, setSize: setSize, height: height, univSize: univSize,
+			prg: g.prg,
+		}
 		elems := set.Eval()
 
 		elemsSet := make(map[int]bool, setSize)
@@ -48,7 +60,7 @@ func (g *ggmSetGenerator) SetGen(univSize int, setSize int) SetKey {
 
 func (set *psetGGM) Eval() Set {
 	elems := make(Set, 1<<set.height)
-	treeEvalAll(set.key, set.height, set.univSize, elems)
+	treeEvalAll(set.prg, set.key, set.height, set.univSize, elems)
 	return elems[0:set.setSize]
 }
 
@@ -70,23 +82,16 @@ func (set *psetGGM) findPos(idx int) int {
 }
 
 func (set *psetGGM) ElemAt(pos int) int {
-	return treeEval(set.key, set.height, set.univSize, pos)
+	return treeEval(set.prg, set.key, set.height, set.univSize, pos)
 }
 
-var zeroBlock = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-var oneBlock = []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-
-func treeEval(key []byte, height int, univSize int, pos int) int {
+func treeEval(prg cipher.Block, key []byte, height int, univSize int, pos int) int {
 	for ; height > 0; height-- {
-		prg, err := aes.NewCipher(key)
-		if err != nil {
-			panic("failed to create AES block cipher")
-		}
 		newKey := make([]byte, len(key))
 		if pos < (1 << (height - 1)) {
-			prg.Encrypt(newKey, zeroBlock)
+			leftChild(prg, key, newKey)
 		} else {
-			prg.Encrypt(newKey, oneBlock)
+			rightChild(prg, key, newKey)
 		}
 		pos &^= (1 << (height - 1))
 		key = newKey
@@ -96,22 +101,32 @@ func treeEval(key []byte, height int, univSize int, pos int) int {
 
 }
 
-func treeEvalAll(key []byte, height int, univSize int, out []int) {
+var zeroBlock = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+func leftChild(prg cipher.Block, seed []byte, out []byte) {
+	prg.Encrypt(out, seed)
+	xorInto(out, seed)
+}
+
+// warning this is not thread safe since it mutates seed throughout (and reverts at the end)
+// to avoid the extra copy
+func rightChild(prg cipher.Block, seed []byte, out []byte) {
+	seed[0] ^= 1
+	prg.Encrypt(out, seed)
+	xorInto(out, seed)
+	seed[0] ^= 1
+}
+
+func treeEvalAll(prg cipher.Block, key []byte, height int, univSize int, out []int) {
 	if height == 0 {
 		out[0] = MathMod(int(binary.LittleEndian.Uint32(key)), univSize)
 		return
 	}
-
-	prg, err := aes.NewCipher(key)
-	if err != nil {
-		panic("failed to create AES block cipher")
-	}
-
 	nextKey := make([]byte, 16)
-	prg.Encrypt(nextKey, zeroBlock)
-	treeEvalAll(nextKey, height-1, univSize, out[0:1<<(height-1)])
-	prg.Encrypt(nextKey, oneBlock)
-	treeEvalAll(nextKey, height-1, univSize, out[1<<(height-1):])
+	leftChild(prg, key, nextKey)
+	treeEvalAll(prg, nextKey, height-1, univSize, out[0:1<<(height-1)])
+	rightChild(prg, key, nextKey)
+	treeEvalAll(prg, nextKey, height-1, univSize, out[1<<(height-1):])
 }
 
 func (set *psetGGM) Punc(idx int) SetKey {
@@ -123,18 +138,14 @@ func (set *psetGGM) Punc(idx int) SetKey {
 	key := set.key
 	pos := hole
 	for height := set.height; height > 0; height-- {
-		prg, err := aes.NewCipher(key)
-		if err != nil {
-			panic("failed to create AES block cipher")
-		}
 		pathKey := make([]byte, 16)
 		copathKey := make([]byte, 16)
 		if pos < (1 << (height - 1)) {
-			prg.Encrypt(copathKey, oneBlock)
-			prg.Encrypt(pathKey, zeroBlock)
+			leftChild(set.prg, key, pathKey)
+			rightChild(set.prg, key, copathKey)
 		} else {
-			prg.Encrypt(copathKey, zeroBlock)
-			prg.Encrypt(pathKey, oneBlock)
+			leftChild(set.prg, key, copathKey)
+			rightChild(set.prg, key, pathKey)
 		}
 		keys = append(keys, copathKey)
 		key = pathKey
@@ -146,6 +157,7 @@ func (set *psetGGM) Punc(idx int) SetKey {
 		setSize:  set.setSize - 1,
 		height:   set.height,
 		univSize: set.univSize,
+		prg:      set.prg,
 	}
 }
 
@@ -155,24 +167,25 @@ type puncturedSetGGM struct {
 	setSize  int
 	univSize int
 	height   int
+	prg      cipher.Block
 }
 
 func (set *puncturedSetGGM) Eval() Set {
 	elems := make(Set, 1<<set.height)
-	puncturedTreeEvalAll(set.keys, set.hole, set.height, set.univSize, elems)
+	puncturedTreeEvalAll(set.prg, set.keys, set.hole, set.height, set.univSize, elems)
 	return elems[0:set.setSize]
 }
 
-func puncturedTreeEvalAll(keys [][]byte, hole int, height int, univSize int, out []int) {
+func puncturedTreeEvalAll(prg cipher.Block, keys [][]byte, hole int, height int, univSize int, out []int) {
 	if height == 0 {
 		return
 	}
 	if hole < (1 << (height - 1)) {
-		puncturedTreeEvalAll(keys[1:], hole, height-1, univSize, out[0:1<<(height-1)-1])
-		treeEvalAll(keys[0], height-1, univSize, out[1<<(height-1)-1:])
+		puncturedTreeEvalAll(prg, keys[1:], hole, height-1, univSize, out[0:1<<(height-1)-1])
+		treeEvalAll(prg, keys[0], height-1, univSize, out[1<<(height-1)-1:])
 	} else {
-		treeEvalAll(keys[0], height-1, univSize, out[0:1<<(height-1)])
-		puncturedTreeEvalAll(keys[1:], hole-(1<<(height-1)), height-1, univSize, out[1<<(height-1):])
+		treeEvalAll(prg, keys[0], height-1, univSize, out[0:1<<(height-1)])
+		puncturedTreeEvalAll(prg, keys[1:], hole-(1<<(height-1)), height-1, univSize, out[1<<(height-1):])
 	}
 
 }
@@ -198,7 +211,7 @@ func (set *puncturedSetGGM) ElemAt(pos int) int {
 		panic("Cannot evaluate punctured set at punctured point")
 		return -1
 	}
-	return treeEval(set.keys[set.height-height], height, set.univSize, pos)
+	return treeEval(set.prg, set.keys[set.height-height], height, set.univSize, pos)
 }
 
 func (set *puncturedSetGGM) InSet(pos int) bool {

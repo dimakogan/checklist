@@ -153,7 +153,7 @@ func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirCl
 		setSize:    setSize,
 		nHints:     nHints,
 		hints:      nil,
-		setGen:     NewPrpSetGenerator(source),
+		setGen:     NewGGMSetGenerator(source),
 		randSource: source,
 		servers:    servers,
 	}

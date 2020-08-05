@@ -25,8 +25,6 @@ func TestPIRPunc(t *testing.T) {
 		[2]PirServer{leftServer, rightServer})
 	// Increase number of hints manually to test happy flow
 	client.nHints = 100
-	// Set Puncturable-Set type
-	client.setGen = NewGGMSetGenerator(RandSource())
 
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -204,8 +202,6 @@ func BenchmarkPirPunc(b *testing.B) {
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, &benchmarkServer})
 		client.nHints = client.nHints * 128
-		// Set Puncturable-Set type
-		client.setGen = NewGGMSetGenerator(RandSource())
 
 		err := client.Init()
 		assert.NilError(b, err)
