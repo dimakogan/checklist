@@ -192,40 +192,44 @@ func (c *pirClientPunc) findIndex(i int) int {
 	return -1
 }
 
-func (c *pirClientPunc) query(i int) ([]QueryReq, int) {
+type puncQueryCtx struct {
+	i       int
+	setIdx  int
+	coinBad bool
+}
+
+func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
 
 	var key SetKey
-	querySetIdx := 0
-	if querySetIdx = c.findIndex(i); querySetIdx >= 0 {
-		key = c.keys[querySetIdx]
+	ctx := puncQueryCtx{i: i}
+	if ctx.setIdx = c.findIndex(i); ctx.setIdx >= 0 {
+		key = c.keys[ctx.setIdx]
 	} else {
 		key = SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 	}
 
 	var puncSet, newPuncSet SetKey
-	coin := c.bernoulli(c.setSize-1, c.nRows)
-	if coin {
+	ctx.coinBad = c.bernoulli(c.setSize-1, c.nRows)
+	if ctx.coinBad {
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
-		querySetIdx = -1
 		newPuncSet = newSet.Punc(c.randomMemberExcept(newSet, i))
 		puncSet = newPuncSet
-
 	} else {
 		puncSet = key.Punc(i)
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 		newPuncSet = newSet.Punc(i)
-		if querySetIdx >= 0 {
-			c.keys[querySetIdx] = newSet
+		if ctx.setIdx >= 0 {
+			c.keys[ctx.setIdx] = newSet
 		}
 	}
 
 	return []QueryReq{
 			QueryReq{PuncturedSet: newPuncSet},
 			QueryReq{PuncturedSet: puncSet}},
-		querySetIdx
+		ctx
 }
 
 func (c *pirClientPunc) auxSetWith(i int) Set {
@@ -244,15 +248,17 @@ func (c *pirClientPunc) auxSetWith(i int) Set {
 	return puncSet
 }
 
-func (c *pirClientPunc) reconstruct(querySetIdx int, resp []*QueryResp) (Row, error) {
+func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []*QueryResp) (Row, error) {
 	if len(resp) != 2 {
 		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 2", len(resp))
 	}
 
 	out := make(Row, len(c.hints[0]))
-	if querySetIdx < 0 {
+	if ctx.setIdx < 0 {
 		return nil, errors.New("couldn't find element in collection")
-	} else if querySetIdx == len(c.hints) {
+	} else if ctx.coinBad {
+		return nil, errors.New("Bad event coin flip")
+	} else if ctx.setIdx == len(c.hints) {
 		for _, record := range c.auxRecords {
 			if record != nil {
 				xorInto(out, record)
@@ -260,12 +266,13 @@ func (c *pirClientPunc) reconstruct(querySetIdx int, resp []*QueryResp) (Row, er
 		}
 		xorInto(out, resp[Right].Answer)
 	} else {
-		xorInto(out, c.hints[querySetIdx])
+		hint := c.hints[ctx.setIdx]
+		xorInto(out, hint)
 		xorInto(out, resp[Right].Answer)
 		// Update hint with refresh info
-		xorInto(c.hints[querySetIdx], c.hints[querySetIdx])
-		xorInto(c.hints[querySetIdx], resp[Left].Answer)
-		xorInto(c.hints[querySetIdx], out)
+		xorInto(hint, hint)
+		xorInto(hint, resp[Left].Answer)
+		xorInto(hint, out)
 	}
 
 	return out, nil
@@ -288,21 +295,22 @@ func (c *pirClientPunc) ReadBatch(idxs []int) ([]Row, []error) {
 	return c.ReadBatchAtLeast(idxs, len(idxs))
 }
 
-// TODO: need to bring back KP's trick since as is, this does not send the query
-// in the bad coin-flip case, thus leaking.
 func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
+	// TODO: can remove the followong line when bringing back KP's trick
+	n = int(math.Min(math.Log(2)*128, float64(len(idxs))))
 	reqs := [][]QueryReq{make([]QueryReq, n), make([]QueryReq, n)}
-	querySetIdxs := make([]int, len(idxs))
+	ctxs := make([]puncQueryCtx, len(idxs))
 
 	nOk := 0
 	for pos, i := range idxs {
 		var queryReqs []QueryReq
-		queryReqs, querySetIdxs[pos] = c.query(i)
-		if querySetIdxs[pos] >= 0 {
-			reqs[Left][nOk] = queryReqs[Left]
-			reqs[Right][nOk] = queryReqs[Right]
-			nOk++
+		queryReqs, ctxs[pos] = c.query(i)
+		if ctxs[pos].setIdx < 0 {
+			continue
 		}
+		reqs[Left][nOk] = queryReqs[Left]
+		reqs[Right][nOk] = queryReqs[Right]
+		nOk++
 		// Only issue first n non-failing queries
 		if nOk == n {
 			break
@@ -334,8 +342,8 @@ func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
 	vals := make([]Row, len(idxs))
 	nOk = 0
 	for i := 0; i < len(idxs); i++ {
-		if querySetIdxs[i] >= 0 && nOk < n {
-			vals[i], errs[i] = c.reconstruct(querySetIdxs[i], []*QueryResp{&resps[Left][nOk], &resps[Right][nOk]})
+		if ctxs[i].setIdx >= 0 && nOk < n {
+			vals[i], errs[i] = c.reconstruct(ctxs[i], []*QueryResp{&resps[Left][nOk], &resps[Right][nOk]})
 			nOk++
 		} else {
 			vals[i] = nil
@@ -346,7 +354,18 @@ func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
 }
 
 func (c *pirClientPunc) Read(i int) (Row, error) {
-	vals, err := c.ReadBatch([]int{i})
+	// Read multiple repetitions to handle online errors
+	// This can be removed if bringing back KP's trick.
+	idxs := make([]int, int(math.Log(2)*128))
+	for j := range idxs {
+		idxs[j] = i
+	}
+	vals, err := c.ReadBatch(idxs)
+	for j := range idxs {
+		if err[j] == nil {
+			return vals[j], nil
+		}
+	}
 	return vals[0], err[0]
 }
 
@@ -373,8 +392,4 @@ func (c *pirClientPunc) randomMemberExcept(key SetKey, idx int) int {
 			return val
 		}
 	}
-}
-
-func (c *pirClientPunc) setGenWith(univSize int, setSize int, val int) SetKey {
-	return nil
 }

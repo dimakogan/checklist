@@ -130,14 +130,14 @@ func (c *pirPermClient) Read(i int) (Row, error) {
 	return c.reconstruct(ctx, responses[0])
 }
 
-type qCtx struct {
+type permQueryCtx struct {
 	i        int
 	setIdx   int
 	posInSet int
 	decoy    int
 }
 
-func (c *pirPermClient) query(i int) (QueryReq, qCtx) {
+func (c *pirPermClient) query(i int) (QueryReq, permQueryCtx) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
@@ -148,10 +148,10 @@ func (c *pirPermClient) query(i int) (QueryReq, qCtx) {
 	}
 	puncSet := c.partition.Set(setNumber)
 
-	return QueryReq{PuncturedSet: &puncSet}, qCtx{i, setNumber, posInSet, decoy}
+	return QueryReq{PuncturedSet: &puncSet}, permQueryCtx{i, setNumber, posInSet, decoy}
 }
 
-func (c *pirPermClient) reconstruct(ctx qCtx, resp QueryResp) (Row, error) {
+func (c *pirPermClient) reconstruct(ctx permQueryCtx, resp QueryResp) (Row, error) {
 	if ctx.decoy == ctx.i {
 		return resp.Values[ctx.posInSet], nil
 	}

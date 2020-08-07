@@ -3,6 +3,7 @@ package boosted
 import (
 	"flag"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/rpc"
 	"sync"
@@ -201,7 +202,7 @@ func BenchmarkPirPunc(b *testing.B) {
 		}
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, &benchmarkServer})
-		client.nHints = client.nHints * 128
+		client.nHints = client.nHints * int(128*math.Log(2))
 
 		err := client.Init()
 		assert.NilError(b, err)
