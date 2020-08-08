@@ -127,15 +127,11 @@ func dbDimensions() []DBDimensions {
 	numDBRecords :=
 		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
 		[]int{
-			/*1<<16, 1<<17,1 << 18 , 1<<19, 1 << 20 , 1<<21, 1<<22, 1<<23, 1<<24, 1<<25*/
-			//1 << 16, 1 << 17, 1 << 18, 1 << 19, 1 << 20, 1 << 21, 1 << 22, 1 << 23,
-			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24, 1 << 26, 1 << 28,
-			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24,
-			// 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
-			1 << 14,
+			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
+			1 << 18,
 		}
 
-	dbRecordSize := []int{2048}
+	dbRecordSize := []int{32}
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
 
@@ -194,14 +190,21 @@ func BenchmarkPirPunc(b *testing.B) {
 
 		server := NewPirServerPunc(randSource, db)
 		var mutex sync.Mutex
-		benchmarkServer := benchmarkServer{
+		leftServer := benchmarkServer{
 			PirServer: server,
 			b:         b,
-			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			name:      fmt.Sprintf("Left/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 			mutex:     &mutex,
 		}
 
-		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, &benchmarkServer})
+		rightServer := benchmarkServer{
+			PirServer: server,
+			b:         b,
+			name:      fmt.Sprintf("Right/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:     &mutex,
+		}
+
+		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&leftServer, &rightServer})
 		client.nHints = client.nHints * int(128*math.Log(2))
 
 		err := client.Init()
