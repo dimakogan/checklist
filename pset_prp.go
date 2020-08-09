@@ -6,7 +6,7 @@ import (
 	"math/rand"
 )
 
-type prpSetKey struct {
+type prpSet struct {
 	UnivSize int
 	SetSize  int
 	Key      []byte
@@ -17,13 +17,13 @@ type prpSetGenerator struct {
 	src *rand.Rand
 }
 
-func NewPrpSetGenerator(src *rand.Rand) *prpSetGenerator {
+func NewPRPSetSetGenerator(src *rand.Rand) *prpSetGenerator {
 	return &prpSetGenerator{
 		src: src,
 	}
 }
 
-func (g prpSetGenerator) SetGen(univSize int, setSize int) SetKey {
+func (g prpSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 	if univSize < 4 {
 		panic("Universe size must be at least 4.")
 	}
@@ -50,18 +50,18 @@ func (g prpSetGenerator) SetGen(univSize int, setSize int) SetKey {
 	if err != nil {
 		panic(fmt.Errorf("Failed to create PRP: %s", err))
 	}
-	return &prpSetKey{univSize, setSize, key, prp}
+	return &prpSet{univSize, setSize, key, prp}
 }
 
-func (key *prpSetKey) Size() int {
-	return key.SetSize
+func (set *prpSet) Size() int {
+	return set.SetSize
 }
 
-func (key *prpSetKey) Punc(idx int) SetKey {
-	out := make(Set, 0, key.SetSize-1)
+func (set *prpSet) Punc(idx int) SuccinctSet {
+	out := make(Set, 0, set.SetSize-1)
 
-	for i := 0; i < key.SetSize; i++ {
-		elem := key.ElemAt(i)
+	for i := 0; i < set.SetSize; i++ {
+		elem := set.ElemAt(i)
 		if elem != idx {
 			out = append(out, elem)
 		}
@@ -69,28 +69,28 @@ func (key *prpSetKey) Punc(idx int) SetKey {
 	return out
 }
 
-func (key *prpSetKey) Eval() Set {
+func (set *prpSet) Eval() Set {
 	// This is a workaround for prp not being serialized yet
 	var err error
-	if key.prp == nil {
-		key.prp, err = NewPRP(key.Key, int(math.Log2(float64(key.UnivSize))))
+	if set.prp == nil {
+		set.prp, err = NewPRP(set.Key, int(math.Log2(float64(set.UnivSize))))
 		if err != nil {
 			panic(fmt.Errorf("Failed to create PRP: %s", err))
 		}
 	}
-	out := make(Set, 0, key.SetSize)
+	out := make(Set, 0, set.SetSize)
 
-	for i := 0; i < key.SetSize; i++ {
-		out = append(out, key.ElemAt(i))
+	for i := 0; i < set.SetSize; i++ {
+		out = append(out, set.ElemAt(i))
 	}
 
 	return out
 }
 
-func (key *prpSetKey) InSet(idx int) bool {
-	return key.prp.Invert(idx) < key.SetSize
+func (set *prpSet) Contains(idx int) bool {
+	return set.prp.Invert(idx) < set.SetSize
 }
 
-func (key *prpSetKey) ElemAt(pos int) int {
-	return key.prp.Eval(pos)
+func (set *prpSet) ElemAt(pos int) int {
+	return set.prp.Eval(pos)
 }

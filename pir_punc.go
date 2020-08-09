@@ -19,7 +19,7 @@ type pirClientPunc struct {
 	nHints  int
 	setSize int
 
-	keys       []SetKey
+	sets       []PuncturableSet
 	hints      []Row
 	auxRecords map[int]Row
 
@@ -153,19 +153,19 @@ func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirCl
 		setSize:    setSize,
 		nHints:     nHints,
 		hints:      nil,
-		setGen:     NewGGMSetGenerator(source),
+		setGen:     NewPRFSetGenerator(source),
 		randSource: source,
 		servers:    servers,
 	}
 }
 
 func (c *pirClientPunc) requestHint() (*HintReq, error) {
-	c.keys = make([]SetKey, c.nHints)
+	c.sets = make([]PuncturableSet, c.nHints)
 	for i := 0; i < c.nHints; i++ {
-		c.keys[i] = c.setGen.SetGen(c.nRows, c.setSize)
+		c.sets[i] = c.setGen.SetGen(c.nRows, c.setSize)
 	}
 	return &HintReq{
-		Sets:          c.keys,
+		Sets:          c.sets,
 		AuxRecordsSet: c.setGen.SetGen(c.nRows, c.setSize),
 	}, nil
 }
@@ -184,8 +184,8 @@ func (c *pirClientPunc) bernoulli(nHeads int, total int) bool {
 }
 
 func (c *pirClientPunc) findIndex(i int) int {
-	for j, key := range c.keys {
-		if key.InSet(i) {
+	for j, set := range c.sets {
+		if set.Contains(i) {
 			return j
 		}
 	}
@@ -203,49 +203,49 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
 
-	var key SetKey
+	var set PuncturableSet
 	ctx := puncQueryCtx{i: i}
 	if ctx.setIdx = c.findIndex(i); ctx.setIdx >= 0 {
-		key = c.keys[ctx.setIdx]
+		set = c.sets[ctx.setIdx]
 	} else {
-		key = SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		set = SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 	}
 
-	var puncSet, newPuncSet SetKey
+	var puncturedSet, newPuncSet SuccinctSet
 	ctx.coinBad = c.bernoulli(c.setSize-1, c.nRows)
 	if ctx.coinBad {
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 		newPuncSet = newSet.Punc(c.randomMemberExcept(newSet, i))
-		puncSet = newPuncSet
+		puncturedSet = newPuncSet
 	} else {
-		puncSet = key.Punc(i)
+		puncturedSet = set.Punc(i)
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 		newPuncSet = newSet.Punc(i)
 		if ctx.setIdx >= 0 {
-			c.keys[ctx.setIdx] = newSet
+			c.sets[ctx.setIdx] = newSet
 		}
 	}
 
 	return []QueryReq{
 			QueryReq{PuncturedSet: newPuncSet},
-			QueryReq{PuncturedSet: puncSet}},
+			QueryReq{PuncturedSet: puncturedSet}},
 		ctx
 }
 
 func (c *pirClientPunc) auxSetWith(i int) Set {
-	puncSet := make(Set, 0, len(c.auxRecords))
+	puncturedSet := make(Set, 0, len(c.auxRecords))
 	for pos, _ := range c.auxRecords {
-		puncSet = append(puncSet, pos)
+		puncturedSet = append(puncturedSet, pos)
 	}
 	if _, present := c.auxRecords[i]; !present {
-		replace := c.randSource.Intn(len(puncSet))
-		delete(c.auxRecords, puncSet[replace])
-		puncSet[replace] = i
+		replace := c.randSource.Intn(len(puncturedSet))
+		delete(c.auxRecords, puncturedSet[replace])
+		puncturedSet[replace] = i
 	} else {
 		delete(c.auxRecords, i)
 	}
 
-	return puncSet
+	return puncturedSet
 }
 
 func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []*QueryResp) (Row, error) {
@@ -371,9 +371,8 @@ func (c *pirClientPunc) Read(i int) (Row, error) {
 
 func (c *pirClientPunc) NumCovered() int {
 	covered := make(map[int]bool)
-	for _, key := range c.keys {
-		set := key.Eval()
-		for _, elem := range set {
+	for _, set := range c.sets {
+		for _, elem := range set.Eval() {
 			covered[elem] = true
 		}
 	}
@@ -381,13 +380,13 @@ func (c *pirClientPunc) NumCovered() int {
 }
 
 // Sample a random element of the set that is not equal to `idx`.
-func (c *pirClientPunc) randomMemberExcept(key SetKey, idx int) int {
+func (c *pirClientPunc) randomMemberExcept(set PuncturableSet, idx int) int {
 	for {
 		// TODO: If this is slow, use a more clever way to
 		// pick the random element.
 		//
 		// Use rejection sampling.
-		val := key.ElemAt(c.randSource.Intn(c.setSize))
+		val := set.ElemAt(c.randSource.Intn(c.setSize))
 		if val != idx {
 			return val
 		}

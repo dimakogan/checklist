@@ -9,7 +9,7 @@ import (
 	"math/rand"
 )
 
-type psetGGM struct {
+type ggmSet struct {
 	key      []byte
 	setSize  int
 	univSize int
@@ -31,7 +31,7 @@ func NewGGMSetGenerator(src *rand.Rand) SetGenerator {
 	return &ggmSetGenerator{src: src, prg: prg}
 }
 
-func (g *ggmSetGenerator) SetGen(univSize int, setSize int) SetKey {
+func (g *ggmSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 	key := make([]byte, 16)
 	height := int(math.Ceil(math.Log2(float64(setSize))))
 	for {
@@ -39,40 +39,31 @@ func (g *ggmSetGenerator) SetGen(univSize int, setSize int) SetKey {
 			panic(err)
 		}
 
-		set := psetGGM{key: key, setSize: setSize, height: height, univSize: univSize,
+		set := ggmSet{key: key, setSize: setSize, height: height, univSize: univSize,
 			prg: g.prg,
 		}
-		elems := set.Eval()
 
-		elemsSet := make(map[int]bool, setSize)
-		for i := 0; i < setSize; i++ {
-			elem := elems[i]
-			if _, ok := elemsSet[elem]; ok {
-				break
-			}
-			elemsSet[elem] = true
-		}
-		if len(elemsSet) == set.setSize {
+		if set.Eval().distinct() {
 			return &set
 		}
 	}
 }
 
-func (set *psetGGM) Eval() Set {
+func (set *ggmSet) Eval() Set {
 	elems := make(Set, 1<<set.height)
 	treeEvalAll(set.prg, set.key, set.height, set.univSize, elems)
 	return elems[0:set.setSize]
 }
 
-func (set *psetGGM) Size() int {
+func (set *ggmSet) Size() int {
 	return set.setSize
 }
 
-func (set *psetGGM) InSet(idx int) bool {
+func (set *ggmSet) Contains(idx int) bool {
 	return set.findPos(idx) != -1
 }
 
-func (set *psetGGM) findPos(idx int) int {
+func (set *ggmSet) findPos(idx int) int {
 	for i, v := range set.Eval() {
 		if v == idx {
 			return i
@@ -81,7 +72,7 @@ func (set *psetGGM) findPos(idx int) int {
 	return -1
 }
 
-func (set *psetGGM) ElemAt(pos int) int {
+func (set *ggmSet) ElemAt(pos int) int {
 	return treeEval(set.prg, set.key, set.height, set.univSize, pos)
 }
 
@@ -129,7 +120,7 @@ func treeEvalAll(prg cipher.Block, key []byte, height int, univSize int, out []i
 	treeEvalAll(prg, nextKey, height-1, univSize, out[1<<(height-1):])
 }
 
-func (set *psetGGM) Punc(idx int) SetKey {
+func (set *ggmSet) Punc(idx int) SuccinctSet {
 	hole := set.findPos(idx)
 	if hole < 0 {
 		panic("Puncturing at non-existing element")
@@ -151,7 +142,7 @@ func (set *psetGGM) Punc(idx int) SetKey {
 		key = pathKey
 		pos &^= (1 << (height - 1))
 	}
-	return &puncturedSetGGM{
+	return &puncturedGGMSet{
 		keys:     keys,
 		hole:     hole,
 		setSize:  set.setSize - 1,
@@ -161,7 +152,7 @@ func (set *psetGGM) Punc(idx int) SetKey {
 	}
 }
 
-type puncturedSetGGM struct {
+type puncturedGGMSet struct {
 	keys     [][]byte
 	hole     int
 	setSize  int
@@ -170,7 +161,7 @@ type puncturedSetGGM struct {
 	prg      cipher.Block
 }
 
-func (set *puncturedSetGGM) Eval() Set {
+func (set *puncturedGGMSet) Eval() Set {
 	elems := make(Set, 1<<set.height)
 	puncturedTreeEvalAll(set.prg, set.keys, set.hole, set.height, set.univSize, elems)
 	return elems[0:set.setSize]
@@ -190,7 +181,7 @@ func puncturedTreeEvalAll(prg cipher.Block, keys [][]byte, hole int, height int,
 
 }
 
-func (set *puncturedSetGGM) ElemAt(pos int) int {
+func (set *puncturedGGMSet) elemAt(pos int) int {
 	if pos >= set.hole {
 		pos++
 	}
@@ -209,21 +200,10 @@ func (set *puncturedSetGGM) ElemAt(pos int) int {
 	}
 	if height == 0 {
 		panic("Cannot evaluate punctured set at punctured point")
-		return -1
 	}
 	return treeEval(set.prg, set.keys[set.height-height], height, set.univSize, pos)
 }
 
-func (set *puncturedSetGGM) InSet(pos int) bool {
-	panic("Not implemented")
-	return false
-}
-
-func (set *puncturedSetGGM) Punc(pos int) SetKey {
-	panic("Cannot double puncture a set")
-	return nil
-}
-
-func (set *puncturedSetGGM) Size() int {
+func (set *puncturedGGMSet) Size() int {
 	return set.setSize
 }

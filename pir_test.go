@@ -57,8 +57,13 @@ func TestPIRPuncErasure(t *testing.T) {
 	client, err := NewPirClientErasure(RandSource(), len(db), DEFAULT_CHUNK_SIZE, [2]PirServer{server, server})
 	assert.NilError(t, err)
 	assert.NilError(t, client.Init())
-	const readIndex = 2
+	const readIndex = 5
 	val, err := client.Read(readIndex)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, db[readIndex])
+
+	// Test refreshing
+	val, err = client.Read(readIndex)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -128,7 +133,7 @@ func dbDimensions() []DBDimensions {
 		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
 		[]int{
 			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
-			1 << 18,
+			1 << 12,
 		}
 
 	dbRecordSize := []int{32}

@@ -8,38 +8,45 @@ const Present_Yes Present = 0
 
 type Set []int
 
-type SetKey interface {
+type SuccinctSet interface {
 	Size() int
 	Eval() Set
-	InSet(idx int) bool
+}
+
+type PuncturableSet interface {
+	Size() int
+	Eval() Set
+	Contains(idx int) bool
 	ElemAt(pos int) int
-	Punc(idx int) SetKey
+	Punc(idx int) SuccinctSet
 }
 
 type SetGenerator interface {
-	SetGen(univSize int, setSize int) SetKey
+	SetGen(univSize int, setSize int) PuncturableSet
 }
 
 type shiftedSet struct {
-	baseSet  SetKey
-	delta    int
-	univSize int
+	baseSet              SuccinctSet
+	baseSetAsPuncturable PuncturableSet
+	delta                int
+	univSize             int
 }
 
-func SetGenWith(g SetGenerator, src *rand.Rand, univSize int, setSize int, val int) SetKey {
+func SetGenWith(g SetGenerator, src *rand.Rand, univSize int, setSize int, val int) PuncturableSet {
 	baseSet := g.SetGen(univSize, setSize)
 
 	// TODO: Implement this more efficiently.
 	pos := src.Intn(setSize)
 
 	return &shiftedSet{
-		baseSet:  baseSet,
-		delta:    MathMod(val-baseSet.ElemAt(pos), univSize),
-		univSize: univSize,
+		baseSet:              baseSet,
+		baseSetAsPuncturable: baseSet,
+		delta:                MathMod(val-baseSet.ElemAt(pos), univSize),
+		univSize:             univSize,
 	}
 }
 
-func SetGen(g SetGenerator, src *rand.Rand, univSize int, setSize int) SetKey {
+func SetGen(g SetGenerator, src *rand.Rand, univSize int, setSize int) PuncturableSet {
 	return SetGenWith(g, src, univSize, setSize, src.Intn(univSize))
 }
 
@@ -51,16 +58,16 @@ func (ss *shiftedSet) Eval() Set {
 	return elems
 }
 
-func (ss *shiftedSet) InSet(idx int) bool {
-	return ss.baseSet.InSet(MathMod(idx-ss.delta, ss.univSize))
+func (ss *shiftedSet) Contains(idx int) bool {
+	return ss.baseSetAsPuncturable.Contains(MathMod(idx-ss.delta, ss.univSize))
 }
 
 func (ss *shiftedSet) ElemAt(pos int) int {
-	return MathMod(ss.baseSet.ElemAt(pos)+ss.delta, ss.univSize)
+	return MathMod(ss.baseSetAsPuncturable.ElemAt(pos)+ss.delta, ss.univSize)
 }
-func (ss *shiftedSet) Punc(idx int) SetKey {
+func (ss *shiftedSet) Punc(idx int) SuccinctSet {
 	return &shiftedSet{
-		baseSet:  ss.baseSet.Punc(MathMod(idx-ss.delta, ss.univSize)),
+		baseSet:  ss.baseSetAsPuncturable.Punc(MathMod(idx-ss.delta, ss.univSize)),
 		univSize: ss.univSize,
 		delta:    ss.delta,
 	}
@@ -80,7 +87,7 @@ func (s Set) Eval() Set {
 	return out
 }
 
-func (s Set) InSet(idx int) bool {
+func (s Set) Contains(idx int) bool {
 	for _, elem := range s {
 		if elem == idx {
 			return true
@@ -93,7 +100,7 @@ func (s Set) Size() int {
 	return len(s)
 }
 
-func (s Set) Punc(idx int) SetKey {
+func (s Set) Punc(idx int) SuccinctSet {
 	elems := make(Set, 0, len(s)-1)
 	for _, elem := range s {
 		if elem != idx {
@@ -115,4 +122,16 @@ func MathMod(x int, mod int) int {
 	}
 
 	return out
+}
+
+func (set Set) distinct() bool {
+	elemsSet := make(map[int]bool, len(set))
+	for i := 0; i < len(set); i++ {
+		elem := set[i]
+		if _, ok := elemsSet[elem]; ok {
+			return false
+		}
+		elemsSet[elem] = true
+	}
+	return len(elemsSet) == len(set)
 }
