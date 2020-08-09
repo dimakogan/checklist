@@ -25,3 +25,4 @@ compare/fig/__pycache__/
 /*.csv
 /*.txt
 /.ipynb_checkpoints/
+*.out
