@@ -111,13 +111,13 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	//fmt.Printf("nHints: %d, total Rows: %d \n", nHints, totalRows)
 	resp.Hints = hints
 
-	// auxSet := req.AuxRecordsSet.Eval()
-	// resp.AuxRecords = make(map[int]Row)
-	// for row := range auxSet {
-	// 	if row < s.nRows {
-	// 		resp.AuxRecords[row] = s.flatDb[s.rowLen*row : s.rowLen*(row+1)]
-	// 	}
-	// }
+	auxSet := req.AuxRecordsSet.Eval()
+	resp.AuxRecords = make(map[int]Row)
+	for row := range auxSet {
+		if row < s.nRows {
+			resp.AuxRecords[row] = s.flatDb[s.rowLen*row : s.rowLen*(row+1)]
+		}
+	}
 
 	return nil
 }
@@ -196,7 +196,10 @@ type puncQueryCtx struct {
 	i       int
 	setIdx  int
 	coinBad bool
+	auxElem int
 }
+
+const useKPTrick = true
 
 func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	if len(c.hints) < 1 {
@@ -204,7 +207,7 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	}
 
 	var set PuncturableSet
-	ctx := puncQueryCtx{i: i}
+	ctx := puncQueryCtx{i: i, auxElem: -1}
 	if ctx.setIdx = c.findIndex(i); ctx.setIdx >= 0 {
 		set = c.sets[ctx.setIdx]
 	} else {
@@ -216,7 +219,11 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	if ctx.coinBad {
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 		newPuncSet = newSet.Punc(c.randomMemberExcept(newSet, i))
-		puncturedSet = newPuncSet
+		if useKPTrick {
+			puncturedSet = c.auxSetWith(i, &ctx)
+		} else {
+			puncturedSet = newPuncSet
+		}
 	} else {
 		puncturedSet = set.Punc(i)
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
@@ -227,22 +234,22 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	}
 
 	return []QueryReq{
-			QueryReq{PuncturedSet: newPuncSet},
-			QueryReq{PuncturedSet: puncturedSet}},
+			QueryReq{PuncturedSet: newPuncSet, Index: i /* Debug */},
+			QueryReq{PuncturedSet: puncturedSet, Index: i /* Debug */}},
 		ctx
 }
 
-func (c *pirClientPunc) auxSetWith(i int) Set {
+func (c *pirClientPunc) auxSetWith(i int, ctx *puncQueryCtx) Set {
 	puncturedSet := make(Set, 0, len(c.auxRecords))
 	for pos, _ := range c.auxRecords {
 		puncturedSet = append(puncturedSet, pos)
 	}
 	if _, present := c.auxRecords[i]; !present {
 		replace := c.randSource.Intn(len(puncturedSet))
-		delete(c.auxRecords, puncturedSet[replace])
 		puncturedSet[replace] = i
+		ctx.auxElem = replace
 	} else {
-		delete(c.auxRecords, i)
+		ctx.auxElem = i
 	}
 
 	return puncturedSet
@@ -256,15 +263,19 @@ func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []*QueryResp) (Row, e
 	out := make(Row, len(c.hints[0]))
 	if ctx.setIdx < 0 {
 		return nil, errors.New("couldn't find element in collection")
-	} else if ctx.coinBad {
-		return nil, errors.New("Bad event coin flip")
-	} else if ctx.setIdx == len(c.hints) {
-		for _, record := range c.auxRecords {
-			if record != nil {
-				xorInto(out, record)
+	} else if ctx.auxElem >= 0 {
+		if ctx.auxElem == ctx.i {
+			return c.auxRecords[ctx.i], nil
+		} else {
+			for idx, record := range c.auxRecords {
+				if idx != ctx.auxElem && record != nil {
+					xorInto(out, record)
+				}
 			}
 		}
 		xorInto(out, resp[Right].Answer)
+	} else if ctx.coinBad {
+		return nil, errors.New("Bad event coin flip")
 	} else {
 		hint := c.hints[ctx.setIdx]
 		xorInto(out, hint)
@@ -296,8 +307,9 @@ func (c *pirClientPunc) ReadBatch(idxs []int) ([]Row, []error) {
 }
 
 func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
-	// TODO: can remove the followong line when bringing back KP's trick
-	n = int(math.Min(math.Log(2)*128, float64(len(idxs))))
+	if !useKPTrick {
+		n = len(idxs)
+	}
 	reqs := [][]QueryReq{make([]QueryReq, n), make([]QueryReq, n)}
 	ctxs := make([]puncQueryCtx, len(idxs))
 
@@ -317,13 +329,13 @@ func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
 		}
 	}
 
-	resps := [][]QueryResp{make([]QueryResp, n), make([]QueryResp, n)}
+	resps := [][]QueryResp{make([]QueryResp, nOk), make([]QueryResp, nOk)}
 	err := make([]error, 2)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	for side := range []int{Left, Right} {
 		go func(side int) {
-			err[side] = c.servers[side].AnswerBatch(reqs[side], &resps[side])
+			err[side] = c.servers[side].AnswerBatch(reqs[side][0:nOk], &resps[side])
 			wg.Done()
 		}(side)
 	}
@@ -354,9 +366,14 @@ func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
 }
 
 func (c *pirClientPunc) Read(i int) (Row, error) {
-	// Read multiple repetitions to handle online errors
-	// This can be removed if bringing back KP's trick.
-	idxs := make([]int, int(math.Log(2)*128))
+	var idxs []int
+	if !useKPTrick {
+		// Read multiple repetitions to handle online errors
+		// when not using KP's trick.
+		idxs = make([]int, int(math.Log(2)*128))
+	} else {
+		idxs = make([]int, 1)
+	}
 	for j := range idxs {
 		idxs[j] = i
 	}
