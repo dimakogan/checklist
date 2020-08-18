@@ -27,6 +27,7 @@ type HintResp struct {
 //QueryReq is a PIR query from a client to a server.
 type QueryReq struct {
 	PuncturedSet SuccinctSet
+	ExtraElem    int
 
 	// Debug & testing.
 	Index int
@@ -34,7 +35,8 @@ type QueryReq struct {
 
 //QueryResp is a response to a PIR query.
 type QueryResp struct {
-	Answer Row
+	Answer    Row
+	ExtraElem Row
 
 	// For PirPerm trial
 	Values []Row

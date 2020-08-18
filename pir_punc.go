@@ -19,9 +19,8 @@ type pirClientPunc struct {
 	nHints  int
 	setSize int
 
-	sets       []PuncturableSet
-	hints      []Row
-	auxRecords map[int]Row
+	sets  []PuncturableSet
+	hints []Row
 
 	randSource *rand.Rand
 	setGen     SetGenerator
@@ -110,21 +109,21 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	}
 	//fmt.Printf("nHints: %d, total Rows: %d \n", nHints, totalRows)
 	resp.Hints = hints
-
-	auxSet := req.AuxRecordsSet.Eval()
-	resp.AuxRecords = make(map[int]Row)
-	for row := range auxSet {
-		if row < s.nRows {
-			resp.AuxRecords[row] = s.flatDb[s.rowLen*row : s.rowLen*(row+1)]
-		}
-	}
-
 	return nil
+}
+
+func (s pirServerPunc) dbElem(i int) Row {
+	if i < s.nRows {
+		return s.flatDb[s.rowLen*i : s.rowLen*(i+1)]
+	} else {
+		return make(Row, s.rowLen)
+	}
 }
 
 func (s pirServerPunc) answer(q QueryReq, resp *QueryResp) error {
 	resp.Answer = make(Row, s.rowLen)
 	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
+	resp.ExtraElem = s.dbElem(q.ExtraElem)
 	return nil
 }
 
@@ -153,7 +152,7 @@ func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirCl
 		setSize:    setSize,
 		nHints:     nHints,
 		hints:      nil,
-		setGen:     NewPRFSetGenerator(source),
+		setGen:     NewGGMSetGenerator(source),
 		randSource: source,
 		servers:    servers,
 	}
@@ -164,15 +163,11 @@ func (c *pirClientPunc) requestHint() (*HintReq, error) {
 	for i := 0; i < c.nHints; i++ {
 		c.sets[i] = c.setGen.SetGen(c.nRows, c.setSize)
 	}
-	return &HintReq{
-		Sets:          c.sets,
-		AuxRecordsSet: c.setGen.SetGen(c.nRows, c.setSize),
-	}, nil
+	return &HintReq{Sets: c.sets}, nil
 }
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.hints = resp.Hints
-	c.auxRecords = resp.AuxRecords
 	return nil
 }
 
@@ -181,6 +176,17 @@ func (c *pirClientPunc) initHint(resp *HintResp) error {
 func (c *pirClientPunc) bernoulli(nHeads int, total int) bool {
 	coin := c.randSource.Intn(total)
 	return coin < nHeads
+}
+
+func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
+	coin := c.randSource.Intn(total)
+	if coin < odd1 {
+		return 1
+	} else if coin < odd1+odd2 {
+		return 2
+	} else {
+		return 0
+	}
 }
 
 func (c *pirClientPunc) findIndex(i int) int {
@@ -193,13 +199,10 @@ func (c *pirClientPunc) findIndex(i int) int {
 }
 
 type puncQueryCtx struct {
-	i       int
-	setIdx  int
-	coinBad bool
-	auxElem int
+	i        int
+	randCase int
+	setIdx   int
 }
-
-const useKPTrick = true
 
 func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	if len(c.hints) < 1 {
@@ -207,52 +210,44 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	}
 
 	var set PuncturableSet
-	ctx := puncQueryCtx{i: i, auxElem: -1}
+	ctx := puncQueryCtx{i: i}
 	if ctx.setIdx = c.findIndex(i); ctx.setIdx >= 0 {
 		set = c.sets[ctx.setIdx]
 	} else {
 		set = SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
 	}
 
-	var puncturedSet, newPuncSet SuccinctSet
-	ctx.coinBad = c.bernoulli(c.setSize-1, c.nRows)
-	if ctx.coinBad {
+	var puncSetL, puncSetR SuccinctSet
+	var extraL, extraR int
+	ctx.randCase = c.sample(c.setSize-1, c.setSize-1, c.nRows)
+	switch ctx.randCase {
+	case 0:
 		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
-		newPuncSet = newSet.Punc(c.randomMemberExcept(newSet, i))
-		if useKPTrick {
-			puncturedSet = c.auxSetWith(i, &ctx)
-		} else {
-			puncturedSet = newPuncSet
-		}
-	} else {
-		puncturedSet = set.Punc(i)
-		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
-		newPuncSet = newSet.Punc(i)
+		extraL = c.randomMemberExcept(newSet, i)
+		extraR = c.randomMemberExcept(set, i)
+		puncSetL = newSet.Punc(i)
+		puncSetR = set.Punc(i)
 		if ctx.setIdx >= 0 {
 			c.sets[ctx.setIdx] = newSet
 		}
+	case 1:
+		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		extraL = c.randomMemberExcept(newSet, i)
+		extraR = c.randomMemberExcept(newSet, extraL)
+		puncSetL = newSet.Punc(extraR)
+		puncSetR = newSet.Punc(i)
+	case 2:
+		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		extraR = c.randomMemberExcept(newSet, i)
+		extraL = c.randomMemberExcept(newSet, extraR)
+		puncSetL = newSet.Punc(i)
+		puncSetR = newSet.Punc(extraL)
 	}
 
 	return []QueryReq{
-			QueryReq{PuncturedSet: newPuncSet, Index: i /* Debug */},
-			QueryReq{PuncturedSet: puncturedSet, Index: i /* Debug */}},
+			QueryReq{PuncturedSet: puncSetL, ExtraElem: extraL, Index: i /* Debug */},
+			QueryReq{PuncturedSet: puncSetR, ExtraElem: extraR, Index: i /* Debug */}},
 		ctx
-}
-
-func (c *pirClientPunc) auxSetWith(i int, ctx *puncQueryCtx) Set {
-	puncturedSet := make(Set, 0, len(c.auxRecords))
-	for pos, _ := range c.auxRecords {
-		puncturedSet = append(puncturedSet, pos)
-	}
-	if _, present := c.auxRecords[i]; !present {
-		replace := c.randSource.Intn(len(puncturedSet))
-		puncturedSet[replace] = i
-		ctx.auxElem = replace
-	} else {
-		ctx.auxElem = i
-	}
-
-	return puncturedSet
 }
 
 func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []*QueryResp) (Row, error) {
@@ -263,20 +258,10 @@ func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []*QueryResp) (Row, e
 	out := make(Row, len(c.hints[0]))
 	if ctx.setIdx < 0 {
 		return nil, errors.New("couldn't find element in collection")
-	} else if ctx.auxElem >= 0 {
-		if ctx.auxElem == ctx.i {
-			return c.auxRecords[ctx.i], nil
-		} else {
-			for idx, record := range c.auxRecords {
-				if idx != ctx.auxElem && record != nil {
-					xorInto(out, record)
-				}
-			}
-		}
-		xorInto(out, resp[Right].Answer)
-	} else if ctx.coinBad {
-		return nil, errors.New("Bad event coin flip")
-	} else {
+	}
+
+	switch ctx.randCase {
+	case 0:
 		hint := c.hints[ctx.setIdx]
 		xorInto(out, hint)
 		xorInto(out, resp[Right].Answer)
@@ -284,8 +269,17 @@ func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []*QueryResp) (Row, e
 		xorInto(hint, hint)
 		xorInto(hint, resp[Left].Answer)
 		xorInto(hint, out)
+	case 1:
+		xorInto(out, out)
+		xorInto(out, resp[Left].Answer)
+		xorInto(out, resp[Right].Answer)
+		xorInto(out, resp[Right].ExtraElem)
+	case 2:
+		xorInto(out, out)
+		xorInto(out, resp[Left].Answer)
+		xorInto(out, resp[Right].Answer)
+		xorInto(out, resp[Left].ExtraElem)
 	}
-
 	return out, nil
 }
 
@@ -307,9 +301,6 @@ func (c *pirClientPunc) ReadBatch(idxs []int) ([]Row, []error) {
 }
 
 func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
-	if !useKPTrick {
-		n = len(idxs)
-	}
 	reqs := [][]QueryReq{make([]QueryReq, n), make([]QueryReq, n)}
 	ctxs := make([]puncQueryCtx, len(idxs))
 
@@ -366,23 +357,7 @@ func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
 }
 
 func (c *pirClientPunc) Read(i int) (Row, error) {
-	var idxs []int
-	if !useKPTrick {
-		// Read multiple repetitions to handle online errors
-		// when not using KP's trick.
-		idxs = make([]int, int(math.Log(2)*128))
-	} else {
-		idxs = make([]int, 1)
-	}
-	for j := range idxs {
-		idxs[j] = i
-	}
-	vals, err := c.ReadBatch(idxs)
-	for j := range idxs {
-		if err[j] == nil {
-			return vals[j], nil
-		}
-	}
+	vals, err := c.ReadBatch([]int{i})
 	return vals[0], err[0]
 }
 

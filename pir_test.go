@@ -403,3 +403,18 @@ func BenchmarkNothingLinear(b *testing.B) {
 		}
 	}
 }
+
+func TestSample(t *testing.T) {
+	client := NewPirClientPunc(RandSource(), 100, [2]PirServer{nil, nil})
+	assert.Equal(t, 1, client.sample(10, 0, 10))
+	assert.Equal(t, 2, client.sample(0, 10, 10))
+	assert.Equal(t, 0, client.sample(0, 0, 10))
+	count := make([]int, 3)
+	for i := 0; i < 1000; i++ {
+		count[client.sample(10, 10, 30)]++
+	}
+	for _, c := range count {
+		assert.Check(t, c < 380)
+		assert.Check(t, c > 280)
+	}
+}
