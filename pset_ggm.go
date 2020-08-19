@@ -143,28 +143,33 @@ func (set *ggmSet) Punc(idx int) SuccinctSet {
 		pos &^= (1 << (height - 1))
 	}
 	return &puncturedGGMSet{
-		keys:     keys,
-		hole:     hole,
-		setSize:  set.setSize - 1,
-		height:   set.height,
-		univSize: set.univSize,
+		Keys:     keys,
+		Hole:     hole,
+		SetSize:  set.setSize - 1,
+		Height:   set.height,
+		UnivSize: set.univSize,
 		prg:      set.prg,
 	}
 }
 
 type puncturedGGMSet struct {
-	keys     [][]byte
-	hole     int
-	setSize  int
-	univSize int
-	height   int
+	Keys     [][]byte
+	Hole     int
+	SetSize  int
+	UnivSize int
+	Height   int
 	prg      cipher.Block
 }
 
 func (set *puncturedGGMSet) Eval() Set {
-	elems := make(Set, 1<<set.height)
-	puncturedTreeEvalAll(set.prg, set.keys, set.hole, set.height, set.univSize, elems)
-	return elems[0:set.setSize]
+	// To recover PRG after deserialization
+	if set.prg == nil {
+		set.prg, _ = aes.NewCipher(zeroBlock)
+	}
+
+	elems := make(Set, 1<<set.Height)
+	puncturedTreeEvalAll(set.prg, set.Keys, set.Hole, set.Height, set.UnivSize, elems)
+	return elems[0:set.SetSize]
 }
 
 func puncturedTreeEvalAll(prg cipher.Block, keys [][]byte, hole int, height int, univSize int, out []int) {
@@ -182,11 +187,11 @@ func puncturedTreeEvalAll(prg cipher.Block, keys [][]byte, hole int, height int,
 }
 
 func (set *puncturedGGMSet) elemAt(pos int) int {
-	if pos >= set.hole {
+	if pos >= set.Hole {
 		pos++
 	}
-	hole := set.hole
-	height := set.height
+	hole := set.Hole
+	height := set.Height
 	for {
 		holeMsb := hole & (1<<height - 1)
 		posMsb := pos & (1<<height - 1)
@@ -201,9 +206,9 @@ func (set *puncturedGGMSet) elemAt(pos int) int {
 	if height == 0 {
 		panic("Cannot evaluate punctured set at punctured point")
 	}
-	return treeEval(set.prg, set.keys[set.height-height], height, set.univSize, pos)
+	return treeEval(set.prg, set.Keys[set.Height-height], height, set.UnivSize, pos)
 }
 
 func (set *puncturedGGMSet) Size() int {
-	return set.setSize
+	return set.SetSize
 }

@@ -73,7 +73,6 @@ func TestPIRServerOverRPC(t *testing.T) {
 		t.Skip("No remote address flag set. Skipping remote test.")
 	}
 
-	// Create a TCP connection to localhost on port 1234
 	remote, err := rpc.DialHTTP("tcp", *serverAddr)
 	assert.NilError(t, err)
 
@@ -82,7 +81,8 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
 
 	proxy := NewPirRpcProxy(remote)
-	client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
+	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
+	client := NewPirClientPunc(RandSource(), 1000, [2]PirServer{proxy, proxy})
 
 	err = client.Init()
 	assert.NilError(t, err)

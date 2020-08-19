@@ -358,7 +358,7 @@ func (c *pirClientPunc) ReadBatchAtLeast(idxs []int, n int) ([]Row, []error) {
 		for i := 0; i < len(idxs); i++ {
 			errs[i] = err[Right]
 		}
-		return nil, errs
+		return []Row{nil, nil}, errs
 	}
 	vals := make([]Row, len(idxs))
 	nOk = 0

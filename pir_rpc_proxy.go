@@ -9,6 +9,7 @@ type PirRpcProxy struct {
 }
 
 func NewPirRpcProxy(remote *rpc.Client) *PirRpcProxy {
+	registerExtraTypes()
 	return &PirRpcProxy{
 		remote: remote,
 	}

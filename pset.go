@@ -34,11 +34,11 @@ type shiftedSetGenerator struct {
 	src *rand.Rand
 }
 
-type shiftedSet struct {
-	baseSet              SuccinctSet
+type ShiftedSet struct {
+	BaseSet              SuccinctSet
 	baseSetAsPuncturable PuncturableSet
-	delta                int
-	univSize             int
+	Delta                int
+	UnivSize             int
 }
 
 type NewGeneratorFunc func(io.Reader) SetGenerator
@@ -62,11 +62,11 @@ func (g shiftedSetGenerator) GenWith(univSize int, setSize int, val int) Punctur
 
 	pos := g.src.Intn(setSize)
 
-	return &shiftedSet{
-		baseSet:              baseSet,
+	return &ShiftedSet{
+		BaseSet:              baseSet,
 		baseSetAsPuncturable: baseSet,
-		delta:                MathMod(val-baseSet.ElemAt(pos), univSize),
-		univSize:             univSize,
+		Delta:                MathMod(val-baseSet.ElemAt(pos), univSize),
+		UnivSize:             univSize,
 	}
 }
 
@@ -74,31 +74,31 @@ func (g shiftedSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 	return g.GenWith(univSize, setSize, g.src.Intn(univSize))
 }
 
-func (ss *shiftedSet) Eval() Set {
-	elems := ss.baseSet.Eval()
+func (ss *ShiftedSet) Eval() Set {
+	elems := ss.BaseSet.Eval()
 	for i := 0; i < len(elems); i++ {
-		elems[i] = MathMod(elems[i]+ss.delta, ss.univSize)
+		elems[i] = MathMod(elems[i]+ss.Delta, ss.UnivSize)
 	}
 	return elems
 }
 
-func (ss *shiftedSet) Contains(idx int) bool {
-	return ss.baseSetAsPuncturable.Contains(MathMod(idx-ss.delta, ss.univSize))
+func (ss *ShiftedSet) Contains(idx int) bool {
+	return ss.baseSetAsPuncturable.Contains(MathMod(idx-ss.Delta, ss.UnivSize))
 }
 
-func (ss *shiftedSet) ElemAt(pos int) int {
-	return MathMod(ss.baseSetAsPuncturable.ElemAt(pos)+ss.delta, ss.univSize)
+func (ss *ShiftedSet) ElemAt(pos int) int {
+	return MathMod(ss.baseSetAsPuncturable.ElemAt(pos)+ss.Delta, ss.UnivSize)
 }
-func (ss *shiftedSet) Punc(idx int) SuccinctSet {
-	return &shiftedSet{
-		baseSet:  ss.baseSetAsPuncturable.Punc(MathMod(idx-ss.delta, ss.univSize)),
-		univSize: ss.univSize,
-		delta:    ss.delta,
+func (ss *ShiftedSet) Punc(idx int) SuccinctSet {
+	return &ShiftedSet{
+		BaseSet:  ss.baseSetAsPuncturable.Punc(MathMod(idx-ss.Delta, ss.UnivSize)),
+		UnivSize: ss.UnivSize,
+		Delta:    ss.Delta,
 	}
 }
 
-func (ss *shiftedSet) Size() int {
-	return ss.baseSet.Size()
+func (ss *ShiftedSet) Size() int {
+	return ss.BaseSet.Size()
 }
 
 func (s Set) ElemAt(pos int) int {
