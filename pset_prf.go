@@ -5,7 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"io"
 )
 
 type prfSet struct {
@@ -16,10 +16,10 @@ type prfSet struct {
 }
 
 type prfSetGenerator struct {
-	src *rand.Rand
+	src io.Reader
 }
 
-func NewPRFSetGenerator(src *rand.Rand) *prfSetGenerator {
+func NewPRFSetGenerator(src io.Reader) SetGenerator {
 	return &prfSetGenerator{
 		src: src,
 	}

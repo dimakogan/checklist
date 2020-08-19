@@ -3,6 +3,7 @@ package boosted
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	//	"log"
@@ -23,7 +24,7 @@ type pirClientPunc struct {
 	hints []Row
 
 	randSource *rand.Rand
-	setGen     SetGenerator
+	setGen     *shiftedSetGenerator
 
 	servers [2]PirServer
 }
@@ -33,8 +34,6 @@ type pirServerPunc struct {
 	rowLen int
 
 	flatDb []byte
-
-	randSource *rand.Rand
 }
 
 const Left int = 0
@@ -78,11 +77,9 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
 
 func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
 	return pirServerPunc{
-		rowLen:     len(data[0]),
-		nRows:      len(data),
-		flatDb:     flattenDb(data),
-		randSource: source,
-	}
+		rowLen: len(data[0]),
+		nRows:  len(data),
+		flatDb: flattenDb(data)}
 }
 
 func setToSlice(set Set) []int {
@@ -95,19 +92,28 @@ func setToSlice(set Set) []int {
 	return out
 }
 
+func genSets(masterKey []byte, nSets, setSize, univSize int) []PuncturableSet {
+	setGen := NewSetGenerator(NewGGMSetGenerator, masterKey)
+	sets := make([]PuncturableSet, nSets)
+	for i := 0; i < nSets; i++ {
+		sets[i] = setGen.SetGen(univSize, setSize)
+	}
+	return sets
+}
+
 func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
-	nHints := len(req.Sets)
-	hints := make([]Row, nHints)
+	sets := genSets(req.SetGenKey, req.NumHints, req.SetSize, s.nRows)
+	hints := make([]Row, req.NumHints)
 
 	totalRows := 0
 
-	for j := 0; j < nHints; j++ {
+	for j := 0; j < req.NumHints; j++ {
 		hints[j] = make(Row, s.rowLen)
-		set := req.Sets[j].Eval()
+		set := sets[j].Eval()
 		totalRows += len(set)
 		xorRowsFlatSlice(s.flatDb, s.rowLen, set, hints[j])
 	}
-	//fmt.Printf("nHints: %d, total Rows: %d \n", nHints, totalRows)
+	//fmt.Printf("nHints: %d, total Rows: %d \n", req.NumHints, totalRows)
 	resp.Hints = hints
 	return nil
 }
@@ -124,6 +130,9 @@ func (s pirServerPunc) answer(q QueryReq, resp *QueryResp) error {
 	resp.Answer = make(Row, s.rowLen)
 	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
 	resp.ExtraElem = s.dbElem(q.ExtraElem)
+
+	// Debug
+	resp.Val = s.dbElem(q.Index)
 	return nil
 }
 
@@ -143,7 +152,8 @@ func (s pirServerPunc) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error
 
 func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirClientPunc {
 	// TODO: Maybe better to just do this with integer ops.
-	nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
+	// nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
+	nRowsRounded := nRows
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
 	nHints := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
 
@@ -152,22 +162,30 @@ func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirCl
 		setSize:    setSize,
 		nHints:     nHints,
 		hints:      nil,
-		setGen:     NewGGMSetGenerator(source),
 		randSource: source,
 		servers:    servers,
 	}
 }
 
 func (c *pirClientPunc) requestHint() (*HintReq, error) {
-	c.sets = make([]PuncturableSet, c.nHints)
-	for i := 0; i < c.nHints; i++ {
-		c.sets[i] = c.setGen.SetGen(c.nRows, c.setSize)
-	}
-	return &HintReq{Sets: c.sets}, nil
+	setGenKey := make([]byte, 16)
+	io.ReadFull(c.randSource, setGenKey)
+	c.sets = genSets(setGenKey, c.nHints, c.setSize, c.nRows)
+
+	return &HintReq{
+		NumHints:  c.nHints,
+		SetSize:   c.setSize,
+		SetGenKey: setGenKey}, nil
 }
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.hints = resp.Hints
+	// Use a separate set generator with a new key for all future sets
+	// since they must look random to the left server.
+	newSetGenKey := make([]byte, 16)
+	io.ReadFull(c.randSource, newSetGenKey)
+	c.setGen = NewSetGenerator(NewGGMSetGenerator, newSetGenKey)
+
 	return nil
 }
 
@@ -214,7 +232,7 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	if ctx.setIdx = c.findIndex(i); ctx.setIdx >= 0 {
 		set = c.sets[ctx.setIdx]
 	} else {
-		set = SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		set = c.setGen.GenWith(c.nRows, c.setSize, i)
 	}
 
 	var puncSetL, puncSetR SuccinctSet
@@ -222,7 +240,7 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 	ctx.randCase = c.sample(c.setSize-1, c.setSize-1, c.nRows)
 	switch ctx.randCase {
 	case 0:
-		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		newSet := c.setGen.GenWith(c.nRows, c.setSize, i)
 		extraL = c.randomMemberExcept(newSet, i)
 		extraR = c.randomMemberExcept(set, i)
 		puncSetL = newSet.Punc(i)
@@ -231,13 +249,13 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, puncQueryCtx) {
 			c.sets[ctx.setIdx] = newSet
 		}
 	case 1:
-		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		newSet := c.setGen.GenWith(c.nRows, c.setSize, i)
 		extraL = c.randomMemberExcept(newSet, i)
 		extraR = c.randomMemberExcept(newSet, extraL)
 		puncSetL = newSet.Punc(extraR)
 		puncSetR = newSet.Punc(i)
 	case 2:
-		newSet := SetGenWith(c.setGen, c.randSource, c.nRows, c.setSize, i)
+		newSet := c.setGen.GenWith(c.nRows, c.setSize, i)
 		extraR = c.randomMemberExcept(newSet, i)
 		extraL = c.randomMemberExcept(newSet, extraR)
 		puncSetL = newSet.Punc(i)

@@ -2,8 +2,8 @@ package boosted
 
 import (
 	"fmt"
+	"io"
 	"math"
-	"math/rand"
 )
 
 type prpSet struct {
@@ -14,10 +14,10 @@ type prpSet struct {
 }
 
 type prpSetGenerator struct {
-	src *rand.Rand
+	src io.Reader
 }
 
-func NewPRPSetSetGenerator(src *rand.Rand) *prpSetGenerator {
+func NewPRPSetSetGenerator(src io.Reader) SetGenerator {
 	return &prpSetGenerator{
 		src: src,
 	}

@@ -1,9 +1,18 @@
 package boosted
 
-import "math/rand"
+import (
+	"io"
+	"math/rand"
+)
 
 func RandSource() *rand.Rand {
 	return rand.New(rand.NewSource(17))
+}
+
+func MasterKey() []byte {
+	key := make([]byte, 16)
+	io.ReadFull(RandSource(), key)
+	return key
 }
 
 func MakeDB(nRows int, rowLen int) []Row {

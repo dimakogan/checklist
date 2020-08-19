@@ -54,8 +54,8 @@ func TestPuncSetGen(t *testing.T) {
 	}
 }
 
-func testPuncSetGenWith(t *testing.T, gen SetGenerator, univSize int, setSize int, with int) {
-	set := SetGenWith(gen, RandSource(), univSize, setSize, with)
+func testPuncSetGenWith(t *testing.T, gen *shiftedSetGenerator, univSize int, setSize int, with int) {
+	set := gen.GenWith(univSize, setSize, with)
 	elements := set.Eval()
 	checkSet(t, elements, univSize, setSize)
 
@@ -68,7 +68,7 @@ func testPuncSetGenWith(t *testing.T, gen SetGenerator, univSize int, setSize in
 }
 
 func TestPuncSetGenWith(t *testing.T) {
-	gen := NewPRPSetSetGenerator(RandSource())
+	gen := NewSetGenerator(NewPRPSetSetGenerator, MasterKey())
 	tests := []struct {
 		UnivSize int
 		setSize  int
@@ -107,8 +107,8 @@ func testPuncSetPunc(t *testing.T, gen SetGenerator, univSize int, setSize int) 
 	}
 }
 
-func testPuncSetGenWithPunc(t *testing.T, gen SetGenerator, univSize int, setSize int, with int) {
-	set := SetGenWith(gen, RandSource(), univSize, setSize, with)
+func testPuncSetGenWithPunc(t *testing.T, gen *shiftedSetGenerator, univSize int, setSize int, with int) {
+	set := gen.GenWith(univSize, setSize, with)
 	elements := set.Eval()
 	checkSet(t, elements, univSize, setSize)
 
@@ -132,7 +132,7 @@ func testPuncSetGenWithPunc(t *testing.T, gen SetGenerator, univSize int, setSiz
 }
 
 func TestPuncSetGenWithPunc(t *testing.T) {
-	gen := NewPRPSetSetGenerator(RandSource())
+	gen := NewSetGenerator(NewPRPSetSetGenerator, MasterKey())
 
 	tests := []struct {
 		UnivSize int

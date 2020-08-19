@@ -25,7 +25,7 @@ func TestPIRPunc(t *testing.T) {
 		len(db),
 		[2]PirServer{leftServer, rightServer})
 	// Increase number of hints manually to test happy flow
-	client.nHints = 100
+	client.nHints *= SEC_PARAM
 
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -132,8 +132,8 @@ func dbDimensions() []DBDimensions {
 	numDBRecords :=
 		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
 		[]int{
-			1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
-			//1 << 18,
+			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
+			1 << 12,
 		}
 
 	dbRecordSize := []int{2048}

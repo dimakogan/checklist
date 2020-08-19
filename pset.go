@@ -1,6 +1,10 @@
 package boosted
 
-import "math/rand"
+import (
+	"encoding/binary"
+	"io"
+	"math/rand"
+)
 
 type Present int
 
@@ -25,6 +29,11 @@ type SetGenerator interface {
 	SetGen(univSize int, setSize int) PuncturableSet
 }
 
+type shiftedSetGenerator struct {
+	SetGenerator
+	src *rand.Rand
+}
+
 type shiftedSet struct {
 	baseSet              SuccinctSet
 	baseSetAsPuncturable PuncturableSet
@@ -32,11 +41,26 @@ type shiftedSet struct {
 	univSize             int
 }
 
-func SetGenWith(g SetGenerator, src *rand.Rand, univSize int, setSize int, val int) PuncturableSet {
-	baseSet := g.SetGen(univSize, setSize)
+type NewGeneratorFunc func(io.Reader) SetGenerator
 
-	// TODO: Implement this more efficiently.
-	pos := src.Intn(setSize)
+func NewSetGenerator(
+	newGen NewGeneratorFunc,
+	masterKey []byte) *shiftedSetGenerator {
+
+	seed := int64(binary.LittleEndian.Uint64(masterKey))
+	src1 := rand.New(rand.NewSource(seed))
+	src2 := rand.New(rand.NewSource(seed))
+
+	return &shiftedSetGenerator{
+		SetGenerator: newGen(src1),
+		src:          src2,
+	}
+}
+
+func (g shiftedSetGenerator) GenWith(univSize int, setSize int, val int) PuncturableSet {
+	baseSet := g.SetGenerator.SetGen(univSize, setSize)
+
+	pos := g.src.Intn(setSize)
 
 	return &shiftedSet{
 		baseSet:              baseSet,
@@ -46,8 +70,8 @@ func SetGenWith(g SetGenerator, src *rand.Rand, univSize int, setSize int, val i
 	}
 }
 
-func SetGen(g SetGenerator, src *rand.Rand, univSize int, setSize int) PuncturableSet {
-	return SetGenWith(g, src, univSize, setSize, src.Intn(univSize))
+func (g shiftedSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
+	return g.GenWith(univSize, setSize, g.src.Intn(univSize))
 }
 
 func (ss *shiftedSet) Eval() Set {

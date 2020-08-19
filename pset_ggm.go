@@ -5,8 +5,8 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
-	"math/rand"
 )
 
 type ggmSet struct {
@@ -18,24 +18,24 @@ type ggmSet struct {
 }
 
 type ggmSetGenerator struct {
-	src *rand.Rand
-	prg cipher.Block
+	keyGen io.Reader
+	prg    cipher.Block
 }
 
-func NewGGMSetGenerator(src *rand.Rand) SetGenerator {
+func NewGGMSetGenerator(randReader io.Reader) SetGenerator {
 	prg, err := aes.NewCipher(zeroBlock)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create AES cipher: %s", err))
 	}
 
-	return &ggmSetGenerator{src: src, prg: prg}
+	return &ggmSetGenerator{prg: prg, keyGen: randReader}
 }
 
 func (g *ggmSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 	key := make([]byte, 16)
 	height := int(math.Ceil(math.Log2(float64(setSize))))
 	for {
-		if l, err := g.src.Read(key); l != len(key) || err != nil {
+		if _, err := io.ReadFull(g.keyGen, key); err != nil {
 			panic(err)
 		}
 

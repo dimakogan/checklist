@@ -46,7 +46,7 @@ func TestGGMPuncSetPunc(t *testing.T) {
 }
 
 func TestGGMPuncSetGenWithPunc(t *testing.T) {
-	gen := NewGGMSetGenerator(RandSource())
+	gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
 
 	tests := []struct {
 		UnivSize int

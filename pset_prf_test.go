@@ -46,7 +46,7 @@ func TestPRFPuncSetPunc(t *testing.T) {
 }
 
 func TestPRFPuncSetGenWithPunc(t *testing.T) {
-	gen := NewPRFSetGenerator(RandSource())
+	gen := NewSetGenerator(NewPRFSetGenerator, MasterKey())
 
 	tests := []struct {
 		UnivSize int

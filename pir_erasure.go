@@ -62,7 +62,7 @@ func nEncodedRows(nRows, chunkSize, allowLoss int) int {
 
 	// Our encoding library requires CHUNK_SIZE + ALLOW_LOSS <= 256
 
-	return (nRows / chunkSize) * (chunkSize + allowLoss)
+	return (((nRows - 1) / chunkSize) + 1) * (chunkSize + allowLoss)
 }
 
 func encodeDatabase(data []Row, chunkSize int, allowLoss int) ([]Row, error) {

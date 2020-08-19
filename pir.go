@@ -10,18 +10,17 @@ type Row []byte
 
 //HintReq is a request for a hint from a client to a server.
 type HintReq struct {
-	Sets          []PuncturableSet
-	AuxRecordsSet PuncturableSet
+	NumHints  int
+	SetSize   int
+	SetGenKey []byte
 
 	// For PirPerm trial
-	NumHints     int
 	PartitionKey []byte
 }
 
 //HintResp is a response to a hint request.
 type HintResp struct {
-	Hints      []Row
-	AuxRecords map[int]Row
+	Hints []Row
 }
 
 //QueryReq is a PIR query from a client to a server.
