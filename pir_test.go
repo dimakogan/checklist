@@ -133,7 +133,7 @@ func dbDimensions() []DBDimensions {
 		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
 		[]int{
 			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
-			1 << 12,
+			1 << 16,
 		}
 
 	dbRecordSize := []int{2048}
@@ -316,7 +316,7 @@ func BenchmarkPirErasureClient(b *testing.B) {
 	}
 }
 
-func BenchmarkPirErasureRpc(b *testing.B) {
+func BenchmarkPirRPC(b *testing.B) {
 	if *serverAddr == "" {
 		b.Skip("No remote address flag set. Skipping remote test.")
 	}
@@ -331,14 +331,16 @@ func BenchmarkPirErasureRpc(b *testing.B) {
 		assert.NilError(b, remote.Call("PirRpcServer.SetDBDimensions", dim, &none))
 
 		proxy := NewPirRpcProxy(remote)
+		var mutex sync.Mutex
 		benchmarkServer := benchmarkServer{
 			PirServer: proxy,
 			b:         b,
 			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:     &mutex,
 		}
 
-		client, err := NewPirClientErasure(RandSource(), dim.NumRecords, DEFAULT_CHUNK_SIZE, [2]PirServer{&benchmarkServer, proxy})
-		assert.NilError(b, err)
+		client := NewPirClientPunc(RandSource(), dim.NumRecords, [2]PirServer{&benchmarkServer, proxy})
+		client.nHints = client.nHints * int(128*math.Log(2))
 		err = client.Init()
 		assert.NilError(b, err)
 
