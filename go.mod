@@ -17,6 +17,7 @@ require (
 	github.com/lukechampine/fastxor v0.0.0-20200124170337-07dbf569dfe7
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/paulbellamy/ratecounter v0.2.0
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/tsenart/vegeta v12.7.0+incompatible // indirect

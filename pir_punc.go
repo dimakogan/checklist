@@ -155,7 +155,7 @@ func NewPirClientPunc(source *rand.Rand, nRows int, servers [2]PirServer) *pirCl
 	// nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
 	nRowsRounded := nRows
 	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
-	nHints := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
+	nHints := int(math.Round(math.Pow(float64(nRowsRounded), 0.5))) * int(float64(SEC_PARAM)*math.Log(2))
 
 	return &pirClientPunc{
 		nRows:      nRowsRounded,

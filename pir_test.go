@@ -3,7 +3,6 @@ package boosted
 import (
 	"flag"
 	"fmt"
-	"math"
 	"math/rand"
 	"net/rpc"
 	"sync"
@@ -24,8 +23,6 @@ func TestPIRPunc(t *testing.T) {
 		RandSource(),
 		len(db),
 		[2]PirServer{leftServer, rightServer})
-	// Increase number of hints manually to test happy flow
-	client.nHints *= SEC_PARAM
 
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -101,9 +98,6 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		client := NewPirClientPunc(src, len(db), [2]PirServer{server, server})
-		// Set nHints to be very high such that the probability of failure due to
-		// the index being missing from all of the sets is small
-		client.nHints = 100
 
 		assert.NilError(t, client.Init())
 		const readIndex = 2
@@ -210,7 +204,6 @@ func BenchmarkPirPunc(b *testing.B) {
 		}
 
 		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&leftServer, &rightServer})
-		client.nHints = client.nHints * int(128*math.Log(2))
 
 		err := client.Init()
 		assert.NilError(b, err)
@@ -340,7 +333,6 @@ func BenchmarkPirRPC(b *testing.B) {
 		}
 
 		client := NewPirClientPunc(RandSource(), dim.NumRecords, [2]PirServer{&benchmarkServer, proxy})
-		client.nHints = client.nHints * int(128*math.Log(2))
 		err = client.Init()
 		assert.NilError(b, err)
 

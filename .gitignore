@@ -26,3 +26,4 @@ compare/fig/__pycache__/
 /*.txt
 /.ipynb_checkpoints/
 *.out
+/stress

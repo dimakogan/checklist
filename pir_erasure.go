@@ -129,7 +129,7 @@ func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int, servers [2
 	}
 
 	puncClient := NewPirClientPunc(source, nEnc, servers)
-	puncClient.nHints *= NUM_HINTS_MULTIPLIER
+	puncClient.nHints = int(math.Round(math.Pow(float64(puncClient.nRows), 0.5))) * NUM_HINTS_MULTIPLIER
 	return &pirClientErasure{chunkSize: chunkSize, allowLoss: allowLoss, rs: rs, puncClient: puncClient}, nil
 }
 
