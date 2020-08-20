@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -10,6 +12,10 @@ import (
 )
 
 func main() {
+	port := flag.Int("p", 12345, "Listening port")
+
+	flag.Parse()
+
 	// Some easy to test initial values.
 	var db = make([]b.Row, b.DEFAULT_CHUNK_SIZE)
 	for i := 0; i < len(db); i++ {
@@ -21,8 +27,7 @@ func main() {
 		log.Fatalf("Failed to create server: %s", err)
 	}
 
-	// Listen to TPC connections on port 12345
-	listener, e := net.Listen("tcp", ":12345")
+	listener, e := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if e != nil {
 		log.Fatalf("Listen error: %s", e)
 	}
@@ -34,7 +39,7 @@ func main() {
 	// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
 	server.HandleHTTP("/", "/debug")
 
-	log.Printf("Serving RPC server on %s", ":12345")
+	log.Printf("Serving RPC server on port port %d\n", *port)
 	// Start accept incoming HTTP connections
 	if e = http.Serve(listener, nil); e != nil {
 		log.Fatal("Failed to http.Serve, %w", e)
