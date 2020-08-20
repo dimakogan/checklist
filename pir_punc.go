@@ -39,11 +39,6 @@ type pirServerPunc struct {
 const Left int = 0
 const Right int = 1
 
-type PirServer interface {
-	Hint(req *HintReq, resp *HintResp) error
-	AnswerBatch(q []QueryReq, resp *[]QueryResp) error
-}
-
 func xorInto(a []byte, b []byte) {
 	if len(a) != len(b) {
 		panic("Tried to XOR byte-slices of unequal length.")

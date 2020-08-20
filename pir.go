@@ -5,6 +5,16 @@ import (
 	"math"
 )
 
+type PirServer interface {
+	Hint(req *HintReq, resp *HintResp) error
+	AnswerBatch(q []QueryReq, resp *[]QueryResp) error
+}
+
+type PirClient interface {
+	Init() error
+	Read(i int) (Row, error)
+}
+
 // One database row.
 type Row []byte
 

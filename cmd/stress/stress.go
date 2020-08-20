@@ -1,11 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
-	"strconv"
 	"time"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -20,38 +19,33 @@ import (
 var NumDifferentReads = 100
 
 func main() {
-	args := os.Args
-	if len(args) < 4 {
-		panic(fmt.Sprintf("Usage: %s <SERVER-ADDR> <NUM-DB-RECORDS> <RECORD-SIZE> <NUM-WORKERS>", args[0]))
-	}
-	numRecords, err := strconv.Atoi(args[2])
-	if err != nil {
-		panic(fmt.Sprintf("Invalid NUM-DB-RECORDS: %s", args[2]))
-	}
+	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	numRecords := flag.Int("n", 10000, "Num DB Records")
+	recordSize := flag.Int("r", 1000, "Record size in bytes")
+	numWorkers := flag.Int("w", 2, "Num workers")
+	serverType := flag.String("t", "punc", "PIR Type: [punc|matrix]")
 
-	recordSize, err := strconv.Atoi(args[3])
-	if err != nil {
-		panic(fmt.Sprintf("Invalid RECORD-SIZE: %s", args[3]))
-	}
+	flag.Parse()
 
-	numWorkers, err := strconv.Atoi(args[4])
-	if err != nil {
-		panic(fmt.Sprintf("Invalid NUM-WORKERS: %s", args[4]))
-	}
-
-	remote, err := rpc.DialHTTP("tcp", args[1])
+	remote, err := rpc.DialHTTP("tcp", *serverAddr)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
 
 	proxyLeft := b.NewPirRpcProxy(remote)
 	proxyRight := b.NewPirRpcProxy(remote)
-	client := b.NewPirClientPunc(b.RandSource(), numRecords, [2]b.PirServer{proxyLeft, proxyRight})
+	var client b.PirClient
+	switch *serverType {
+	case "punc":
+		client = b.NewPirClientPunc(b.RandSource(), *numRecords, [2]b.PirServer{proxyLeft, proxyRight})
+	case "matrix":
+		//client = b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize)
+	}
 	proxyLeft.ShouldRecord = true
 	proxyRight.ShouldRecord = true
 
 	var none int
-	err = remote.Call("PirRpcServer.SetDBDimensions", b.DBDimensions{numRecords, recordSize}, &none)
+	err = remote.Call("PirRpcServer.SetDBDimensions", b.DBDimensions{*numRecords, *recordSize}, &none)
 	if err != nil {
 		log.Fatalf("Failed to SetDBDimensions: %s\n", err)
 	}
@@ -59,9 +53,9 @@ func main() {
 	cachedVals := make(map[int]b.Row)
 	cachedIndices := make([]int, 0)
 	for i := 0; i < NumDifferentReads; i++ {
-		idx := i % numRecords
+		idx := i % *numRecords
 		cachedIndices = append(cachedIndices, idx)
-		cachedVals[idx] = make([]byte, recordSize)
+		cachedVals[idx] = make([]byte, *recordSize)
 		rand.Read(cachedVals[idx])
 
 		err = remote.Call(
@@ -106,7 +100,7 @@ func main() {
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(1 * time.Second)
 
-	for i := 0; i < numWorkers; i++ {
+	for i := 0; i < *numWorkers; i++ {
 		go func() {
 			for {
 				idx := rand.Intn(len(proxyRight.QueryReqs))
