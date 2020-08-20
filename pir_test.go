@@ -19,10 +19,10 @@ func TestPIRPunc(t *testing.T) {
 
 	leftServer := NewPirServerPunc(RandSource(), db)
 	rightServer := NewPirServerPunc(RandSource(), db)
-	client := NewPirClientPunc(
+	servers := [2]PirServer{leftServer, rightServer}
+	client := NewPIRClient(NewPirClientPunc(
 		RandSource(),
-		len(db),
-		[2]PirServer{leftServer, rightServer})
+		len(db)), servers)
 
 	assert.NilError(t, client.Init())
 	const readIndex = 2
@@ -34,16 +34,6 @@ func TestPIRPunc(t *testing.T) {
 	val, err = client.Read(readIndex)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
-
-	// Test Batch Read
-	readIndices := []int{3, 5, 10}
-	vals, errs := client.ReadBatch(readIndices)
-	assert.NilError(t, errs[0])
-	assert.NilError(t, errs[1])
-	assert.NilError(t, errs[2])
-	assert.DeepEqual(t, vals[0], db[3])
-	assert.DeepEqual(t, vals[1], db[5])
-	assert.DeepEqual(t, vals[2], db[10])
 }
 
 func TestPIRPuncErasure(t *testing.T) {
@@ -51,7 +41,8 @@ func TestPIRPuncErasure(t *testing.T) {
 
 	server, err := NewPirServerErasure(RandSource(), db, DEFAULT_CHUNK_SIZE)
 	assert.NilError(t, err)
-	client, err := NewPirClientErasure(RandSource(), len(db), DEFAULT_CHUNK_SIZE, [2]PirServer{server, server})
+	client := NewPIRClient(NewPirClientErasure(RandSource(), len(db), DEFAULT_CHUNK_SIZE),
+		[2]PirServer{server, server})
 	assert.NilError(t, err)
 	assert.NilError(t, client.Init())
 	const readIndex = 5
@@ -79,7 +70,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 
 	proxy := NewPirRpcProxy(remote)
 	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
-	client := NewPirClientPunc(RandSource(), 1000, [2]PirServer{proxy, proxy})
+	client := NewPIRClient(NewPirClientPunc(RandSource(), 1000), [2]PirServer{proxy, proxy})
 
 	err = client.Init()
 	assert.NilError(t, err)
@@ -97,7 +88,9 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	server := NewPirServerPunc(src, db)
 
 	for i := 0; i < 100; i++ {
-		client := NewPirClientPunc(src, len(db), [2]PirServer{server, server})
+		client := NewPIRClient(
+			NewPirClientPunc(src, len(db)),
+			[2]PirServer{server, server})
 
 		assert.NilError(t, client.Init())
 		const readIndex = 2
@@ -168,14 +161,14 @@ func (s *benchmarkServer) Hint(req *HintReq, resp *HintResp) error {
 	return s.PirServer.Hint(req, resp)
 }
 
-func (s *benchmarkServer) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
+func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.b.Run(
-		"AnswerBatch/"+s.name,
+		"Answer/"+s.name,
 		func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err := s.PirServer.AnswerBatch(queries, resps)
+				err := s.PirServer.Answer(q, resp)
 				assert.NilError(b, err)
 			}
 		})
@@ -203,7 +196,9 @@ func BenchmarkPirPunc(b *testing.B) {
 			mutex:     &mutex,
 		}
 
-		client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&leftServer, &rightServer})
+		client := NewPIRClient(
+			NewPirClientPunc(randSource, dim.NumRecords),
+			[2]PirServer{&leftServer, &rightServer})
 
 		err := client.Init()
 		assert.NilError(b, err)
@@ -238,7 +233,7 @@ func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
 		mutex:     &mutex,
 	}
 
-	client, err := NewPirClientErasure(randSource, dim.NumRecords, chunkSize, [2]PirServer{&leftServer, &rightServer})
+	client := NewPIRClient(NewPirClientErasure(randSource, dim.NumRecords, chunkSize), [2]PirServer{&leftServer, &rightServer})
 	err = client.Init()
 	assert.NilError(b, err)
 
@@ -269,12 +264,12 @@ func (s *pauseTimingServer) Hint(req *HintReq, resp *HintResp) error {
 	return err
 }
 
-func (s *pauseTimingServer) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
+func (s *pauseTimingServer) Answer(q QueryReq, resp *QueryResp) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.b.StopTimer()
 	var err error
-	err = s.PirServer.AnswerBatch(queries, resps)
+	err = s.PirServer.Answer(q, resp)
 	s.b.StartTimer()
 	return err
 }
@@ -292,7 +287,8 @@ func BenchmarkPirErasureClient(b *testing.B) {
 			mutex:     &mutex,
 		}
 
-		client, err := NewPirClientErasure(randSource, dim.NumRecords, DEFAULT_CHUNK_SIZE, [2]PirServer{&pauseServer, &pauseServer})
+		client := NewPIRClient(NewPirClientErasure(randSource, dim.NumRecords, DEFAULT_CHUNK_SIZE),
+			[2]PirServer{&pauseServer, &pauseServer})
 		err = client.Init()
 		assert.NilError(b, client.Init())
 
@@ -332,7 +328,9 @@ func BenchmarkPirRPC(b *testing.B) {
 			mutex:     &mutex,
 		}
 
-		client := NewPirClientPunc(RandSource(), dim.NumRecords, [2]PirServer{&benchmarkServer, proxy})
+		client := NewPIRClient(
+			NewPirClientPunc(RandSource(), dim.NumRecords),
+			[2]PirServer{&benchmarkServer, proxy})
 		err = client.Init()
 		assert.NilError(b, err)
 
@@ -353,8 +351,8 @@ func BenchmarkHintOnce(b *testing.B) {
 		name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 	}
 
-	client := NewPirClientPunc(randSource, dim.NumRecords, [2]PirServer{&benchmarkServer, server})
-
+	client := NewPIRClient(NewPirClientPunc(randSource, dim.NumRecords),
+		[2]PirServer{&benchmarkServer, server})
 	err := client.Init()
 	assert.NilError(b, err)
 }
@@ -399,7 +397,7 @@ func BenchmarkNothingLinear(b *testing.B) {
 }
 
 func TestSample(t *testing.T) {
-	client := NewPirClientPunc(RandSource(), 100, [2]PirServer{nil, nil})
+	client := NewPirClientPunc(RandSource(), 100)
 	assert.Equal(t, 1, client.sample(10, 0, 10))
 	assert.Equal(t, 2, client.sample(0, 10, 10))
 	assert.Equal(t, 0, client.sample(0, 0, 10))

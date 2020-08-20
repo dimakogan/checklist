@@ -1,6 +1,7 @@
 package boosted
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -10,12 +11,13 @@ import (
 )
 
 type pirClientErasure struct {
+	*pirClientPunc
+
 	// RS params
 	chunkSize int
 	allowLoss int
 
-	rs         reedsolomon.Encoder
-	puncClient *pirClientPunc
+	rs reedsolomon.Encoder
 }
 
 type pirServerErasure struct {
@@ -120,44 +122,84 @@ func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PirServe
 	return pirServerErasure{NewPirServerPunc(source, encdata)}, nil
 }
 
-func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int, servers [2]PirServer) (*pirClientErasure, error) {
+func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int) *pirClientErasure {
 	allowLoss := computeAllowedLoss(chunkSize, NUM_HINTS_MULTIPLIER)
 	nEnc := nEncodedRows(nRows, chunkSize, allowLoss)
 	rs, err := reedsolomon.New(chunkSize, allowLoss)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create RS encoder: %w", err)
+		panic(fmt.Sprintf("Could not create RS encoder: %s", err))
 	}
 
-	puncClient := NewPirClientPunc(source, nEnc, servers)
+	puncClient := NewPirClientPunc(source, nEnc)
 	puncClient.nHints = int(math.Round(math.Pow(float64(puncClient.nRows), 0.5))) * NUM_HINTS_MULTIPLIER
-	return &pirClientErasure{chunkSize: chunkSize, allowLoss: allowLoss, rs: rs, puncClient: puncClient}, nil
+	return &pirClientErasure{chunkSize: chunkSize, allowLoss: allowLoss, rs: rs, pirClientPunc: puncClient}
 }
 
-func (c *pirClientErasure) Init() error {
-	return c.puncClient.Init()
-}
-
-func (c *pirClientErasure) Read(i int) (Row, error) {
-	toReconstruct := make([][]byte, c.chunkSize+c.allowLoss)
-
+func (c *pirClientErasure) query(i int) ([]QueryReq, ReconstructFunc) {
 	chunkNum := i / c.chunkSize
-	goodChunks := 0
 	encodedChunkSize := c.chunkSize + c.allowLoss
 	toRead := make([]int, encodedChunkSize)
 	for j := 0; j < encodedChunkSize; j++ {
 		toRead[j] = chunkNum*encodedChunkSize + j
 	}
 
-	rows, errs := c.puncClient.ReadBatchAtLeast(toRead, c.chunkSize)
+	reqs, reconstructFuncs := c.queryBatchAtLeast(toRead, c.chunkSize)
+	return []QueryReq{
+			QueryReq{BatchReqs: reqs[Left], Index: i},
+			QueryReq{BatchReqs: reqs[Right], Index: i}},
+		func(resps []QueryResp) (Row, error) {
+			return c.reconstruct(i, reconstructFuncs, resps)
+		}
+}
+
+func (c *pirClientErasure) reconstruct(idx int, reconstruct_funcs []ReconstructFunc, resps []QueryResp) (Row, error) {
+	goodChunks := 0
+	encodedChunkSize := c.chunkSize + c.allowLoss
+	toReconstruct := make([][]byte, encodedChunkSize)
+
+	vals := make([]Row, encodedChunkSize)
+	errs := make([]error, encodedChunkSize)
+	nOk := 0
+	for i := 0; i < encodedChunkSize; i++ {
+		if reconstruct_funcs[i] != nil && nOk < c.chunkSize {
+			vals[i], errs[i] = reconstruct_funcs[i]([]QueryResp{resps[Left].BatchResps[nOk], resps[Right].BatchResps[nOk]})
+			nOk++
+		} else {
+			vals[i] = nil
+			errs[i] = errors.New("couldn't find element in collection")
+		}
+	}
 
 	for j := 0; j < encodedChunkSize; j++ {
 		if errs[j] == nil {
-			toReconstruct[j] = rows[j]
+			toReconstruct[j] = vals[j]
 			goodChunks++
 		}
 	}
 	if err := c.rs.Reconstruct(toReconstruct); err != nil {
-		return nil, fmt.Errorf("Failed to reconstruct: CHUNK_SIZE: %d, ALLOW_LOSS: %d, goodChunks: %d, numCovered: %d, %w", c.chunkSize, c.allowLoss, goodChunks, c.puncClient.NumCovered(), err)
+		return nil, fmt.Errorf("Failed to reconstruct: CHUNK_SIZE: %d, ALLOW_LOSS: %d, goodChunks: %d, numCovered: %d, %w", c.chunkSize, c.allowLoss, goodChunks, c.pirClientPunc.NumCovered(), err)
 	}
-	return toReconstruct[i%c.chunkSize], nil
+	return toReconstruct[idx%c.chunkSize], nil
+}
+
+func (c pirClientErasure) queryBatchAtLeast(idxs []int, n int) ([][]QueryReq, []ReconstructFunc) {
+	reqs := [][]QueryReq{make([]QueryReq, n), make([]QueryReq, n)}
+	reconstruct_funcs := make([]ReconstructFunc, len(idxs))
+
+	nOk := 0
+	for pos, i := range idxs {
+		var queryReqs []QueryReq
+		queryReqs, reconstruct_funcs[pos] = c.pirClientPunc.query(i)
+		if reconstruct_funcs[pos] == nil {
+			continue
+		}
+		reqs[Left][nOk] = queryReqs[Left]
+		reqs[Right][nOk] = queryReqs[Right]
+		nOk++
+		// Only issue first n non-failing queries
+		if nOk == n {
+			break
+		}
+	}
+	return reqs, reconstruct_funcs
 }

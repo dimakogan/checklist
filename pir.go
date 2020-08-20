@@ -5,16 +5,6 @@ import (
 	"math"
 )
 
-type PirServer interface {
-	Hint(req *HintReq, resp *HintResp) error
-	AnswerBatch(q []QueryReq, resp *[]QueryResp) error
-}
-
-type PirClient interface {
-	Init() error
-	Read(i int) (Row, error)
-}
-
 // One database row.
 type Row []byte
 
@@ -26,6 +16,9 @@ type HintReq struct {
 
 	// For PirPerm trial
 	PartitionKey []byte
+
+	// For PirMatrix
+	BitVector []bool
 }
 
 //HintResp is a response to a hint request.
@@ -37,6 +30,12 @@ type HintResp struct {
 type QueryReq struct {
 	PuncturedSet SuccinctSet
 	ExtraElem    int
+
+	// For PirMatrix
+	BitVector []bool
+
+	// For PirErasure
+	BatchReqs []QueryReq
 
 	// Debug & testing.
 	Index int
@@ -50,8 +49,66 @@ type QueryResp struct {
 	// For PirPerm trial
 	Values []Row
 
+	// For PirErasure
+	BatchResps []QueryResp
+
 	// Debug & testing
 	Val Row
+}
+
+type PirServer interface {
+	Hint(req *HintReq, resp *HintResp) error
+	Answer(q QueryReq, resp *QueryResp) error
+}
+
+type PirClient interface {
+	Init() error
+	Read(i int) (Row, error)
+}
+
+type ReconstructFunc func(resp []QueryResp) (Row, error)
+
+type pirClientImpl interface {
+	requestHint() (*HintReq, error)
+	initHint(resp *HintResp) error
+	query(i int) ([]QueryReq, ReconstructFunc)
+}
+
+type pirClient struct {
+	impl    pirClientImpl
+	servers [2]PirServer
+}
+
+func NewPIRClient(impl pirClientImpl, servers [2]PirServer) PirClient {
+	return pirClient{impl: impl, servers: servers}
+}
+
+func (c pirClient) Init() error {
+	hintReq, err := c.impl.requestHint()
+	if err != nil {
+		return err
+	}
+	var hintResp HintResp
+	err = c.servers[Left].Hint(hintReq, &hintResp)
+	if err != nil {
+		return err
+	}
+	return c.impl.initHint(&hintResp)
+}
+
+func (c pirClient) Read(i int) (Row, error) {
+	queryReq, reconstructFunc := c.impl.query(i)
+	responses := make([]QueryResp, 2)
+	err := c.servers[Left].Answer(queryReq[Left], &responses[Left])
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.servers[Right].Answer(queryReq[Right], &responses[Right])
+	if err != nil {
+		return nil, err
+	}
+	return reconstructFunc(responses)
 }
 
 func flattenDb(data []Row) []byte {

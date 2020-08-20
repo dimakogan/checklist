@@ -23,7 +23,7 @@ func main() {
 	numRecords := flag.Int("n", 10000, "Num DB Records")
 	recordSize := flag.Int("r", 1000, "Record size in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
-	serverType := flag.String("t", "punc", "PIR Type: [punc|matrix]")
+	pirType := flag.String("t", "punc", "PIR Type: [punc|matrix]")
 
 	flag.Parse()
 
@@ -35,16 +35,17 @@ func main() {
 	proxyLeft := b.NewPirRpcProxy(remote)
 	proxyRight := b.NewPirRpcProxy(remote)
 	var client b.PirClient
-	switch *serverType {
+	switch *pirType {
 	case "punc":
-		client = b.NewPirClientPunc(b.RandSource(), *numRecords, [2]b.PirServer{proxyLeft, proxyRight})
+		client = b.NewPIRClient(b.NewPirClientPunc(b.RandSource(), *numRecords), [2]b.PirServer{proxyLeft, proxyRight})
 	case "matrix":
-		//client = b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize)
+		client = b.NewPIRClient(b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize), [2]b.PirServer{proxyLeft, proxyRight})
 	}
 	proxyLeft.ShouldRecord = true
 	proxyRight.ShouldRecord = true
 
 	var none int
+	err = remote.Call("PirRpcServer.SetPIRType", *pirType, &none)
 	err = remote.Call("PirRpcServer.SetDBDimensions", b.DBDimensions{*numRecords, *recordSize}, &none)
 	if err != nil {
 		log.Fatalf("Failed to SetDBDimensions: %s\n", err)
@@ -84,12 +85,12 @@ func main() {
 	}
 	proxyRight.ShouldRecord = false
 	for i := range proxyRight.QueryReqs {
-		queryResps := make([]b.QueryResp, len(proxyRight.QueryReqs[i]))
-		err = proxyRight.AnswerBatch(proxyRight.QueryReqs[i], &queryResps)
+		var queryResp b.QueryResp
+		err = proxyRight.Answer(proxyRight.QueryReqs[i], &queryResp)
 		if err != nil {
 			log.Fatalf("Failed to replay query number %d: %s\n", i, err)
 		}
-		if !reflect.DeepEqual(proxyRight.QueryResps[i], queryResps) {
+		if !reflect.DeepEqual(proxyRight.QueryResps[i], queryResp) {
 			log.Fatalf("Mismatching response in query number %d", i)
 		}
 	}
@@ -104,12 +105,12 @@ func main() {
 		go func() {
 			for {
 				idx := rand.Intn(len(proxyRight.QueryReqs))
-				queryResps := make([]b.QueryResp, len(proxyRight.QueryReqs[idx]))
-				err := proxyRight.AnswerBatch(proxyRight.QueryReqs[idx], &queryResps)
+				var queryResp b.QueryResp
+				err := proxyRight.Answer(proxyRight.QueryReqs[idx], &queryResp)
 				if err != nil {
 					log.Fatalf("Failed to replay query number %d: %s\n", idx, err)
 				}
-				if !reflect.DeepEqual(proxyRight.QueryResps[idx], queryResps) {
+				if !reflect.DeepEqual(proxyRight.QueryResps[idx], queryResp) {
 					log.Fatalf("Mismatching response in query number %d", idx)
 				}
 				counter.Incr(1)

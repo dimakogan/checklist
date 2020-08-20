@@ -11,8 +11,8 @@ type PirRpcProxy struct {
 	ShouldRecord bool
 	HintReqs     []HintReq
 	HintResps    []HintResp
-	QueryReqs    [][]QueryReq
-	QueryResps   [][]QueryResp
+	QueryReqs    []QueryReq
+	QueryResps   []QueryResp
 }
 
 func NewPirRpcProxy(remote *rpc.Client) *PirRpcProxy {
@@ -31,11 +31,11 @@ func (p *PirRpcProxy) Hint(req *HintReq, resp *HintResp) error {
 	return err
 }
 
-func (p *PirRpcProxy) AnswerBatch(queries []QueryReq, resps *[]QueryResp) error {
-	err := p.remote.Call("PirRpcServer.AnswerBatch", queries, resps)
+func (p *PirRpcProxy) Answer(query QueryReq, resp *QueryResp) error {
+	err := p.remote.Call("PirRpcServer.Answer", query, resp)
 	if err == nil && p.ShouldRecord {
-		p.QueryReqs = append(p.QueryReqs, queries)
-		p.QueryResps = append(p.QueryResps, *resps)
+		p.QueryReqs = append(p.QueryReqs, query)
+		p.QueryResps = append(p.QueryResps, *resp)
 	}
 	return err
 }

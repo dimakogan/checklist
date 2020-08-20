@@ -10,6 +10,7 @@ type PirRpcServer struct {
 	PirServer
 	randSource *rand.Rand
 	db         []Row
+	pirType    string
 	server     *rpc.Server
 }
 
@@ -29,6 +30,7 @@ func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
 	driver := PirRpcServer{
 		PirServer:  server,
 		randSource: randSource,
+		pirType:    "punc",
 		db:         db,
 	}
 	return &driver, nil
@@ -36,9 +38,7 @@ func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
 
 func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err error) {
 	driver.db = MakeDBWithDimensions(dim)
-	// driver.PirServer, err = NewPirServerErasure(driver.randSource, driver.db, DEFAULT_CHUNK_SIZE)
-	// return err
-	driver.PirServer = NewPirServerPunc(driver.randSource, driver.db)
+	driver.reloadServer()
 	return nil
 
 }
@@ -46,8 +46,21 @@ func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err er
 func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) (err error) {
 	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
 	driver.db[rec.Index] = rec.Value
-	// driver.PirServer, err = NewPirServerErasure(driver.randSource, driver.db, DEFAULT_CHUNK_SIZE)
-	// return err
-	driver.PirServer = NewPirServerPunc(driver.randSource, driver.db)
+	driver.reloadServer()
 	return nil
+}
+
+func (driver *PirRpcServer) SetPIRType(pirType string, none *int) error {
+	driver.pirType = pirType
+	driver.reloadServer()
+	return nil
+}
+
+func (driver *PirRpcServer) reloadServer() {
+	switch driver.pirType {
+	case "punc":
+		driver.PirServer = NewPirServerPunc(driver.randSource, driver.db)
+	case "matrix":
+		driver.PirServer = NewPirServerMatrix(driver.randSource, driver.db)
+	}
 }
