@@ -27,10 +27,12 @@ func main() {
 
 	flag.Parse()
 
+	fmt.Printf("Connecting to %s...", *serverAddr)
 	remote, err := rpc.DialHTTP("tcp", *serverAddr)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
+	fmt.Printf("[OK]\n")
 
 	proxyLeft := b.NewPirRpcProxy(remote)
 	proxyRight := b.NewPirRpcProxy(remote)
@@ -41,9 +43,8 @@ func main() {
 	case "matrix":
 		client = b.NewPIRClient(b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize), [2]b.PirServer{proxyLeft, proxyRight})
 	}
-	proxyLeft.ShouldRecord = true
-	proxyRight.ShouldRecord = true
 
+	fmt.Printf("Setting up remote DB...")
 	var none int
 	err = remote.Call("PirRpcServer.SetPIRType", *pirType, &none)
 	err = remote.Call("PirRpcServer.SetDBDimensions", b.DBDimensions{*numRecords, *recordSize}, &none)
@@ -67,12 +68,18 @@ func main() {
 			log.Fatalf("Failed to SetRecordValue: %s\n", err)
 		}
 	}
+	fmt.Printf("[OK]\n")
 
+	fmt.Printf("Obtaining hint (this may take a while)...")
 	err = client.Init()
 	if err != nil {
 		log.Fatalf("Failed to Initialize client: %s\n", err)
 	}
+	fmt.Printf("[OK]\n")
 
+	fmt.Printf("Caching responses...")
+	proxyLeft.ShouldRecord = true
+	proxyRight.ShouldRecord = true
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := cachedIndices[rand.Intn(len(cachedIndices))]
 		readVal, err := client.Read(idx)
@@ -83,20 +90,9 @@ func main() {
 			log.Fatalf("Mismatching record value at index %d", idx)
 		}
 	}
+	proxyLeft.ShouldRecord = false
 	proxyRight.ShouldRecord = false
-	for i := range proxyRight.QueryReqs {
-		var queryResp b.QueryResp
-		err = proxyRight.Answer(proxyRight.QueryReqs[i], &queryResp)
-		if err != nil {
-			log.Fatalf("Failed to replay query number %d: %s\n", i, err)
-		}
-		if !reflect.DeepEqual(proxyRight.QueryResps[i], queryResp) {
-			log.Fatalf("Mismatching response in query number %d", i)
-		}
-	}
-
-	fmt.Printf("Initial response verification OK (#cached vals: %d, requests: %d, responses: %d)\n",
-		len(cachedIndices), len(proxyRight.QueryReqs), len(proxyRight.QueryResps))
+	fmt.Printf("(%d #cached) [OK]\n", len(proxyRight.QueryReqs))
 
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(1 * time.Second)
