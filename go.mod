@@ -16,13 +16,16 @@ require (
 	github.com/klauspost/reedsolomon v1.9.9
 	github.com/lukechampine/fastxor v0.0.0-20200124170337-07dbf569dfe7
 	github.com/mailru/easyjson v0.7.0 // indirect
+	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/paulbellamy/ratecounter v0.2.0
 	github.com/pkg/errors v0.8.1 // indirect
+	github.com/rakyll/gotest v0.0.5 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/tsenart/vegeta v12.7.0+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20191116160921-f9c825593386 // indirect
+	golang.org/x/sys v0.0.0-20200831180312-196b9ba8737a // indirect
 	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/protobuf v1.23.0
 	gotest.tools v2.2.0+incompatible

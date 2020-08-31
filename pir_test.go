@@ -149,7 +149,7 @@ type benchmarkServer struct {
 	mutex *sync.Mutex
 }
 
-func (s *benchmarkServer) Hint(req *HintReq, resp *HintResp) error {
+func (s *benchmarkServer) Hint(req HintReq, resp *HintResp) error {
 	s.b.Run(
 		"Hint/"+s.name,
 		func(b *testing.B) {
@@ -259,7 +259,7 @@ type pauseTimingServer struct {
 	mutex *sync.Mutex
 }
 
-func (s *pauseTimingServer) Hint(req *HintReq, resp *HintResp) error {
+func (s *pauseTimingServer) Hint(req HintReq, resp *HintResp) error {
 	err := s.PirServer.Hint(req, resp)
 	return err
 }

@@ -119,7 +119,9 @@ func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PirServe
 	}
 	// fmt.Printf("LenIn = %v\n", len(data))
 	// fmt.Printf("LenOut = %v\n", len(encdata))
-	return pirServerErasure{NewPirServerPunc(source, encdata)}, nil
+	serverPunc := NewPirServerPunc(source, encdata)
+	serverPunc.numHintsMultiplier = NUM_HINTS_MULTIPLIER
+	return pirServerErasure{serverPunc}, nil
 }
 
 func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int) *pirClientErasure {
@@ -131,7 +133,6 @@ func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int) *pirClient
 	}
 
 	puncClient := NewPirClientPunc(source, nEnc)
-	puncClient.nHints = int(math.Round(math.Pow(float64(puncClient.nRows), 0.5))) * NUM_HINTS_MULTIPLIER
 	return &pirClientErasure{chunkSize: chunkSize, allowLoss: allowLoss, rs: rs, pirClientPunc: puncClient}
 }
 
@@ -152,7 +153,7 @@ func (c *pirClientErasure) query(i int) ([]QueryReq, ReconstructFunc) {
 		}
 }
 
-func (c *pirClientErasure) reconstruct(idx int, reconstruct_funcs []ReconstructFunc, resps []QueryResp) (Row, error) {
+func (c *pirClientErasure) reconstruct(idx int, reconstructFuncs []ReconstructFunc, resps []QueryResp) (Row, error) {
 	goodChunks := 0
 	encodedChunkSize := c.chunkSize + c.allowLoss
 	toReconstruct := make([][]byte, encodedChunkSize)
@@ -161,8 +162,8 @@ func (c *pirClientErasure) reconstruct(idx int, reconstruct_funcs []ReconstructF
 	errs := make([]error, encodedChunkSize)
 	nOk := 0
 	for i := 0; i < encodedChunkSize; i++ {
-		if reconstruct_funcs[i] != nil && nOk < c.chunkSize {
-			vals[i], errs[i] = reconstruct_funcs[i]([]QueryResp{resps[Left].BatchResps[nOk], resps[Right].BatchResps[nOk]})
+		if reconstructFuncs[i] != nil && nOk < c.chunkSize {
+			vals[i], errs[i] = reconstructFuncs[i]([]QueryResp{resps[Left].BatchResps[nOk], resps[Right].BatchResps[nOk]})
 			nOk++
 		} else {
 			vals[i] = nil
@@ -184,13 +185,13 @@ func (c *pirClientErasure) reconstruct(idx int, reconstruct_funcs []ReconstructF
 
 func (c pirClientErasure) queryBatchAtLeast(idxs []int, n int) ([][]QueryReq, []ReconstructFunc) {
 	reqs := [][]QueryReq{make([]QueryReq, n), make([]QueryReq, n)}
-	reconstruct_funcs := make([]ReconstructFunc, len(idxs))
+	reconstructFuncs := make([]ReconstructFunc, len(idxs))
 
 	nOk := 0
 	for pos, i := range idxs {
 		var queryReqs []QueryReq
-		queryReqs, reconstruct_funcs[pos] = c.pirClientPunc.query(i)
-		if reconstruct_funcs[pos] == nil {
+		queryReqs, reconstructFuncs[pos] = c.pirClientPunc.query(i)
+		if reconstructFuncs[pos] == nil {
 			continue
 		}
 		reqs[Left][nOk] = queryReqs[Left]
@@ -201,5 +202,5 @@ func (c pirClientErasure) queryBatchAtLeast(idxs []int, n int) ([][]QueryReq, []
 			break
 		}
 	}
-	return reqs, reconstruct_funcs
+	return reqs, reconstructFuncs
 }

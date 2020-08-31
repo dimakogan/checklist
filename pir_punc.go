@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	//	"log"
-	"math"
+
 	"math/rand"
 
 	//	"sort"
@@ -16,7 +17,6 @@ import (
 
 type pirClientPunc struct {
 	nRows   int
-	nHints  int
 	setSize int
 
 	sets  []PuncturableSet
@@ -29,6 +29,8 @@ type pirClientPunc struct {
 type pirServerPunc struct {
 	nRows  int
 	rowLen int
+
+	numHintsMultiplier int
 
 	flatDb []byte
 }
@@ -69,9 +71,11 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
 
 func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
 	return pirServerPunc{
-		rowLen: len(data[0]),
-		nRows:  len(data),
-		flatDb: flattenDb(data)}
+		rowLen:             len(data[0]),
+		nRows:              len(data),
+		flatDb:             flattenDb(data),
+		numHintsMultiplier: int(float64(SEC_PARAM) * math.Log(2)),
+	}
 }
 
 func setToSlice(set Set) []int {
@@ -93,13 +97,21 @@ func genSets(masterKey []byte, nSets, setSize, univSize int) []PuncturableSet {
 	return sets
 }
 
-func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
-	sets := genSets(req.SetGenKey, req.NumHints, req.SetSize, s.nRows)
-	hints := make([]Row, req.NumHints)
+func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
+	setSize := int(math.Round(math.Pow(float64(s.nRows), 0.5)))
+	nHints := int(math.Round(math.Pow(float64(s.nRows), 0.5))) * s.numHintsMultiplier
+
+	key := make([]byte, 16)
+	if _, err := io.ReadFull(rand.New(rand.NewSource(req.RandSeed)), key); err != nil {
+		panic(err)
+	}
+
+	sets := genSets(key, nHints, setSize, s.nRows)
+	hints := make([]Row, nHints)
 
 	totalRows := 0
 
-	for j := 0; j < req.NumHints; j++ {
+	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 		set := sets[j].Eval()
 		totalRows += len(set)
@@ -107,6 +119,9 @@ func (s pirServerPunc) Hint(req *HintReq, resp *HintResp) error {
 	}
 	//fmt.Printf("nHints: %d, total Rows: %d \n", req.NumHints, totalRows)
 	resp.Hints = hints
+	resp.NumRows = s.nRows
+	resp.SetSize = setSize
+	resp.SetGenKey = key
 	return nil
 }
 
@@ -146,34 +161,20 @@ func (s pirServerPunc) answerBatch(queries []QueryReq, resps *[]QueryResp) error
 }
 
 func NewPirClientPunc(source *rand.Rand, nRows int) *pirClientPunc {
-	// TODO: Maybe better to just do this with integer ops.
-	// nRowsRounded := 1 << int(math.Ceil(math.Log2(float64(nRows))/2)*2)
-	nRowsRounded := nRows
-	setSize := int(math.Round(math.Pow(float64(nRowsRounded), 0.5)))
-	nHints := int(math.Round(math.Pow(float64(nRowsRounded), 0.5))) * int(float64(SEC_PARAM)*math.Log(2))
-
-	return &pirClientPunc{
-		nRows:      nRowsRounded,
-		setSize:    setSize,
-		nHints:     nHints,
-		hints:      nil,
-		randSource: source,
-	}
+	return &pirClientPunc{randSource: source}
 }
 
 func (c *pirClientPunc) requestHint() (*HintReq, error) {
-	setGenKey := make([]byte, 16)
-	io.ReadFull(c.randSource, setGenKey)
-	c.sets = genSets(setGenKey, c.nHints, c.setSize, c.nRows)
-
-	return &HintReq{
-		NumHints:  c.nHints,
-		SetSize:   c.setSize,
-		SetGenKey: setGenKey}, nil
+	return &HintReq{RandSeed: int64(c.randSource.Uint64())}, nil
 }
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {
+	c.nRows = resp.NumRows
+	c.setSize = resp.SetSize
 	c.hints = resp.Hints
+
+	c.sets = genSets(resp.SetGenKey, len(c.hints), c.setSize, c.nRows)
+
 	// Use a separate set generator with a new key for all future sets
 	// since they must look random to the left server.
 	newSetGenKey := make([]byte, 16)

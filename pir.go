@@ -10,20 +10,21 @@ type Row []byte
 
 //HintReq is a request for a hint from a client to a server.
 type HintReq struct {
-	NumHints  int
-	SetSize   int
-	SetGenKey []byte
+	RandSeed int64
 
-	// For PirPerm trial
-	PartitionKey []byte
-
-	// For PirMatrix
-	BitVector []bool
+	// For updatable PIR
+	BatchReqs []HintReq
 }
 
 //HintResp is a response to a hint request.
 type HintResp struct {
-	Hints []Row
+	Hints     []Row
+	NumRows   int
+	SetSize   int
+	SetGenKey []byte
+
+	// For updatable PIR
+	BatchResps []HintResp
 }
 
 //QueryReq is a PIR query from a client to a server.
@@ -57,7 +58,7 @@ type QueryResp struct {
 }
 
 type PirServer interface {
-	Hint(req *HintReq, resp *HintResp) error
+	Hint(req HintReq, resp *HintResp) error
 	Answer(q QueryReq, resp *QueryResp) error
 }
 
@@ -89,7 +90,7 @@ func (c pirClient) Init() error {
 		return err
 	}
 	var hintResp HintResp
-	err = c.servers[Left].Hint(hintReq, &hintResp)
+	err = c.servers[Left].Hint(*hintReq, &hintResp)
 	if err != nil {
 		return err
 	}

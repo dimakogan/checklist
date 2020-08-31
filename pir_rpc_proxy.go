@@ -22,10 +22,10 @@ func NewPirRpcProxy(remote *rpc.Client) *PirRpcProxy {
 	}
 }
 
-func (p *PirRpcProxy) Hint(req *HintReq, resp *HintResp) error {
+func (p *PirRpcProxy) Hint(req HintReq, resp *HintResp) error {
 	err := p.remote.Call("PirRpcServer.Hint", req, &resp)
 	if err == nil && p.ShouldRecord {
-		p.HintReqs = append(p.HintReqs, *req)
+		p.HintReqs = append(p.HintReqs, req)
 		p.HintResps = append(p.HintResps, *resp)
 	}
 	return err

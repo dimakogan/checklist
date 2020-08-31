@@ -2,7 +2,6 @@ package boosted
 
 import (
 	"fmt"
-	"math/rand"
 )
 
 type partition struct {
@@ -18,15 +17,7 @@ type partition struct {
 	back map[int]int
 }
 
-func NewPartition(src *rand.Rand, univSize, numSets int) (*partition, error) {
-	key := make([]byte, 16)
-	if l, err := src.Read(key); l != len(key) || err != nil {
-		panic(err)
-	}
-	return NewPartitionFromKey(key, univSize, numSets)
-}
-
-func NewPartitionFromKey(key []byte, univSize, numSets int) (*partition, error) {
+func NewPartition(key []byte, univSize, numSets int) (*partition, error) {
 	univSizeBits := numRecordsToUnivSizeBits(univSize)
 	prp, err := NewPRP(key, univSizeBits)
 	if err != nil {

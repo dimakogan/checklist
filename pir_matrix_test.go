@@ -33,8 +33,8 @@ func BenchmarkHintMatrix(b *testing.B) {
 		client := NewPIRClient(NewPirClientMatrix(randSource, dim.NumRecords, dim.RecordSize),
 			[2]PirServer{&leftServer, &rightServer})
 
-		err := client.Init()
-		assert.NilError(b, err)
+		// err := client.Init()
+		// assert.NilError(b, err)
 
 		readIndex := rand.Intn(len(db))
 

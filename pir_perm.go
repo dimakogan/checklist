@@ -7,9 +7,7 @@ import (
 )
 
 type pirPermClient struct {
-	nRows   int
-	setSize int
-	nHints  int
+	nRows int
 
 	partition *partition
 
@@ -26,17 +24,8 @@ type pirPermServer struct {
 }
 
 func NewPirPermClient(src *rand.Rand, nRows int) *pirPermClient {
-	setSize := int(math.Sqrt(float64(nRows)))
-	nHints := (nRows-1)/setSize + 1
-	partition, err := NewPartition(src, nRows, nHints)
-	if err != nil {
-		panic(fmt.Sprintf("Client failed to create partition: %s", err))
-	}
 	return &pirPermClient{
 		nRows:      nRows,
-		setSize:    setSize,
-		nHints:     nHints,
-		partition:  partition,
 		randSource: src,
 	}
 }
@@ -49,12 +38,21 @@ func NewPirPermServer(data []Row) pirPermServer {
 	}
 }
 
-func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
-	hints := make([]Row, req.NumHints)
-	partition, err := NewPartitionFromKey(req.PartitionKey, s.nRows, req.NumHints)
-	if err != nil {
-		return fmt.Errorf("Server failed to create partition: %s", err)
+func (s pirPermServer) Hint(req HintReq, resp *HintResp) error {
+	setSize := int(math.Sqrt(float64(s.nRows)))
+	nHints := (s.nRows-1)/setSize + 1
+	src := rand.New(rand.NewSource(req.RandSeed))
+	key := make([]byte, 16)
+	if l, err := src.Read(key); l != len(key) || err != nil {
+		panic(err)
 	}
+
+	partition, err := NewPartition(key, s.nRows, nHints)
+	if err != nil {
+		panic(fmt.Sprintf("Client failed to create partition: %s", err))
+	}
+
+	hints := make([]Row, nHints)
 
 	for j := range hints {
 		hints[j] = make(Row, s.rowLen)
@@ -64,7 +62,10 @@ func (s pirPermServer) Hint(req *HintReq, resp *HintResp) error {
 		j, _ := partition.Find(i)
 		xorInto(hints[j], s.flatDb[s.rowLen*i:s.rowLen*(i+1)])
 	}
+
+	resp.NumRows = s.nRows
 	resp.Hints = hints
+	resp.SetGenKey = partition.Key()
 
 	return nil
 }
@@ -85,14 +86,16 @@ func (s pirPermServer) Answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (c *pirPermClient) requestHint() (*HintReq, error) {
-	return &HintReq{
-		NumHints:     c.nHints,
-		PartitionKey: c.partition.Key(),
-	}, nil
+	return &HintReq{}, nil
 }
 
-func (c *pirPermClient) initHint(resp *HintResp) error {
+func (c *pirPermClient) initHint(resp *HintResp) (err error) {
 	c.hints = resp.Hints
+	c.partition, err = NewPartition(resp.SetGenKey, resp.NumRows, len(c.hints))
+	if err != nil {
+		return fmt.Errorf("Server failed to create partition: %s", err)
+	}
+
 	return nil
 }
 

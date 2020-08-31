@@ -70,8 +70,7 @@ func (s pirMatrix) matVecProduct(bitVector []bool) []byte {
 	return out
 }
 
-func (s pirMatrix) Hint(req *HintReq, resp *HintResp) error {
-	*resp = HintResp{Hints: []Row{s.matVecProduct(req.BitVector)}}
+func (s pirMatrix) Hint(req HintReq, resp *HintResp) error {
 	return nil
 }
 
@@ -91,12 +90,7 @@ func NewPirClientMatrix(source *rand.Rand, nRows int, rowLen int) *pirClientMatr
 }
 
 func (c *pirClientMatrix) requestHint() (*HintReq, error) {
-	bv := make([]bool, c.height)
-	for i := 0; i < len(bv); i++ {
-		bv[i] = (c.randSource.Uint64()&1 == 0)
-	}
-
-	return &HintReq{BitVector: bv}, nil
+	return &HintReq{}, nil
 }
 
 func (c *pirClientMatrix) initHint(resp *HintResp) error {
