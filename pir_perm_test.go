@@ -14,9 +14,9 @@ func TestPIRPerm(t *testing.T) {
 
 	leftServer := NewPirPermServer(db)
 	rightServer := NewPirPermServer(db)
-	client := NewPIRClient(NewPirPermClient(
+	client := NewPIRClient(
+		NewPirPermClient(RandSource()),
 		RandSource(),
-		len(db)),
 		[2]PirServer{leftServer, rightServer})
 
 	assert.NilError(t, client.Init())
@@ -41,7 +41,8 @@ func BenchmarkPirPerm(b *testing.B) {
 		}
 
 		client := NewPIRClient(
-			NewPirPermClient(randSource, dim.NumRecords),
+			NewPirPermClient(randSource),
+			randSource,
 			[2]PirServer{&benchmarkServer, &benchmarkServer})
 
 		err := client.Init()

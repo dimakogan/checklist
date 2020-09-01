@@ -39,9 +39,15 @@ func main() {
 	var client b.PirClient
 	switch *pirType {
 	case "punc":
-		client = b.NewPIRClient(b.NewPirClientPunc(b.RandSource(), *numRecords), [2]b.PirServer{proxyLeft, proxyRight})
+		client = b.NewPIRClient(
+			b.NewPirClientPunc(b.RandSource()),
+			b.RandSource(),
+			[2]b.PirServer{proxyLeft, proxyRight})
 	case "matrix":
-		client = b.NewPIRClient(b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize), [2]b.PirServer{proxyLeft, proxyRight})
+		client = b.NewPIRClient(
+			b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize),
+			b.RandSource(),
+			[2]b.PirServer{proxyLeft, proxyRight})
 	}
 
 	fmt.Printf("Setting up remote DB...")

@@ -3,6 +3,7 @@ package boosted
 import (
 	"fmt"
 	"math"
+	"math/rand"
 )
 
 // One database row.
@@ -11,9 +12,6 @@ type Row []byte
 //HintReq is a request for a hint from a client to a server.
 type HintReq struct {
 	RandSeed int64
-
-	// For updatable PIR
-	BatchReqs []HintReq
 }
 
 //HintResp is a response to a hint request.
@@ -70,28 +68,24 @@ type PirClient interface {
 type ReconstructFunc func(resp []QueryResp) (Row, error)
 
 type pirClientImpl interface {
-	requestHint() (*HintReq, error)
 	initHint(resp *HintResp) error
 	query(i int) ([]QueryReq, ReconstructFunc)
 }
 
 type pirClient struct {
-	impl    pirClientImpl
-	servers [2]PirServer
+	impl       pirClientImpl
+	servers    [2]PirServer
+	randSource *rand.Rand
 }
 
-func NewPIRClient(impl pirClientImpl, servers [2]PirServer) PirClient {
-	return pirClient{impl: impl, servers: servers}
+func NewPIRClient(impl pirClientImpl, source *rand.Rand, servers [2]PirServer) PirClient {
+	return pirClient{impl: impl, servers: servers, randSource: source}
 }
 
 func (c pirClient) Init() error {
-	hintReq, err := c.impl.requestHint()
-	if err != nil {
-		return err
-	}
+	hintReq := HintReq{RandSeed: int64(c.randSource.Uint64())}
 	var hintResp HintResp
-	err = c.servers[Left].Hint(*hintReq, &hintResp)
-	if err != nil {
+	if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
 		return err
 	}
 	return c.impl.initHint(&hintResp)

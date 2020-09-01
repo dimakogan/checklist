@@ -160,12 +160,8 @@ func (s pirServerPunc) answerBatch(queries []QueryReq, resps *[]QueryResp) error
 	return nil
 }
 
-func NewPirClientPunc(source *rand.Rand, nRows int) *pirClientPunc {
+func NewPirClientPunc(source *rand.Rand) *pirClientPunc {
 	return &pirClientPunc{randSource: source}
-}
-
-func (c *pirClientPunc) requestHint() (*HintReq, error) {
-	return &HintReq{RandSeed: int64(c.randSource.Uint64())}, nil
 }
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {

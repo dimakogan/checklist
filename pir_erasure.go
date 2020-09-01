@@ -124,15 +124,14 @@ func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PirServe
 	return pirServerErasure{serverPunc}, nil
 }
 
-func NewPirClientErasure(source *rand.Rand, nRows int, chunkSize int) *pirClientErasure {
+func NewPirClientErasure(source *rand.Rand, chunkSize int) *pirClientErasure {
 	allowLoss := computeAllowedLoss(chunkSize, NUM_HINTS_MULTIPLIER)
-	nEnc := nEncodedRows(nRows, chunkSize, allowLoss)
+	puncClient := NewPirClientPunc(source)
 	rs, err := reedsolomon.New(chunkSize, allowLoss)
 	if err != nil {
 		panic(fmt.Sprintf("Could not create RS encoder: %s", err))
 	}
 
-	puncClient := NewPirClientPunc(source, nEnc)
 	return &pirClientErasure{chunkSize: chunkSize, allowLoss: allowLoss, rs: rs, pirClientPunc: puncClient}
 }
 
@@ -177,6 +176,7 @@ func (c *pirClientErasure) reconstruct(idx int, reconstructFuncs []ReconstructFu
 			goodChunks++
 		}
 	}
+
 	if err := c.rs.Reconstruct(toReconstruct); err != nil {
 		return nil, fmt.Errorf("Failed to reconstruct: CHUNK_SIZE: %d, ALLOW_LOSS: %d, goodChunks: %d, numCovered: %d, %w", c.chunkSize, c.allowLoss, goodChunks, c.pirClientPunc.NumCovered(), err)
 	}

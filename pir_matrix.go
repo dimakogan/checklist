@@ -89,10 +89,6 @@ func NewPirClientMatrix(source *rand.Rand, nRows int, rowLen int) *pirClientMatr
 	}
 }
 
-func (c *pirClientMatrix) requestHint() (*HintReq, error) {
-	return &HintReq{}, nil
-}
-
 func (c *pirClientMatrix) initHint(resp *HintResp) error {
 	return nil
 }

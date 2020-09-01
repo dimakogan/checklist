@@ -23,11 +23,8 @@ type pirPermServer struct {
 	flatDb []byte
 }
 
-func NewPirPermClient(src *rand.Rand, nRows int) *pirPermClient {
-	return &pirPermClient{
-		nRows:      nRows,
-		randSource: src,
-	}
+func NewPirPermClient(src *rand.Rand) *pirPermClient {
+	return &pirPermClient{randSource: src}
 }
 
 func NewPirPermServer(data []Row) pirPermServer {
@@ -85,12 +82,9 @@ func (s pirPermServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func (c *pirPermClient) requestHint() (*HintReq, error) {
-	return &HintReq{}, nil
-}
-
 func (c *pirPermClient) initHint(resp *HintResp) (err error) {
 	c.hints = resp.Hints
+	c.nRows = resp.NumRows
 	c.partition, err = NewPartition(resp.SetGenKey, resp.NumRows, len(c.hints))
 	if err != nil {
 		return fmt.Errorf("Server failed to create partition: %s", err)
@@ -100,10 +94,11 @@ func (c *pirPermClient) initHint(resp *HintResp) (err error) {
 }
 
 type permQueryCtx struct {
-	i        int
-	setIdx   int
-	posInSet int
-	decoy    int
+	i         int
+	setIdx    int
+	posInSet  int
+	decoy     int
+	newSetIdx int
 }
 
 func (c *pirPermClient) query(i int) ([]QueryReq, ReconstructFunc) {
@@ -112,19 +107,20 @@ func (c *pirPermClient) query(i int) ([]QueryReq, ReconstructFunc) {
 	}
 	setNumber, posInSet := c.partition.Find(i)
 	decoy := c.randSource.Intn(c.nRows)
-	if decoy != i {
+	newSetIdx, _ := c.partition.Find(i)
+	if setNumber != newSetIdx {
 		c.partition.Swap(i, decoy)
 	}
 	puncSet := c.partition.Set(setNumber)
 
 	return []QueryReq{QueryReq{}, QueryReq{PuncturedSet: &puncSet}},
 		func(resp []QueryResp) (Row, error) {
-			return c.reconstruct(permQueryCtx{i, setNumber, posInSet, decoy}, resp[1])
+			return c.reconstruct(permQueryCtx{i, setNumber, posInSet, decoy, newSetIdx}, resp[1])
 		}
 }
 
 func (c *pirPermClient) reconstruct(ctx permQueryCtx, resp QueryResp) (Row, error) {
-	if ctx.decoy == ctx.i {
+	if ctx.setIdx == ctx.newSetIdx {
 		return resp.Values[ctx.posInSet], nil
 	}
 	decoyVal := resp.Values[ctx.posInSet]
@@ -135,9 +131,9 @@ func (c *pirPermClient) reconstruct(ctx permQueryCtx, resp QueryResp) (Row, erro
 			xorInto(iVal, val)
 		}
 	}
-	newSetNumber, _ := c.partition.Find(ctx.i)
-	xorInto(c.hints[newSetNumber], decoyVal)
-	xorInto(c.hints[newSetNumber], iVal)
+
+	xorInto(c.hints[ctx.newSetIdx], decoyVal)
+	xorInto(c.hints[ctx.newSetIdx], iVal)
 
 	return iVal, nil
 }

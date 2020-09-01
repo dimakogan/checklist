@@ -30,7 +30,9 @@ func BenchmarkHintMatrix(b *testing.B) {
 			mutex:     &mutex,
 		}
 
-		client := NewPIRClient(NewPirClientMatrix(randSource, dim.NumRecords, dim.RecordSize),
+		client := NewPIRClient(
+			NewPirClientMatrix(randSource, dim.NumRecords, dim.RecordSize),
+			randSource,
 			[2]PirServer{&leftServer, &rightServer})
 
 		// err := client.Init()

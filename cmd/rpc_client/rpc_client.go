@@ -13,17 +13,13 @@ import (
 
 func main() {
 	args := os.Args
-	if len(args) < 3 {
-		panic(fmt.Sprintf("Usage: %s <NUM-DB-RECORDS> <INDEX-TO-READ>", args[0]))
-	}
-	numRecords, err := strconv.Atoi(args[1])
-	if err != nil {
-		panic(fmt.Sprintf("Invalid NUM-DB-RECORDS: %s", args[1]))
+	if len(args) < 2 {
+		panic(fmt.Sprintf("Usage: %s <INDEX-TO-READ>", args[0]))
 	}
 
-	idx, err := strconv.Atoi(args[2])
+	idx, err := strconv.Atoi(args[1])
 	if err != nil {
-		panic(fmt.Sprintf("Invalid INDEX-TO-READ: %s", args[2]))
+		panic(fmt.Sprintf("Invalid INDEX-TO-READ: %s", args[1]))
 	}
 
 	// Create a TCP connection to localhost on port 12345
@@ -34,7 +30,9 @@ func main() {
 
 	proxyLeft := b.NewPirRpcProxy(remote)
 	proxyRight := b.NewPirRpcProxy(remote)
-	client := b.NewPIRClient(b.NewPirClientPunc(b.RandSource(), numRecords),
+	client := b.NewPIRClient(
+		b.NewPirClientPunc(b.RandSource()),
+		b.RandSource(),
 		[2]b.PirServer{proxyLeft, proxyRight})
 
 	val, err := client.Read(idx)
