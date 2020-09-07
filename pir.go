@@ -12,16 +12,29 @@ type Row []byte
 //HintReq is a request for a hint from a client to a server.
 type HintReq struct {
 	RandSeed int64
+
+	// For PirUpdatable
+	LatestKeyTimestamp int
+}
+
+type TimedRow struct {
+	Timestamp int
+	Key       uint32
+	Delete    bool
+	data      Row
 }
 
 //HintResp is a response to a hint request.
 type HintResp struct {
-	Hints     []Row
 	NumRows   int
 	SetSize   int
 	SetGenKey []byte
+	Hints     []Row
 
 	// For updatable PIR
+	NumUnchangedLayers int
+	TimedKeys          []TimedRow
+
 	BatchResps []HintResp
 }
 
@@ -35,6 +48,9 @@ type QueryReq struct {
 
 	// For PirErasure
 	BatchReqs []QueryReq
+
+	// For PirUpdatable
+	LatestKeyTimestamp int
 
 	// Debug & testing.
 	Index int
@@ -93,6 +109,9 @@ func (c pirClient) Init() error {
 
 func (c pirClient) Read(i int) (Row, error) {
 	queryReq, reconstructFunc := c.impl.query(i)
+	if reconstructFunc == nil {
+		return nil, fmt.Errorf("Failed to query: %d", i)
+	}
 	responses := make([]QueryResp, 2)
 	err := c.servers[Left].Answer(queryReq[Left], &responses[Left])
 	if err != nil {

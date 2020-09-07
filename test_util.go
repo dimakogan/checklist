@@ -27,6 +27,15 @@ func MakeDB(nRows int, rowLen int) []Row {
 	return db
 }
 
+func MakeKeys(nRows int) []uint32 {
+	keys := make([]uint32, nRows)
+	src := RandSource()
+	for i := range keys {
+		keys[i] = uint32(src.Int31()<<32) + uint32(i)
+	}
+	return keys
+}
+
 type DBDimensions struct {
 	NumRecords int
 	RecordSize int
