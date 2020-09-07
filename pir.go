@@ -127,7 +127,7 @@ func (c pirClient) Read(i int) (Row, error) {
 
 func flattenDb(data []Row) []byte {
 	if len(data) < 1 {
-		panic("Database must contain at least one row")
+		return []byte{}
 	}
 
 	rowLen := len(data[0])

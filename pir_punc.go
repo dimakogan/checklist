@@ -70,12 +70,15 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
 }
 
 func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
-	return pirServerPunc{
-		rowLen:             len(data[0]),
+	s := pirServerPunc{
 		nRows:              len(data),
 		flatDb:             flattenDb(data),
 		numHintsMultiplier: int(float64(SEC_PARAM) * math.Log(2)),
 	}
+	if len(data) > 0 {
+		s.rowLen = len(data[0])
+	}
+	return s
 }
 
 func setToSlice(set Set) []int {
