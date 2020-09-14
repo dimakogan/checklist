@@ -4,17 +4,30 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/rpc"
+	"os"
+	"os/signal"
+	"runtime/pprof"
+	"syscall"
 
 	b "github.com/dimakogan/boosted-pir"
 )
 
 func main() {
 	port := flag.Int("p", 12345, "Listening port")
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 
 	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	// Some easy to test initial values.
 	var db = make([]b.Row, b.DEFAULT_CHUNK_SIZE)
@@ -27,10 +40,6 @@ func main() {
 		log.Fatalf("Failed to create server: %s", err)
 	}
 
-	listener, e := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	if e != nil {
-		log.Fatalf("Listen error: %s", e)
-	}
 	server := rpc.NewServer()
 	if err := server.Register(driver); err != nil {
 		log.Fatalf("Failed to register PIRServer, %s", err)
@@ -39,9 +48,21 @@ func main() {
 	// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
 	server.HandleHTTP("/", "/debug")
 
+	httpServer := &http.Server{Addr: fmt.Sprintf(":%d", *port)}
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		httpServer.Close()
+	}()
+
 	log.Printf("Serving RPC server on port port %d\n", *port)
 	// Start accept incoming HTTP connections
-	if e = http.Serve(listener, nil); e != nil {
+	e := httpServer.ListenAndServe()
+	if e == http.ErrServerClosed {
+		log.Println("Server shutdown")
+	} else if e != nil {
 		log.Fatal("Failed to http.Serve, %w", e)
 	}
 }
