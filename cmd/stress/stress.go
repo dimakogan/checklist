@@ -3,8 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"os/signal"
 	"reflect"
+	"syscall"
 	"time"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -24,6 +28,8 @@ func main() {
 	recordSize := flag.Int("r", 1000, "Record size in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	pirType := flag.String("t", "punc", "PIR Type: [punc|matrix]")
+	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
+	answerProf := flag.String("answerprof", "", "Profile Server.Answer filename")
 
 	flag.Parse()
 
@@ -77,10 +83,29 @@ func main() {
 	fmt.Printf("[OK]\n")
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
+	if len(*hintProf) > 0 {
+		err = remote.Call("PirRpcServer.StartCpuProfile", 0, &none)
+		if err != nil {
+			log.Fatalf("Failed to StartCpuProfile: %s\n", err)
+		}
+	}
 	err = client.Init()
 	if err != nil {
 		log.Fatalf("Failed to Initialize client: %s\n", err)
 	}
+	if len(*hintProf) > 0 {
+		var profOut string
+		err = remote.Call("PirRpcServer.StopCpuProfile", 0, &profOut)
+		if err != nil {
+			log.Fatalf("Failed to StopCpuProfile: %s\n", err)
+		}
+		err := ioutil.WriteFile(*hintProf, []byte(profOut), 0644)
+		if err != nil {
+			log.Fatalf("Failed to write server profile to file: %s\n", err)
+		}
+		log.Printf("Wrote Server.Hint profile file: %s\n", *hintProf)
+	}
+
 	fmt.Printf("[OK]\n")
 
 	fmt.Printf("Caching responses...")
@@ -103,6 +128,13 @@ func main() {
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(1 * time.Second)
 
+	if len(*answerProf) > 0 {
+		err = remote.Call("PirRpcServer.StartCpuProfile", 0, &none)
+		if err != nil {
+			log.Fatalf("Failed to StartCpuProfile: %s\n", err)
+		}
+	}
+
 	for i := 0; i < *numWorkers; i++ {
 		go func() {
 			for {
@@ -119,6 +151,25 @@ func main() {
 			}
 		}()
 	}
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		if len(*answerProf) > 0 {
+			var profOut string
+			err = remote.Call("PirRpcServer.StopCpuProfile", 0, &profOut)
+			if err != nil {
+				log.Fatalf("Failed to StopCpuProfile: %s\n", err)
+			}
+			err := ioutil.WriteFile(*answerProf, []byte(profOut), 0644)
+			if err != nil {
+				log.Fatalf("Failed to write server profile to file: %s\n", err)
+			}
+			fmt.Printf("\nWrote Server.Answer profile file: %s\n", *answerProf)
+			os.Exit(0)
+		}
+	}()
 
 	for {
 		fmt.Printf("\rCurrent rate: %d QPS", counter.Rate())

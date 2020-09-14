@@ -8,7 +8,6 @@ import (
 	"net/rpc"
 	"os"
 	"os/signal"
-	"runtime/pprof"
 	"syscall"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -16,18 +15,7 @@ import (
 
 func main() {
 	port := flag.Int("p", 12345, "Listening port")
-	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
-
 	flag.Parse()
-
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
 
 	// Some easy to test initial values.
 	var db = make([]b.Row, b.DEFAULT_CHUNK_SIZE)

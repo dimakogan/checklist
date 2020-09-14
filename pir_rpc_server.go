@@ -1,9 +1,11 @@
 package boosted
 
 import (
+	"bytes"
 	"encoding/gob"
 	"math/rand"
 	"net/rpc"
+	"runtime/pprof"
 )
 
 type PirRpcServer struct {
@@ -12,6 +14,8 @@ type PirRpcServer struct {
 	db         []Row
 	pirType    string
 	server     *rpc.Server
+
+	profBuf bytes.Buffer
 }
 
 func registerExtraTypes() {
@@ -53,6 +57,17 @@ func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) (err e
 func (driver *PirRpcServer) SetPIRType(pirType string, none *int) error {
 	driver.pirType = pirType
 	driver.reloadServer()
+	return nil
+}
+
+func (driver *PirRpcServer) StartCpuProfile(int, *int) error {
+	driver.profBuf.Reset()
+	return pprof.StartCPUProfile(&driver.profBuf)
+}
+
+func (driver *PirRpcServer) StopCpuProfile(none int, out *string) error {
+	pprof.StopCPUProfile()
+	*out = driver.profBuf.String()
 	return nil
 }
 
