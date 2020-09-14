@@ -297,3 +297,20 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	assert.DeepEqual(t, val, db[readIndex])
 
 }
+
+func TestPIRUpdatableDeleteAll(t *testing.T) {
+	db := MakeDB(2, 100)
+	keys := MakeKeys(len(db))
+
+	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
+	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+	servers := [2]PirServer{leftServer, rightServer}
+
+	leftServer.DeleteRow(keys[0])
+	rightServer.DeleteRow(keys[0])
+	leftServer.DeleteRow(keys[1])
+	rightServer.DeleteRow(keys[1])
+
+	client := NewPirClientUpdatable(RandSource(), servers)
+	assert.NilError(t, client.Init())
+}
