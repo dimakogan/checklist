@@ -167,8 +167,8 @@ func main() {
 				log.Fatalf("Failed to write server profile to file: %s\n", err)
 			}
 			fmt.Printf("\nWrote Server.Answer profile file: %s\n", *answerProf)
-			os.Exit(0)
 		}
+		os.Exit(0)
 	}()
 
 	for {

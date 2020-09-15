@@ -9,7 +9,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func BenchmarkHintMatrix(b *testing.B) {
+func BenchmarkMatrix(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
 		db := MakeDBWithDimensions(dim)

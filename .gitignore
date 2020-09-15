@@ -28,3 +28,4 @@ compare/fig/__pycache__/
 *.out
 /stress
 /*.exe
+*.prof
