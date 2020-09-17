@@ -12,6 +12,7 @@ type PirRpcServer struct {
 	PirServer
 	randSource *rand.Rand
 	db         []Row
+	keys       []uint32
 	pirType    string
 	server     *rpc.Server
 
@@ -36,12 +37,14 @@ func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
 		randSource: randSource,
 		pirType:    "punc",
 		db:         db,
+		keys:       MakeKeys(len(db)),
 	}
 	return &driver, nil
 }
 
 func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err error) {
 	driver.db = MakeDBWithDimensions(dim)
+	driver.keys = MakeKeys(dim.NumRecords)
 	driver.reloadServer()
 	return nil
 
@@ -50,6 +53,7 @@ func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err er
 func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) (err error) {
 	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
 	driver.db[rec.Index] = rec.Value
+	driver.keys[rec.Index] = rec.Key
 	driver.reloadServer()
 	return nil
 }
@@ -74,8 +78,8 @@ func (driver *PirRpcServer) StopCpuProfile(none int, out *string) error {
 func (driver *PirRpcServer) reloadServer() {
 	switch driver.pirType {
 	case "punc":
-		driver.PirServer = NewPirServerPunc(driver.randSource, driver.db)
+		driver.PirServer = NewPirServerUpdatable(driver.randSource, false, driver.keys, driver.db)
 	case "matrix":
-		driver.PirServer = NewPirServerMatrix(driver.randSource, driver.db)
+		driver.PirServer = NewPirServerUpdatable(driver.randSource, true, driver.keys, driver.db)
 	}
 }

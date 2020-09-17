@@ -31,6 +31,7 @@ type HintResp struct {
 	SetSize   int
 	SetGenKey []byte
 	Hints     []Row
+	IsMatrix  bool
 
 	// For updatable PIR
 	NumUnchangedLayers int

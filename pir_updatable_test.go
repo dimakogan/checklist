@@ -1,10 +1,17 @@
 package boosted
 
 import (
+	"flag"
+	"fmt"
+	"net/rpc"
+	"sync"
 	"testing"
 
 	"gotest.tools/assert"
 )
+
+// For testing server over RPC.
+var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 
 func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -26,8 +33,8 @@ func TestPIRUpdatableStatic(t *testing.T) {
 	db := MakeDB(256, 100)
 	keys := MakeKeys(len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
-	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys, db)
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys, db)
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -43,8 +50,8 @@ func TestPIRUpdatableInitAfterAdditions(t *testing.T) {
 
 	initialSize := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
-	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -79,8 +86,8 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 
 	initialSize := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
-	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -117,8 +124,8 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 
 	initialSize := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
-	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -159,8 +166,8 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 	db := MakeDB(finalSize, 100)
 	keys := MakeKeys(len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
-	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -200,8 +207,8 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	db := MakeDB(initialSize, 100)
 	keys := MakeKeys(len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
-	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys, db)
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys, db)
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -235,8 +242,8 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 
 	numDeletes := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
-	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys, db)
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys, db)
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -274,8 +281,8 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	numDeletesAndAdds := 10
 	initialSize := len(db) - numDeletesAndAdds
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
-	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys[0:initialSize], db[0:initialSize])
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -334,8 +341,8 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 	db := MakeDB(2, 100)
 	keys := MakeKeys(len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
-	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+	leftServer := NewPirServerUpdatable(RandSource(), false, keys, db)
+	rightServer := NewPirServerUpdatable(RandSource(), false, keys, db)
 
 	leftServer.smallestLayerSize = 10
 	rightServer.smallestLayerSize = 10
@@ -349,4 +356,62 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 
 	client := NewPirClientUpdatable(RandSource(), servers)
 	assert.NilError(t, client.Init())
+}
+
+func TestPIRServerOverRPC(t *testing.T) {
+	if *serverAddr == "" {
+		t.Skip("No remote address flag set. Skipping remote test.")
+	}
+
+	remote, err := rpc.DialHTTP("tcp", *serverAddr)
+	assert.NilError(t, err)
+
+	var none int
+	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{1000, 4}, &none))
+	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
+
+	proxy := NewPirRpcProxy(remote)
+	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
+	client := NewPirClientUpdatable(RandSource(), [2]PirServer{proxy, proxy})
+
+	err = client.Init()
+	assert.NilError(t, err)
+
+	val, err := client.Read(0x1234)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, Row("Cool"))
+}
+
+func BenchmarkPirRPC(b *testing.B) {
+	if *serverAddr == "" {
+		b.Skip("No remote address flag set. Skipping remote test.")
+	}
+
+	for _, dim := range dbDimensions() {
+
+		// Create a TCP connection to localhost on port 1234
+		remote, err := rpc.DialHTTP("tcp", *serverAddr)
+		assert.NilError(b, err)
+
+		var none int
+		assert.NilError(b, remote.Call("PirRpcServer.SetDBDimensions", dim, &none))
+		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
+			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
+
+		proxy := NewPirRpcProxy(remote)
+		var mutex sync.Mutex
+		benchmarkServer := benchmarkServer{
+			PirServer: proxy,
+			b:         b,
+			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			mutex:     &mutex,
+		}
+
+		client := NewPirClientUpdatable(RandSource(), [2]PirServer{&benchmarkServer, proxy})
+		err = client.Init()
+		assert.NilError(b, err)
+
+		_, err = client.Read(0x1234)
+		assert.NilError(b, err)
+	}
 }

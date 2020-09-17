@@ -17,6 +17,7 @@ type pirServerUpdatable struct {
 	layers            []serverLayer
 	smallestLayerSize int
 	maxSizes          []int
+	useMatrix         bool
 
 	randSource *rand.Rand
 
@@ -92,18 +93,23 @@ func (s *pirServerUpdatable) initLayers(timedRows []TimedRow) {
 		return
 	}
 
-	// The smallest layer uses the simple PIR
+	for i := range s.layers {
+		s.layers[i].isMatrix = s.useMatrix
+	}
+
+	// The smallest layer always uses matrix
 	s.layers[0].isMatrix = true
 
 	// Initially, store all data in last (biggest) layer
 	s.layers[len(s.layers)-1].init(s.randSource, timedRows)
 }
 
-func NewPirServerUpdatable(source *rand.Rand, keys []uint32, values []Row) *pirServerUpdatable {
+func NewPirServerUpdatable(source *rand.Rand, useMatrix bool, keys []uint32, values []Row) *pirServerUpdatable {
 	s := pirServerUpdatable{
 		randSource:        source,
 		curTimestamp:      0,
 		smallestLayerSize: SEC_PARAM * SEC_PARAM,
+		useMatrix:         useMatrix,
 	}
 	timedRows := make([]TimedRow, 0, len(keys))
 	for i, key := range keys {
@@ -175,6 +181,7 @@ func (layer *serverLayer) release() (timedRows []TimedRow) {
 func (layer serverLayer) newLayerHint(req HintReq, resp *HintResp) bool {
 	if layer.pir != nil {
 		layer.pir.Hint(req, resp)
+		resp.IsMatrix = layer.isMatrix
 	}
 	earliestNewKey := len(layer.timedRows)
 	for {
@@ -293,7 +300,7 @@ func (c *pirClientUpdatable) initLayers(resp HintResp) error {
 		if subResp.NumRows == 0 {
 			continue
 		}
-		if l == 0 {
+		if subResp.IsMatrix {
 			newLayers[l].pir = NewPirClientMatrix(c.randSource)
 		} else {
 			newLayers[l].pir = NewPirClientPunc(c.randSource)

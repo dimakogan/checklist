@@ -47,5 +47,6 @@ func MakeDBWithDimensions(dim DBDimensions) []Row {
 
 type RecordIndexVal struct {
 	Index int
+	Key   uint32
 	Value Row
 }

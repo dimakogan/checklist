@@ -69,19 +69,16 @@ func TestPIRServerOverRPC(t *testing.T) {
 
 	var none int
 	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{1000, 4}, &none))
-	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, Row{'C', 'o', 'o', 'l'}}, &none))
+	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
 
 	proxy := NewPirRpcProxy(remote)
 	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
-	client := NewPIRClient(
-		NewPirClientPunc(RandSource()),
-		RandSource(),
-		[2]PirServer{proxy, proxy})
+	client := NewPirClientUpdatable(RandSource(), [2]PirServer{proxy, proxy})
 
 	err = client.Init()
 	assert.NilError(t, err)
 
-	val, err := client.Read(7)
+	val, err := client.Read(0x1234)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, Row("Cool"))
 }
@@ -332,6 +329,8 @@ func BenchmarkPirRPC(b *testing.B) {
 
 		var none int
 		assert.NilError(b, remote.Call("PirRpcServer.SetDBDimensions", dim, &none))
+		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
+			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
 
 		proxy := NewPirRpcProxy(remote)
 		var mutex sync.Mutex
@@ -342,14 +341,11 @@ func BenchmarkPirRPC(b *testing.B) {
 			mutex:     &mutex,
 		}
 
-		client := NewPIRClient(
-			NewPirClientPunc(RandSource()),
-			RandSource(),
-			[2]PirServer{&benchmarkServer, proxy})
+		client := NewPirClientUpdatable(RandSource(), [2]PirServer{&benchmarkServer, proxy})
 		err = client.Init()
 		assert.NilError(b, err)
 
-		_, err = client.Read(7)
+		_, err = client.Read(0x1234)
 		assert.NilError(b, err)
 	}
 }

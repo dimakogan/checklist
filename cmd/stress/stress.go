@@ -42,19 +42,7 @@ func main() {
 
 	proxyLeft := b.NewPirRpcProxy(remote)
 	proxyRight := b.NewPirRpcProxy(remote)
-	var client b.PirClient
-	switch *pirType {
-	case "punc":
-		client = b.NewPIRClient(
-			b.NewPirClientPunc(b.RandSource()),
-			b.RandSource(),
-			[2]b.PirServer{proxyLeft, proxyRight})
-	case "matrix":
-		client = b.NewPIRClient(
-			b.NewPirClientMatrix(b.RandSource()),
-			b.RandSource(),
-			[2]b.PirServer{proxyLeft, proxyRight})
-	}
+	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
 
 	fmt.Printf("Setting up remote DB...")
 	var none int
@@ -66,15 +54,17 @@ func main() {
 
 	cachedVals := make(map[int]b.Row)
 	cachedIndices := make([]int, 0)
+	cachedKeys := make([]uint32, 0)
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := i % *numRecords
 		cachedIndices = append(cachedIndices, idx)
+		cachedKeys = append(cachedKeys, rand.Uint32())
 		cachedVals[idx] = make([]byte, *recordSize)
 		rand.Read(cachedVals[idx])
 
 		err = remote.Call(
 			"PirRpcServer.SetRecordValue",
-			b.RecordIndexVal{Index: idx, Value: cachedVals[idx]},
+			b.RecordIndexVal{Index: idx, Key: cachedKeys[idx], Value: cachedVals[idx]},
 			&none)
 		if err != nil {
 			log.Fatalf("Failed to SetRecordValue: %s\n", err)
@@ -113,7 +103,7 @@ func main() {
 	proxyRight.ShouldRecord = true
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := cachedIndices[rand.Intn(len(cachedIndices))]
-		readVal, err := client.Read(idx)
+		readVal, err := client.Read(int(cachedKeys[idx]))
 		if err != nil {
 			log.Fatalf("Failed to read index %d: %s", i, err)
 		}
