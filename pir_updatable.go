@@ -125,16 +125,19 @@ func (s *pirServerUpdatable) tick() int {
 	return s.curTimestamp
 }
 
-func (s *pirServerUpdatable) AddRow(key uint32, row Row) {
-	s.propagateRow(TimedRow{Timestamp: s.tick(), Key: key, data: row})
+func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
+	timedRows := make([]TimedRow, len(keys))
+	for i := range keys {
+		timedRows[i] = TimedRow{Timestamp: s.tick(), Key: keys[i], data: rows[i]}
+	}
+	s.propagateRows(timedRows)
 }
 
 func (s *pirServerUpdatable) DeleteRow(key uint32) {
-	s.propagateRow(TimedRow{Timestamp: s.tick(), Key: key, Delete: true})
+	s.propagateRows([]TimedRow{{Timestamp: s.tick(), Key: key, Delete: true}})
 }
 
-func (s *pirServerUpdatable) propagateRow(newRow TimedRow) {
-	newRows := []TimedRow{newRow}
+func (s *pirServerUpdatable) propagateRows(newRows []TimedRow) {
 	var i int
 	for i = 0; i < len(s.layers); i++ {
 		newRows = append(s.layers[i].release(), newRows...)

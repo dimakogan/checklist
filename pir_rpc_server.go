@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"math/rand"
-	"net/rpc"
 	"runtime/pprof"
 )
 
@@ -14,7 +13,7 @@ type PirRpcServer struct {
 	db         []Row
 	keys       []uint32
 	pirType    string
-	server     *rpc.Server
+	serverDB   PirDB
 
 	profBuf bytes.Buffer
 }
@@ -24,28 +23,36 @@ func registerExtraTypes() {
 	gob.Register(&puncturedGGMSet{})
 }
 
-func NewPirRpcServer(db []Row) (*PirRpcServer, error) {
+func NewPirRpcServer(keys []uint32, db []Row) (*PirRpcServer, error) {
 	randSource := RandSource()
 	registerExtraTypes()
-	//server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	server := NewPirServerPunc(randSource, db)
+	server := NewPirServerUpdatable(randSource, false, keys, db)
 	driver := PirRpcServer{
 		PirServer:  server,
 		randSource: randSource,
 		pirType:    "punc",
 		db:         db,
-		keys:       MakeKeys(len(db)),
+		keys:       keys,
 	}
 	return &driver, nil
 }
 
-func (driver *PirRpcServer) SetDBDimensions(dim DBDimensions, none *int) (err error) {
+func (driver *PirRpcServer) ResetDBDimensions(dim DBDimensions, none *int) (err error) {
 	driver.db = MakeDBWithDimensions(dim)
 	driver.keys = MakeKeys(dim.NumRecords)
 	driver.reloadServer()
+	return nil
+
+}
+
+func (driver *PirRpcServer) ChangeDBDimensions(delta int, none *int) (err error) {
+	if delta > 0 {
+		newVals := MakeDBWithDimensions(DBDimensions{delta, len(driver.db[0])})
+		newKeys := MakeKeys(delta)
+
+		driver.serverDB.AddRows(newKeys, newVals)
+	}
+
 	return nil
 
 }

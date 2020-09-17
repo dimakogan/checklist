@@ -58,10 +58,8 @@ func TestPIRUpdatableInitAfterAdditions(t *testing.T) {
 
 	servers := [2]PirServer{leftServer, rightServer}
 
-	for i := initialSize; i < len(db); i++ {
-		leftServer.AddRow(keys[i], db[i])
-		rightServer.AddRow(keys[i], db[i])
-	}
+	leftServer.AddRows(keys[initialSize:], db[initialSize:])
+	rightServer.AddRows(keys[initialSize:], db[initialSize:])
 
 	client := NewPirClientUpdatable(RandSource(), servers)
 
@@ -98,10 +96,8 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 
 	assert.NilError(t, client.Init())
 
-	for i := initialSize; i < len(db); i++ {
-		leftServer.AddRow(keys[i], db[i])
-		rightServer.AddRow(keys[i], db[i])
-	}
+	leftServer.AddRows(keys[initialSize:], db[initialSize:])
+	rightServer.AddRows(keys[initialSize:], db[initialSize:])
 
 	assert.NilError(t, client.Update())
 	// Read something from the beginning
@@ -136,10 +132,8 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 
 	assert.NilError(t, client.Init())
 
-	for i := initialSize; i < len(db); i++ {
-		leftServer.AddRow(keys[i], db[i])
-		rightServer.AddRow(keys[i], db[i])
-	}
+	leftServer.AddRows(keys[initialSize:], db[initialSize:])
+	rightServer.AddRows(keys[initialSize:], db[initialSize:])
 
 	assert.NilError(t, client.Update())
 	// Read something from the beginning
@@ -179,10 +173,10 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 	assert.NilError(t, client.Init())
 
 	for s := 0; s < numSteps; s++ {
-		for i := initialSize + s*delta; i < initialSize+(s+1)*delta; i++ {
-			leftServer.AddRow(keys[i], db[i])
-			rightServer.AddRow(keys[i], db[i])
-		}
+		start := initialSize + s*delta
+		end := initialSize + (s+1)*delta
+		leftServer.AddRows(keys[start:end], db[start:end])
+		rightServer.AddRows(keys[start:end], db[start:end])
 
 		assert.NilError(t, client.Update())
 		// Read something from the beginning
@@ -294,8 +288,8 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	assert.NilError(t, client.Init())
 
 	for i := 0; i < numDeletesAndAdds; i++ {
-		leftServer.AddRow(keys[initialSize+i], db[initialSize+i])
-		rightServer.AddRow(keys[initialSize+i], db[initialSize+i])
+		leftServer.AddRows([]uint32{keys[initialSize+i]}, []Row{db[initialSize+i]})
+		rightServer.AddRows([]uint32{keys[initialSize+i]}, []Row{db[initialSize+i]})
 
 		// interleave deletes from beginning and from new elements
 		if i%4 == 0 {
@@ -367,7 +361,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, err)
 
 	var none int
-	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{1000, 4}, &none))
+	assert.NilError(t, remote.Call("PirRpcServer.ResetDBDimensions", DBDimensions{1000, 4}, &none))
 	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
 
 	proxy := NewPirRpcProxy(remote)
@@ -394,7 +388,7 @@ func BenchmarkPirRPC(b *testing.B) {
 		assert.NilError(b, err)
 
 		var none int
-		assert.NilError(b, remote.Call("PirRpcServer.SetDBDimensions", dim, &none))
+		assert.NilError(b, remote.Call("PirRpcServer.ResetDBDimensions", dim, &none))
 		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
 			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
 

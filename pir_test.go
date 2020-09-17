@@ -1,18 +1,13 @@
 package boosted
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
-	"net/rpc"
 	"sync"
 	"testing"
 
 	"gotest.tools/assert"
 )
-
-// For testing server over RPC.
-var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(256, 100)
@@ -57,30 +52,6 @@ func TestPIRPuncErasure(t *testing.T) {
 	val, err = client.Read(readIndex)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
-}
-
-func TestPIRServerOverRPC(t *testing.T) {
-	if *serverAddr == "" {
-		t.Skip("No remote address flag set. Skipping remote test.")
-	}
-
-	remote, err := rpc.DialHTTP("tcp", *serverAddr)
-	assert.NilError(t, err)
-
-	var none int
-	assert.NilError(t, remote.Call("PirRpcServer.SetDBDimensions", DBDimensions{1000, 4}, &none))
-	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
-
-	proxy := NewPirRpcProxy(remote)
-	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
-	client := NewPirClientUpdatable(RandSource(), [2]PirServer{proxy, proxy})
-
-	err = client.Init()
-	assert.NilError(t, err)
-
-	val, err := client.Read(0x1234)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, val, Row("Cool"))
 }
 
 // Not testing this for now since disabled it
@@ -313,40 +284,6 @@ func BenchmarkPirErasureClient(b *testing.B) {
 					assert.DeepEqual(b, val, db[5])
 				}
 			})
-	}
-}
-
-func BenchmarkPirRPC(b *testing.B) {
-	if *serverAddr == "" {
-		b.Skip("No remote address flag set. Skipping remote test.")
-	}
-
-	for _, dim := range dbDimensions() {
-
-		// Create a TCP connection to localhost on port 1234
-		remote, err := rpc.DialHTTP("tcp", *serverAddr)
-		assert.NilError(b, err)
-
-		var none int
-		assert.NilError(b, remote.Call("PirRpcServer.SetDBDimensions", dim, &none))
-		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
-			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
-
-		proxy := NewPirRpcProxy(remote)
-		var mutex sync.Mutex
-		benchmarkServer := benchmarkServer{
-			PirServer: proxy,
-			b:         b,
-			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-			mutex:     &mutex,
-		}
-
-		client := NewPirClientUpdatable(RandSource(), [2]PirServer{&benchmarkServer, proxy})
-		err = client.Init()
-		assert.NilError(b, err)
-
-		_, err = client.Read(0x1234)
-		assert.NilError(b, err)
 	}
 }
 

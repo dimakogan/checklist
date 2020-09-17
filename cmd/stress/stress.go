@@ -47,9 +47,9 @@ func main() {
 	fmt.Printf("Setting up remote DB...")
 	var none int
 	err = remote.Call("PirRpcServer.SetPIRType", *pirType, &none)
-	err = remote.Call("PirRpcServer.SetDBDimensions", b.DBDimensions{*numRecords, *recordSize}, &none)
+	err = remote.Call("PirRpcServer.ResetDBDimensions", b.DBDimensions{*numRecords, *recordSize}, &none)
 	if err != nil {
-		log.Fatalf("Failed to SetDBDimensions: %s\n", err)
+		log.Fatalf("Failed to ResetDBDimensions: %s\n", err)
 	}
 
 	cachedVals := make(map[int]b.Row)

@@ -73,6 +73,11 @@ type QueryResp struct {
 	Val Row
 }
 
+type PirDB interface {
+	AddRows(keys []uint32, vals []Row)
+	DeleteKey(key uint32)
+}
+
 type PirServer interface {
 	Hint(req HintReq, resp *HintResp) error
 	Answer(q QueryReq, resp *QueryResp) error
