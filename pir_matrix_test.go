@@ -31,7 +31,7 @@ func BenchmarkMatrix(b *testing.B) {
 		}
 
 		client := NewPIRClient(
-			NewPirClientMatrix(randSource, dim.NumRecords, dim.RecordSize),
+			NewPirClientMatrix(randSource),
 			randSource,
 			[2]PirServer{&leftServer, &rightServer})
 

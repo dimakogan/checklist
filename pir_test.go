@@ -128,7 +128,7 @@ func dbDimensions() []DBDimensions {
 		[]int{
 			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
 			// 1 << 16,
-			10000,
+			1000000,
 		}
 
 	dbRecordSize := []int{1000}

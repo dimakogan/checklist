@@ -28,6 +28,10 @@ func TestPIRUpdatableStatic(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
 	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	testRead(t, keys, db, servers)
@@ -41,6 +45,10 @@ func TestPIRUpdatableInitAfterAdditions(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
 	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	for i := initialSize; i < len(db); i++ {
@@ -73,6 +81,10 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
 	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -107,6 +119,10 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
 	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -145,6 +161,10 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
 	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -182,6 +202,10 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
 	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	for i := 0; i < deletedPrefix; i++ {
@@ -213,6 +237,10 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
 	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -248,6 +276,10 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
 	rightServer := NewPirServerUpdatable(RandSource(), keys[0:initialSize], db[0:initialSize])
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -304,6 +336,10 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), keys, db)
 	rightServer := NewPirServerUpdatable(RandSource(), keys, db)
+
+	leftServer.smallestLayerSize = 10
+	rightServer.smallestLayerSize = 10
+
 	servers := [2]PirServer{leftServer, rightServer}
 
 	leftServer.DeleteRow(keys[0])

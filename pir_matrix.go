@@ -6,31 +6,32 @@ import (
 )
 
 type pirClientMatrix struct {
-	height  int
-	width   int
-	rowLen  int
-	xorLeft []Row
+	height int
+	width  int
+	rowLen int
 
 	randSource *rand.Rand
 }
 
 type pirMatrix struct {
-	height int
-	width  int
-	rowLen int
-	flatDb []byte
+	numRows int
+	height  int
+	width   int
+	rowLen  int
+	flatDb  []byte
 
 	randSource *rand.Rand
 }
 
 func getHeightWidth(nRows int, rowLen int) (int, int) {
 	// h^2 = n * rowlen
-	height := int(math.Sqrt(float64(nRows * rowLen)))
-	width := nRows / height
+	width := int(math.Ceil(math.Sqrt(float64(nRows*rowLen)) / float64(rowLen)))
+	height := (nRows-1)/width + 1
+
 	return width, height
 }
 
-func NewPirServerMatrix(source *rand.Rand, data []Row) *pirMatrix {
+func NewPirServerMatrix(source *rand.Rand, data []Row) PirServer {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}
@@ -48,6 +49,7 @@ func NewPirServerMatrix(source *rand.Rand, data []Row) *pirMatrix {
 
 	width, height := getHeightWidth(len(data), rowLen)
 	return &pirMatrix{
+		numRows:    len(data),
 		rowLen:     rowLen,
 		flatDb:     flatDb,
 		randSource: source,
@@ -63,14 +65,23 @@ func (s pirMatrix) matVecProduct(bitVector []bool) []byte {
 	tableWidth := s.rowLen * s.width
 	for j := 0; j < s.height; j++ {
 		if bitVector[j] {
-			xorInto(out, s.flatDb[tableWidth*j:(tableWidth*(j+1))])
+			start := tableWidth * j
+			length := tableWidth
+			if start+length >= len(s.flatDb) {
+				length = len(s.flatDb) - start
+			}
+			xorInto(out[0:length], s.flatDb[start:start+length])
+			cnt = cnt + tableWidth
 		}
-		cnt = cnt + tableWidth
 	}
 	return out
 }
 
 func (s pirMatrix) Hint(req HintReq, resp *HintResp) error {
+	*resp = HintResp{
+		NumRows: s.numRows,
+		RowLen:  s.rowLen,
+	}
 	return nil
 }
 
@@ -79,17 +90,13 @@ func (s *pirMatrix) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func NewPirClientMatrix(source *rand.Rand, nRows int, rowLen int) *pirClientMatrix {
-	width, height := getHeightWidth(nRows, rowLen)
-	return &pirClientMatrix{
-		rowLen:     rowLen,
-		randSource: source,
-		height:     height,
-		width:      width,
-	}
+func NewPirClientMatrix(source *rand.Rand) *pirClientMatrix {
+	return &pirClientMatrix{randSource: source}
 }
 
 func (c *pirClientMatrix) initHint(resp *HintResp) error {
+	c.rowLen = resp.RowLen
+	c.width, c.height = getHeightWidth(resp.NumRows, c.rowLen)
 	return nil
 }
 

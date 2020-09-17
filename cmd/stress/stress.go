@@ -51,7 +51,7 @@ func main() {
 			[2]b.PirServer{proxyLeft, proxyRight})
 	case "matrix":
 		client = b.NewPIRClient(
-			b.NewPirClientMatrix(b.RandSource(), *numRecords, *recordSize),
+			b.NewPirClientMatrix(b.RandSource()),
 			b.RandSource(),
 			[2]b.PirServer{proxyLeft, proxyRight})
 	}

@@ -9,26 +9,28 @@ import (
 type serverLayer struct {
 	timedRows []TimedRow
 	pir       PirServer
+
+	isMatrix bool
 }
 
 type pirServerUpdatable struct {
-	layers   []serverLayer
-	maxSizes []int
+	layers            []serverLayer
+	smallestLayerSize int
+	maxSizes          []int
 
 	randSource *rand.Rand
 
 	curTimestamp int
 }
 
-func layersMaxSize(nRows int) []int {
-	smallestLayerSize := SEC_PARAM * SEC_PARAM
-	if nRows < smallestLayerSize {
-		nRows = smallestLayerSize
+func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
+	if nRows < s.smallestLayerSize {
+		nRows = s.smallestLayerSize
 	}
-	numLayers := int(math.Ceil(math.Log2(float64(nRows/smallestLayerSize)))) + 1
+	numLayers := int(math.Ceil(math.Log2(float64(nRows/s.smallestLayerSize)))) + 1
 	maxSize := make([]int, numLayers)
 	for l := range maxSize {
-		maxSize[l] = (smallestLayerSize << l)
+		maxSize[l] = (s.smallestLayerSize << l)
 	}
 	return maxSize
 }
@@ -83,12 +85,15 @@ func processDeletes(timedRows []TimedRow) (adds []TimedRow, deletedKeys []uint32
 
 func (s *pirServerUpdatable) initLayers(timedRows []TimedRow) {
 	db := rowsToRawDb(timedRows)
-	s.maxSizes = layersMaxSize(len(db))
+	s.maxSizes = s.layersMaxSize(len(db))
 
 	s.layers = make([]serverLayer, len(s.maxSizes))
 	if len(s.layers) == 0 {
 		return
 	}
+
+	// The smallest layer uses the simple PIR
+	s.layers[0].isMatrix = true
 
 	// Initially, store all data in last (biggest) layer
 	s.layers[len(s.layers)-1].init(s.randSource, timedRows)
@@ -96,8 +101,9 @@ func (s *pirServerUpdatable) initLayers(timedRows []TimedRow) {
 
 func NewPirServerUpdatable(source *rand.Rand, keys []uint32, values []Row) *pirServerUpdatable {
 	s := pirServerUpdatable{
-		randSource:   source,
-		curTimestamp: 0,
+		randSource:        source,
+		curTimestamp:      0,
+		smallestLayerSize: SEC_PARAM * SEC_PARAM,
 	}
 	timedRows := make([]TimedRow, 0, len(keys))
 	for i, key := range keys {
@@ -144,21 +150,19 @@ func (s *pirServerUpdatable) propagateRow(newRow TimedRow) {
 func (layer *serverLayer) init(randSrc *rand.Rand, timedRows []TimedRow) {
 	layer.timedRows = timedRows
 	processedRows := rowsToRawDb(layer.timedRows)
-	if len(processedRows) > 0 {
-		layer.pir = NewPirServerPunc(randSrc, processedRows)
-	} else {
+	if len(processedRows) == 0 {
 		layer.pir = nil
+		return
+	}
+	if layer.isMatrix {
+		layer.pir = NewPirServerMatrix(randSrc, processedRows)
+	} else {
+		layer.pir = NewPirServerPunc(randSrc, processedRows)
 	}
 }
 
 func (layer *serverLayer) append(randSrc *rand.Rand, timedRow TimedRow) {
-	layer.timedRows = append(layer.timedRows, timedRow)
-	processedRows := rowsToRawDb(layer.timedRows)
-	if len(processedRows) > 0 {
-		layer.pir = NewPirServerPunc(randSrc, processedRows)
-	} else {
-		layer.pir = nil
-	}
+	layer.init(randSrc, append(layer.timedRows, timedRow))
 }
 
 func (layer *serverLayer) release() (timedRows []TimedRow) {
@@ -169,6 +173,9 @@ func (layer *serverLayer) release() (timedRows []TimedRow) {
 }
 
 func (layer serverLayer) newLayerHint(req HintReq, resp *HintResp) bool {
+	if layer.pir != nil {
+		layer.pir.Hint(req, resp)
+	}
 	earliestNewKey := len(layer.timedRows)
 	for {
 		if earliestNewKey == 0 {
@@ -186,9 +193,6 @@ func (layer serverLayer) newLayerHint(req HintReq, resp *HintResp) bool {
 	for j := 0; j < len(resp.TimedKeys); j++ {
 		resp.TimedKeys[j] = layer.timedRows[earliestNewKey+j]
 		resp.TimedKeys[j].data = nil
-	}
-	if layer.pir != nil {
-		layer.pir.Hint(req, resp)
 	}
 	return true
 }
@@ -289,7 +293,11 @@ func (c *pirClientUpdatable) initLayers(resp HintResp) error {
 		if subResp.NumRows == 0 {
 			continue
 		}
-		newLayers[l].pir = NewPirClientPunc(c.randSource)
+		if l == 0 {
+			newLayers[l].pir = NewPirClientMatrix(c.randSource)
+		} else {
+			newLayers[l].pir = NewPirClientPunc(c.randSource)
+		}
 		err := newLayers[l].pir.initHint(&subResp)
 		if err != nil {
 			return err
