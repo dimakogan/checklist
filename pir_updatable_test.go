@@ -210,8 +210,8 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	servers := [2]PirServer{leftServer, rightServer}
 
 	for i := 0; i < deletedPrefix; i++ {
-		leftServer.DeleteRow(keys[i])
-		rightServer.DeleteRow(keys[i])
+		leftServer.DeleteRows([]uint32{keys[i]})
+		rightServer.DeleteRows([]uint32{keys[i]})
 	}
 
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -250,8 +250,8 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 
 	for i := 0; i < numDeletes; i++ {
 		// interleave deletes
-		leftServer.DeleteRow(keys[i*2])
-		rightServer.DeleteRow(keys[i*2])
+		leftServer.DeleteRows([]uint32{keys[i*2]})
+		rightServer.DeleteRows([]uint32{keys[i*2]})
 	}
 
 	assert.NilError(t, client.Update())
@@ -293,11 +293,11 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 
 		// interleave deletes from beginning and from new elements
 		if i%4 == 0 {
-			leftServer.DeleteRow(keys[initialSize+i/2])
-			rightServer.DeleteRow(keys[initialSize+i/2])
+			leftServer.DeleteRows([]uint32{keys[initialSize+i/2]})
+			rightServer.DeleteRows([]uint32{keys[initialSize+i/2]})
 		} else {
-			leftServer.DeleteRow(keys[i*2])
-			rightServer.DeleteRow(keys[i*2])
+			leftServer.DeleteRows([]uint32{keys[i*2]})
+			rightServer.DeleteRows([]uint32{keys[i*2]})
 		}
 	}
 
@@ -343,10 +343,10 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 
 	servers := [2]PirServer{leftServer, rightServer}
 
-	leftServer.DeleteRow(keys[0])
-	rightServer.DeleteRow(keys[0])
-	leftServer.DeleteRow(keys[1])
-	rightServer.DeleteRow(keys[1])
+	leftServer.DeleteRows([]uint32{keys[0]})
+	rightServer.DeleteRows([]uint32{keys[0]})
+	leftServer.DeleteRows([]uint32{keys[1]})
+	rightServer.DeleteRows([]uint32{keys[1]})
 
 	client := NewPirClientUpdatable(RandSource(), servers)
 	assert.NilError(t, client.Init())

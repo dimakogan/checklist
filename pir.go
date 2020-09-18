@@ -21,6 +21,7 @@ type TimedRow struct {
 	Timestamp int
 	Key       uint32
 	Delete    bool
+	DeleteAll bool
 	data      Row
 }
 
@@ -75,7 +76,7 @@ type QueryResp struct {
 
 type PirDB interface {
 	AddRows(keys []uint32, vals []Row)
-	DeleteKey(key uint32)
+	DeleteRows(keys []uint32)
 }
 
 type PirServer interface {

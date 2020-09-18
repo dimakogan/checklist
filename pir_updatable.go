@@ -133,8 +133,12 @@ func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
 	s.propagateRows(timedRows)
 }
 
-func (s *pirServerUpdatable) DeleteRow(key uint32) {
-	s.propagateRows([]TimedRow{{Timestamp: s.tick(), Key: key, Delete: true}})
+func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
+	timedRows := make([]TimedRow, len(keys))
+	for i := range keys {
+		timedRows[i] = TimedRow{Timestamp: s.tick(), Key: keys[i], Delete: true}
+	}
+	s.propagateRows(timedRows)
 }
 
 func (s *pirServerUpdatable) propagateRows(newRows []TimedRow) {

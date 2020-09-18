@@ -45,16 +45,20 @@ func (driver *PirRpcServer) ResetDBDimensions(dim DBDimensions, none *int) (err 
 
 }
 
-func (driver *PirRpcServer) ChangeDBDimensions(delta int, none *int) (err error) {
-	if delta > 0 {
-		newVals := MakeDBWithDimensions(DBDimensions{delta, len(driver.db[0])})
-		newKeys := MakeKeys(delta)
-
-		driver.serverDB.AddRows(newKeys, newVals)
-	}
-
+func (driver *PirRpcServer) AddRows(numRows int, none *int) (err error) {
+	newVals := MakeDBWithDimensions(DBDimensions{numRows, len(driver.db[0])})
+	newKeys := MakeKeys(numRows)
+	driver.db = append(driver.db, newVals...)
+	driver.keys = append(driver.keys, newKeys...)
+	driver.serverDB.AddRows(newKeys, newVals)
 	return nil
+}
 
+func (driver *PirRpcServer) DeleteRows(numRows int, none *int) (err error) {
+	driver.serverDB.DeleteRows(driver.keys[len(driver.keys)-numRows:])
+	driver.db = driver.db[0 : len(driver.db)-numRows]
+	driver.keys = driver.keys[0 : len(driver.keys)-numRows]
+	return nil
 }
 
 func (driver *PirRpcServer) SetRecordValue(rec RecordIndexVal, none *int) (err error) {
