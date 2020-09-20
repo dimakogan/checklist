@@ -21,7 +21,6 @@ type TimedRow struct {
 	Timestamp int
 	Key       uint32
 	Delete    bool
-	DeleteAll bool
 	data      Row
 }
 
@@ -35,8 +34,9 @@ type HintResp struct {
 	IsMatrix  bool
 
 	// For updatable PIR
-	NumUnchangedLayers int
-	TimedKeys          []TimedRow
+	NumUnchangedLayers  int
+	TimedKeys           []TimedRow
+	ShouldDeleteHistory bool
 
 	BatchResps []HintResp
 }
