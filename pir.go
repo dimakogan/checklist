@@ -34,7 +34,7 @@ type HintResp struct {
 	IsMatrix  bool
 
 	// For updatable PIR
-	NumUnchangedLayers  int
+	EndTimestamp        int
 	TimedKeys           []TimedRow
 	ShouldDeleteHistory bool
 

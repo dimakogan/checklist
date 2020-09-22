@@ -9,11 +9,12 @@ import (
 
 type PirRpcServer struct {
 	PirServer
+	PirDB
+
 	randSource *rand.Rand
 	db         []Row
 	keys       []uint32
 	pirType    string
-	serverDB   PirDB
 
 	profBuf bytes.Buffer
 }
@@ -23,16 +24,15 @@ func registerExtraTypes() {
 	gob.Register(&puncturedGGMSet{})
 }
 
-func NewPirRpcServer(keys []uint32, db []Row) (*PirRpcServer, error) {
+func NewPirRpcServer() (*PirRpcServer, error) {
 	randSource := RandSource()
 	registerExtraTypes()
-	server := NewPirServerUpdatable(randSource, false, keys, db)
+	server := NewPirServerUpdatable(randSource, false)
 	driver := PirRpcServer{
 		PirServer:  server,
+		PirDB:      server,
 		randSource: randSource,
 		pirType:    "punc",
-		db:         db,
-		keys:       keys,
 	}
 	return &driver, nil
 }
@@ -50,12 +50,12 @@ func (driver *PirRpcServer) AddRows(numRows int, none *int) (err error) {
 	newKeys := MakeKeys(numRows)
 	driver.db = append(driver.db, newVals...)
 	driver.keys = append(driver.keys, newKeys...)
-	driver.serverDB.AddRows(newKeys, newVals)
+	driver.PirDB.AddRows(newKeys, newVals)
 	return nil
 }
 
 func (driver *PirRpcServer) DeleteRows(numRows int, none *int) (err error) {
-	driver.serverDB.DeleteRows(driver.keys[len(driver.keys)-numRows:])
+	driver.PirDB.DeleteRows(driver.keys[len(driver.keys)-numRows:])
 	driver.db = driver.db[0 : len(driver.db)-numRows]
 	driver.keys = driver.keys[0 : len(driver.keys)-numRows]
 	return nil
@@ -87,10 +87,14 @@ func (driver *PirRpcServer) StopCpuProfile(none int, out *string) error {
 }
 
 func (driver *PirRpcServer) reloadServer() {
+	var server *pirServerUpdatable
 	switch driver.pirType {
 	case "punc":
-		driver.PirServer = NewPirServerUpdatable(driver.randSource, false, driver.keys, driver.db)
+		server = NewPirServerUpdatable(driver.randSource, false)
 	case "matrix":
-		driver.PirServer = NewPirServerUpdatable(driver.randSource, true, driver.keys, driver.db)
+		server = NewPirServerUpdatable(driver.randSource, true)
 	}
+	driver.PirServer = server
+	driver.PirDB = server
+	driver.PirDB.AddRows(driver.keys, driver.db)
 }

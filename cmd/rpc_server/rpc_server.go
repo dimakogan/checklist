@@ -17,15 +17,7 @@ func main() {
 	port := flag.Int("p", 12345, "Listening port")
 	flag.Parse()
 
-	// Some easy to test initial values.
-	db := make([]b.Row, b.DEFAULT_CHUNK_SIZE)
-	keys := make([]uint32, len(db))
-	for i := 0; i < len(db); i++ {
-		keys[i] = uint32(1000000 + i)
-		db[i] = b.Row{byte('A' + i), byte('A' + i), byte('A' + i)}
-	}
-
-	driver, err := b.NewPirRpcServer(keys, db)
+	driver, err := b.NewPirRpcServer()
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
 	}
