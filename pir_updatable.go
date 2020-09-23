@@ -2,7 +2,6 @@ package boosted
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 )
@@ -36,13 +35,9 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	if nRows == 0 {
 		return []int{}
 	}
-	if nRows < s.smallestLayerSize {
-		nRows = s.smallestLayerSize
-	}
-	numLayers := int(math.Ceil(math.Log2(float64(nRows/s.smallestLayerSize)))) + 1
-	maxSize := make([]int, numLayers)
-	for l := range maxSize {
-		maxSize[numLayers-l-1] = (s.smallestLayerSize << l)
+	maxSize := []int{s.smallestLayerSize}
+	for maxSize[len(maxSize)-1] < nRows {
+		maxSize = append(maxSize, 2*maxSize[len(maxSize)-1])
 	}
 	return maxSize
 }
@@ -219,6 +214,7 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	resp.TimedKeys = s.returnDiffKeys(req.LatestKeyTimestamp)
 
 	layerEnd := 0
+	largestLayerUsed := -1
 	for l, layer := range s.layers {
 		layerEnd += layer.numTimedRows
 		if layer.pir != nil && s.timedRows[layerEnd-1].Timestamp > req.LatestKeyTimestamp {
@@ -226,6 +222,9 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 				HintReq{RandSeed: int64(clientSrc.Uint64())},
 				&resp.BatchResps[l])
 			resp.BatchResps[l].IsMatrix = layer.isMatrix
+			if largestLayerUsed < 0 {
+				largestLayerUsed = l
+			}
 		}
 		resp.BatchResps[l].EndTimestamp = s.timedRows[layerEnd-1].Timestamp
 	}

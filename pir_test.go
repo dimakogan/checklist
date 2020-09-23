@@ -1,8 +1,11 @@
 package boosted
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -89,22 +92,20 @@ func randStringBytes(r *rand.Rand, n int) string {
 var hint *HintResp
 var resp *QueryResp
 
+var numRecords = flag.String("numRec", "10000", "Num DB Records (comma-separated list)")
+var recordSize = flag.String("recSize", "1000", "Record size in bytes (comma-separated list)")
+
 func dbDimensions() []DBDimensions {
 	var dims []DBDimensions
-	numDBRecords :=
-		//[]int{2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576}
-		[]int{
-			//1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18,
-			// 1 << 16,
-			1000000,
-		}
-
-	dbRecordSize := []int{1000}
+	numDBRecordsStr := strings.Split(*numRecords, ",")
+	dbRecordSizeStr := strings.Split(*recordSize, ",")
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
 
-	for _, n := range numDBRecords {
-		for _, recSize := range dbRecordSize {
+	for _, nStr := range numDBRecordsStr {
+		n, _ := strconv.Atoi(nStr)
+		for _, recSizeStr := range dbRecordSizeStr {
+			recSize, _ := strconv.Atoi(recSizeStr)
 			if int64(n)*int64(recSize) > maxDBSizeBytes {
 				continue
 			}

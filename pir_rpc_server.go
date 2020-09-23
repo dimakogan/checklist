@@ -55,9 +55,9 @@ func (driver *PirRpcServer) AddRows(numRows int, none *int) (err error) {
 }
 
 func (driver *PirRpcServer) DeleteRows(numRows int, none *int) (err error) {
-	driver.PirDB.DeleteRows(driver.keys[len(driver.keys)-numRows:])
-	driver.db = driver.db[0 : len(driver.db)-numRows]
-	driver.keys = driver.keys[0 : len(driver.keys)-numRows]
+	driver.PirDB.DeleteRows(driver.keys[0:numRows])
+	driver.db = driver.db[numRows:]
+	driver.keys = driver.keys[numRows:]
 	return nil
 }
 

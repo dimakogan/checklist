@@ -6,6 +6,7 @@ import (
 	"net/rpc"
 	"sync"
 	"testing"
+	"time"
 
 	"gotest.tools/assert"
 )
@@ -457,6 +458,49 @@ func BenchmarkPirRPC(b *testing.B) {
 		client := NewPirClientUpdatable(RandSource(), [2]PirServer{&benchmarkServer, proxy})
 		err = client.Init()
 		assert.NilError(b, err)
+
+		_, err = client.Read(0x1234)
+		assert.NilError(b, err)
+	}
+}
+
+func BenchmarkPirRPCUpdate(b *testing.B) {
+	if *serverAddr == "" {
+		b.Skip("No remote address flag set. Skipping remote test.")
+	}
+
+	for _, dim := range dbDimensions() {
+
+		// Create a TCP connection to localhost on port 1234
+		remote, err := rpc.DialHTTP("tcp", *serverAddr)
+		assert.NilError(b, err)
+
+		var none int
+		assert.NilError(b, remote.Call("PirRpcServer.ResetDBDimensions", dim, &none))
+		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
+			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
+
+		proxy := NewPirRpcProxy(remote)
+
+		client := NewPirClientUpdatable(RandSource(), [2]PirServer{proxy, proxy})
+
+		startTime := time.Now()
+
+		err = client.Init()
+		assert.NilError(b, err)
+
+		changeBatchSize := SEC_PARAM * SEC_PARAM / 2
+		numChanges := 10 * dim.NumRecords
+		for i := 0; i < numChanges/changeBatchSize; i++ {
+			assert.NilError(b, remote.Call("PirRpcServer.AddRows", changeBatchSize, &none))
+			assert.NilError(b, remote.Call("PirRpcServer.DeleteRows", changeBatchSize, &none))
+
+			client.Update()
+		}
+
+		duration := time.Since(startTime)
+
+		b.ReportMetric(float64(duration.Nanoseconds())/float64(numChanges), "ns/change")
 
 		_, err = client.Read(0x1234)
 		assert.NilError(b, err)
