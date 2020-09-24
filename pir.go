@@ -1,10 +1,13 @@
 package boosted
 
 import (
+	"flag"
 	"fmt"
 	"math"
 	"math/rand"
 )
+
+var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")
 
 // One database row.
 type Row []byte

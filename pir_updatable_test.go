@@ -14,6 +14,19 @@ import (
 // For testing server over RPC.
 var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 
+func updatableServer() (PirServerDriver, error) {
+	if *serverAddr != "" {
+		// Create a TCP connection to localhost on port 1234
+		remote, err := rpc.DialHTTP("tcp", *serverAddr)
+		if err != nil {
+			return nil, err
+		}
+		return NewPirRpcProxy(remote), nil
+	} else {
+		return NewPirServerDriver()
+	}
+}
+
 func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
 	client := NewPirClientUpdatable(RandSource(), servers)
 
@@ -31,8 +44,8 @@ func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
 }
 
 func TestPIRUpdatableStatic(t *testing.T) {
-	db := MakeDB(256, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 256, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
@@ -49,8 +62,8 @@ func TestPIRUpdatableStatic(t *testing.T) {
 }
 
 func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
-	db := MakeDB(3000, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 3000, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	initialSize := 1000
 
@@ -84,8 +97,8 @@ func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
-	db := MakeDB(3000, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 3000, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	initialSize := 1000
 
@@ -123,8 +136,8 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
-	db := MakeDB(1200, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 1200, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	initialSize := 1000
 
@@ -168,8 +181,8 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 
 	finalSize := initialSize + delta*numSteps
 
-	db := MakeDB(finalSize, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), finalSize, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
@@ -212,8 +225,8 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	initialSize := 500
 	deletedPrefix := 200
 
-	db := MakeDB(initialSize, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), initialSize, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
@@ -248,8 +261,8 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
-	db := MakeDB(3000, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 3000, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	numDeletes := 1000
 
@@ -289,8 +302,8 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
-	db := MakeDB(20, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 20, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	numDeletesAndAdds := 10
 	initialSize := len(db) - numDeletesAndAdds
@@ -355,8 +368,8 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 }
 
 func TestPIRUpdatableDeleteAll(t *testing.T) {
-	db := MakeDB(2, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 2, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
@@ -376,8 +389,8 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 }
 
 func TestPIRUpdatableDefrag(t *testing.T) {
-	db := MakeDB(20, 100)
-	keys := MakeKeys(len(db))
+	db := MakeDB(RandSource(), 20, 100)
+	keys := MakeKeys(RandSource(), len(db))
 
 	numDeletesAndAdds := len(db) * 10
 
@@ -407,20 +420,15 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 }
 
 func TestPIRServerOverRPC(t *testing.T) {
-	if *serverAddr == "" {
-		t.Skip("No remote address flag set. Skipping remote test.")
-	}
-
-	remote, err := rpc.DialHTTP("tcp", *serverAddr)
+	driver, err := updatableServer()
 	assert.NilError(t, err)
 
 	var none int
-	assert.NilError(t, remote.Call("PirRpcServer.ResetDBDimensions", DBDimensions{1000, 4}, &none))
-	assert.NilError(t, remote.Call("PirRpcServer.SetRecordValue", RecordIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
+	assert.NilError(t, driver.ResetDBDimensions(DBDimensions{1000, 4}, &none))
+	assert.NilError(t, driver.SetRecordValue(RecordIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
 
-	proxy := NewPirRpcProxy(remote)
 	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
-	client := NewPirClientUpdatable(RandSource(), [2]PirServer{proxy, proxy})
+	client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 
 	err = client.Init()
 	assert.NilError(t, err)
@@ -430,70 +438,56 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.DeepEqual(t, val, Row("Cool"))
 }
 
-func BenchmarkPirRPC(b *testing.B) {
-	if *serverAddr == "" {
-		b.Skip("No remote address flag set. Skipping remote test.")
-	}
+func BenchmarkPirUpdatable(b *testing.B) {
+	driver, err := updatableServer()
+	assert.NilError(b, err)
 
 	for _, dim := range dbDimensions() {
 
-		// Create a TCP connection to localhost on port 1234
-		remote, err := rpc.DialHTTP("tcp", *serverAddr)
-		assert.NilError(b, err)
-
 		var none int
-		assert.NilError(b, remote.Call("PirRpcServer.ResetDBDimensions", dim, &none))
-		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
-			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
+		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
+		assert.NilError(b, driver.SetRecordValue(RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
 
-		proxy := NewPirRpcProxy(remote)
 		var mutex sync.Mutex
 		benchmarkServer := benchmarkServer{
-			PirServer: proxy,
+			PirServer: driver,
 			b:         b,
 			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
 			mutex:     &mutex,
 		}
 
-		client := NewPirClientUpdatable(RandSource(), [2]PirServer{&benchmarkServer, proxy})
+		client := NewPirClientUpdatable(RandSource(), [2]PirServer{&benchmarkServer, driver})
 		err = client.Init()
 		assert.NilError(b, err)
 
-		_, err = client.Read(0x1234)
+		var record RecordIndexVal
+		driver.GetRecord(7, &record)
+		row, err := client.Read(int(record.Key))
 		assert.NilError(b, err)
+		assert.DeepEqual(b, row, record.Value)
 	}
 }
 
-func BenchmarkPirRPCUpdate(b *testing.B) {
-	if *serverAddr == "" {
-		b.Skip("No remote address flag set. Skipping remote test.")
-	}
+func BenchmarkPirUpdate(b *testing.B) {
+	driver, err := updatableServer()
+	assert.NilError(b, err)
 
 	for _, dim := range dbDimensions() {
 
-		// Create a TCP connection to localhost on port 1234
-		remote, err := rpc.DialHTTP("tcp", *serverAddr)
-		assert.NilError(b, err)
-
 		var none int
-		assert.NilError(b, remote.Call("PirRpcServer.ResetDBDimensions", dim, &none))
-		assert.NilError(b, remote.Call("PirRpcServer.SetRecordValue",
-			RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
-
-		proxy := NewPirRpcProxy(remote)
-
-		client := NewPirClientUpdatable(RandSource(), [2]PirServer{proxy, proxy})
+		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
+		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 
 		startTime := time.Now()
 
 		err = client.Init()
 		assert.NilError(b, err)
 
-		changeBatchSize := SEC_PARAM * SEC_PARAM / 2
+		changeBatchSize := *SecParam * *SecParam / 2
 		numChanges := 10 * dim.NumRecords
 		for i := 0; i < numChanges/changeBatchSize; i++ {
-			assert.NilError(b, remote.Call("PirRpcServer.AddRows", changeBatchSize, &none))
-			assert.NilError(b, remote.Call("PirRpcServer.DeleteRows", changeBatchSize, &none))
+			assert.NilError(b, driver.AddRows(changeBatchSize, &none))
+			assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
 
 			client.Update()
 		}
@@ -502,7 +496,10 @@ func BenchmarkPirRPCUpdate(b *testing.B) {
 
 		b.ReportMetric(float64(duration.Nanoseconds())/float64(numChanges), "ns/change")
 
-		_, err = client.Read(0x1234)
+		var record RecordIndexVal
+		assert.NilError(b, driver.GetRecord(7, &record))
+		row, err := client.Read(int(record.Key))
 		assert.NilError(b, err)
+		assert.DeepEqual(b, row, record.Value)
 	}
 }

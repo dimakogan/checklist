@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"testing"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestPIRPerm(t *testing.T) {
-	db := MakeDB(256, 100)
+	db := MakeDB(RandSource(), 256, 100)
 
 	leftServer := NewPirPermServer(db)
 	rightServer := NewPirPermServer(db)
@@ -29,7 +30,8 @@ func TestPIRPerm(t *testing.T) {
 func BenchmarkPirPerm(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
+		dim.NumRecords = 1 << int(math.Ceil(math.Log2(float64(dim.NumRecords))))
+		db := MakeDBWithDimensions(randSource, dim)
 
 		server := NewPirPermServer(db)
 		var mutex sync.Mutex

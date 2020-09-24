@@ -46,8 +46,8 @@ func main() {
 
 	fmt.Printf("Setting up remote DB...")
 	var none int
-	err = remote.Call("PirRpcServer.SetPIRType", *pirType, &none)
-	err = remote.Call("PirRpcServer.ResetDBDimensions", b.DBDimensions{*numRecords, *recordSize}, &none)
+	err = proxyLeft.SetPIRType(*pirType, &none)
+	err = proxyLeft.ResetDBDimensions(b.DBDimensions{*numRecords, *recordSize}, &none)
 	if err != nil {
 		log.Fatalf("Failed to ResetDBDimensions: %s\n", err)
 	}
@@ -62,8 +62,7 @@ func main() {
 		cachedVals[idx] = make([]byte, *recordSize)
 		rand.Read(cachedVals[idx])
 
-		err = remote.Call(
-			"PirRpcServer.SetRecordValue",
+		err = proxyLeft.SetRecordValue(
 			b.RecordIndexVal{Index: idx, Key: cachedKeys[idx], Value: cachedVals[idx]},
 			&none)
 		if err != nil {
@@ -74,7 +73,7 @@ func main() {
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
 	if len(*hintProf) > 0 {
-		err = remote.Call("PirRpcServer.StartCpuProfile", 0, &none)
+		err = proxyLeft.StartCpuProfile(0, &none)
 		if err != nil {
 			log.Fatalf("Failed to StartCpuProfile: %s\n", err)
 		}
@@ -85,7 +84,7 @@ func main() {
 	}
 	if len(*hintProf) > 0 {
 		var profOut string
-		err = remote.Call("PirRpcServer.StopCpuProfile", 0, &profOut)
+		err = proxyLeft.StopCpuProfile(0, &profOut)
 		if err != nil {
 			log.Fatalf("Failed to StopCpuProfile: %s\n", err)
 		}
@@ -119,7 +118,7 @@ func main() {
 	counter := ratecounter.NewRateCounter(1 * time.Second)
 
 	if len(*answerProf) > 0 {
-		err = remote.Call("PirRpcServer.StartCpuProfile", 0, &none)
+		err = proxyLeft.StartCpuProfile(0, &none)
 		if err != nil {
 			log.Fatalf("Failed to StartCpuProfile: %s\n", err)
 		}
@@ -148,7 +147,7 @@ func main() {
 		<-c
 		if len(*answerProf) > 0 {
 			var profOut string
-			err = remote.Call("PirRpcServer.StopCpuProfile", 0, &profOut)
+			err = proxyLeft.StopCpuProfile(0, &profOut)
 			if err != nil {
 				log.Fatalf("Failed to StopCpuProfile: %s\n", err)
 			}

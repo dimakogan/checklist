@@ -17,7 +17,7 @@ func main() {
 	port := flag.Int("p", 12345, "Listening port")
 	flag.Parse()
 
-	driver, err := b.NewPirRpcServer()
+	driver, err := b.NewPirServerDriver()
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestPIRPunc(t *testing.T) {
-	db := MakeDB(256, 100)
+	db := MakeDB(RandSource(), 256, 100)
 
 	leftServer := NewPirServerPunc(RandSource(), db)
 	rightServer := NewPirServerPunc(RandSource(), db)
@@ -36,7 +36,7 @@ func TestPIRPunc(t *testing.T) {
 }
 
 func TestPIRPuncErasure(t *testing.T) {
-	db := MakeDB(256, 100)
+	db := MakeDB(RandSource(), 256, 100)
 
 	server, err := NewPirServerErasure(RandSource(), db, DEFAULT_CHUNK_SIZE)
 	assert.NilError(t, err)
@@ -59,8 +59,8 @@ func TestPIRPuncErasure(t *testing.T) {
 
 // Not testing this for now since disabled it
 func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
-	db := MakeDB(4, 100)
 	src := RandSource()
+	db := MakeDB(src, 4, 100)
 
 	server := NewPirServerPunc(src, db)
 
@@ -155,7 +155,7 @@ func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
 func BenchmarkPirPunc(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
+		db := MakeDBWithDimensions(randSource, dim)
 
 		server := NewPirServerPunc(randSource, db)
 		var mutex sync.Mutex
@@ -191,7 +191,7 @@ func BenchmarkPirPunc(b *testing.B) {
 
 func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
 	randSource := rand.New(rand.NewSource(12345))
-	db := MakeDBWithDimensions(dim)
+	db := MakeDBWithDimensions(randSource, dim)
 
 	server, err := NewPirServerErasure(randSource, db, chunkSize)
 	assert.NilError(b, err)
@@ -258,7 +258,7 @@ func (s *pauseTimingServer) Answer(q QueryReq, resp *QueryResp) error {
 func BenchmarkPirErasureClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
+		db := MakeDBWithDimensions(randSource, dim)
 		server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
 		assert.NilError(b, err)
 
@@ -290,27 +290,28 @@ func BenchmarkPirErasureClient(b *testing.B) {
 
 func BenchmarkHintOnce(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
-	db := MakeDBWithDimensions(dim)
+	for _, dim := range dbDimensions() {
+		db := MakeDBWithDimensions(randSource, dim)
 
-	server := NewPirServerPunc(randSource, db)
-	benchmarkServer := benchmarkServer{
-		PirServer: server,
-		b:         b,
-		name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+		server := NewPirServerPunc(randSource, db)
+		benchmarkServer := benchmarkServer{
+			PirServer: server,
+			b:         b,
+			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+		}
+
+		client := NewPIRClient(
+			NewPirClientPunc(randSource),
+			randSource,
+			[2]PirServer{&benchmarkServer, server})
+		err := client.Init()
+		assert.NilError(b, err)
 	}
-
-	client := NewPIRClient(
-		NewPirClientPunc(randSource),
-		randSource,
-		[2]PirServer{&benchmarkServer, server})
-	err := client.Init()
-	assert.NilError(b, err)
 }
 
 func BenchmarkNothingRandom(b *testing.B) {
 	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
-	db := MakeDBWithDimensions(dim)
+	db := MakeDBWithDimensions(RandSource(), dim)
 
 	nHints := 1024
 	setLen := 1024
@@ -329,7 +330,7 @@ func BenchmarkNothingRandom(b *testing.B) {
 
 func BenchmarkNothingLinear(b *testing.B) {
 	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
-	db := MakeDBWithDimensions(dim)
+	db := MakeDBWithDimensions(RandSource(), dim)
 
 	nHints := 1024
 	setLen := 1024

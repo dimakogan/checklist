@@ -11,7 +11,7 @@ import (
 func BenchmarkHintOneTime(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
+		db := MakeDBWithDimensions(randSource, dim)
 		client := newPirClientOneTime(randSource, dim.NumRecords, dim.RecordSize)
 		server := NewPirServerOneTime(randSource, db, dim.RecordSize)
 

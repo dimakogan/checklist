@@ -15,9 +15,8 @@ func MasterKey() []byte {
 	return key
 }
 
-func MakeDB(nRows int, rowLen int) []Row {
+func MakeDB(src *rand.Rand, nRows int, rowLen int) []Row {
 	db := make([]Row, nRows)
-	src := RandSource()
 	for i := range db {
 		db[i] = make([]byte, rowLen)
 		src.Read(db[i])
@@ -27,11 +26,10 @@ func MakeDB(nRows int, rowLen int) []Row {
 	return db
 }
 
-func MakeKeys(nRows int) []uint32 {
+func MakeKeys(src *rand.Rand, nRows int) []uint32 {
 	keys := make([]uint32, nRows)
-	src := RandSource()
 	for i := range keys {
-		keys[i] = uint32(src.Int31()<<32) + uint32(i)
+		keys[i] = uint32(src.Int31()<<4) + uint32(i)
 	}
 	return keys
 }
@@ -41,8 +39,8 @@ type DBDimensions struct {
 	RecordSize int
 }
 
-func MakeDBWithDimensions(dim DBDimensions) []Row {
-	return MakeDB(dim.NumRecords, dim.RecordSize)
+func MakeDBWithDimensions(src *rand.Rand, dim DBDimensions) []Row {
+	return MakeDB(src, dim.NumRecords, dim.RecordSize)
 }
 
 type RecordIndexVal struct {

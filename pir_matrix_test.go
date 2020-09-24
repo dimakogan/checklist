@@ -12,7 +12,7 @@ import (
 func BenchmarkMatrix(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
 	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(dim)
+		db := MakeDBWithDimensions(randSource, dim)
 
 		server := NewPirServerMatrix(randSource, db)
 		var mutex sync.Mutex
@@ -35,8 +35,8 @@ func BenchmarkMatrix(b *testing.B) {
 			randSource,
 			[2]PirServer{&leftServer, &rightServer})
 
-		// err := client.Init()
-		// assert.NilError(b, err)
+		err := client.Init()
+		assert.NilError(b, err)
 
 		readIndex := rand.Intn(len(db))
 

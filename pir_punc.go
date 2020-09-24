@@ -73,7 +73,7 @@ func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
 	s := pirServerPunc{
 		nRows:              len(data),
 		flatDb:             flattenDb(data),
-		numHintsMultiplier: int(float64(SEC_PARAM) * math.Log(2)),
+		numHintsMultiplier: int(float64(*SecParam) * math.Log(2)),
 	}
 	if len(data) > 0 {
 		s.rowLen = len(data[0])
