@@ -23,7 +23,7 @@ func main() {
 	}
 
 	server := rpc.NewServer()
-	if err := server.Register(driver); err != nil {
+	if err := server.RegisterName("PirServerDriver", driver); err != nil {
 		log.Fatalf("Failed to register PIRServer, %s", err)
 	}
 
