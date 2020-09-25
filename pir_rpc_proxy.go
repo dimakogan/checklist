@@ -65,7 +65,7 @@ func (p *PirRpcProxy) SetRecordValue(rec RecordIndexVal, none *int) error {
 	return p.remote.Call("PirServerDriver.SetRecordValue", rec, none)
 }
 
-func (p *PirRpcProxy) SetPIRType(pirType string, none *int) error {
+func (p *PirRpcProxy) SetPIRType(pirType PirType, none *int) error {
 	return p.remote.Call("PirServerDriver.SetPIRType", pirType, none)
 }
 
@@ -79,4 +79,8 @@ func (p *PirRpcProxy) GetHintTimer(none int, out *time.Duration) error {
 
 func (p *PirRpcProxy) GetAnswerTimer(none int, out *time.Duration) error {
 	return p.remote.Call("PirServerDriver.GetAnswerTimer", none, out)
+}
+
+func (p *PirRpcProxy) ResetTimers(none int, none2 *int) error {
+	return p.remote.Call("PirServerDriver.ResetTimers", none, none2)
 }

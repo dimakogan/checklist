@@ -12,7 +12,7 @@ import (
 type PirServerDriver interface {
 	PirServer
 
-	SetPIRType(pirType string, none *int) error
+	SetPIRType(pirType PirType, none *int) error
 	ResetDBDimensions(dim DBDimensions, none *int) error
 	AddRows(numRows int, none *int) error
 	DeleteRows(numRows int, none *int) error
@@ -20,6 +20,7 @@ type PirServerDriver interface {
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
 	GetRecord(idx int, record *RecordIndexVal) error
+	ResetTimers(none int, none2 *int) error
 	GetHintTimer(none int, out *time.Duration) error
 	GetAnswerTimer(none int, out *time.Duration) error
 }
@@ -31,7 +32,7 @@ type pirServerDriver struct {
 	randSource *rand.Rand
 	db         []Row
 	keys       []uint32
-	pirType    string
+	pirType    PirType
 
 	profBuf bytes.Buffer
 
@@ -48,12 +49,12 @@ func registerExtraTypes() {
 func NewPirServerDriver() (*pirServerDriver, error) {
 	randSource := RandSource()
 	registerExtraTypes()
-	server := NewPirServerUpdatable(randSource, false)
+	server := NewPirServerUpdatable(randSource, PirPuncturable)
 	driver := pirServerDriver{
 		PirServer:  server,
 		PirDB:      server,
 		randSource: randSource,
-		pirType:    "punc",
+		pirType:    PirPuncturable,
 	}
 	return &driver, nil
 }
@@ -104,7 +105,7 @@ func (driver *pirServerDriver) SetRecordValue(rec RecordIndexVal, none *int) (er
 	return nil
 }
 
-func (driver *pirServerDriver) SetPIRType(pirType string, none *int) error {
+func (driver *pirServerDriver) SetPIRType(pirType PirType, none *int) error {
 	driver.pirType = pirType
 	driver.reloadServer()
 	return nil
@@ -131,14 +132,14 @@ func (driver *pirServerDriver) GetAnswerTimer(none int, out *time.Duration) erro
 	return nil
 }
 
+func (driver *pirServerDriver) ResetTimers(none int, none2 *int) error {
+	driver.hintTime = 0
+	driver.answerTime = 0
+	return nil
+}
+
 func (driver *pirServerDriver) reloadServer() {
-	var server *pirServerUpdatable
-	switch driver.pirType {
-	case "punc":
-		server = NewPirServerUpdatable(driver.randSource, false)
-	case "matrix":
-		server = NewPirServerUpdatable(driver.randSource, true)
-	}
+	server := NewPirServerUpdatable(driver.randSource, driver.pirType)
 	driver.PirServer = server
 	driver.PirDB = server
 	driver.PirDB.AddRows(driver.keys, driver.db)

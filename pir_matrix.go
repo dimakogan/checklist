@@ -116,6 +116,11 @@ func (c *pirClientMatrix) query(idx int) ([]QueryReq, ReconstructFunc) {
 	}
 }
 
+func (c *pirClientMatrix) dummyQuery() []QueryReq {
+	q, _ := c.query(0)
+	return q
+}
+
 func (c *pirClientMatrix) reconstruct(colNum int, resp []QueryResp) (Row, error) {
 	out := make([]byte, len(resp[Left].Answer))
 	xorInto(out, resp[Left].Answer)

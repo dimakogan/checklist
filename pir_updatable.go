@@ -11,17 +11,19 @@ type serverLayer struct {
 	// Including both deletes and adds. This is not the same as len(db).
 	numTimedRows int
 
+	numRows int
+
 	pir PirServer
 
-	isMatrix bool
+	pirType PirType
 }
 
 type pirServerUpdatable struct {
 	timedRows []TimedRow
 
-	layers    []serverLayer
-	maxSizes  []int
-	useMatrix bool
+	layers   []serverLayer
+	maxSizes []int
+	pirType  PirType
 
 	randSource *rand.Rand
 
@@ -35,9 +37,13 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	if nRows == 0 {
 		return []int{}
 	}
-	maxSize := []int{int(math.Round(math.Sqrt(float64(nRows))))}
-	for maxSize[len(maxSize)-1] < nRows {
-		maxSize = append(maxSize, 2*maxSize[len(maxSize)-1])
+	if s.pirType == PirMatrix {
+		return []int{nRows}
+	}
+	maxSize := []int{nRows}
+	smallest := int(math.Round(math.Sqrt(float64(nRows))))
+	for maxSize[len(maxSize)-1] > smallest {
+		maxSize = append(maxSize, maxSize[len(maxSize)-1]/4)
 	}
 	return maxSize
 }
@@ -99,19 +105,19 @@ func (s *pirServerUpdatable) initLayers(nRows int) {
 	}
 
 	for i := range s.layers {
-		s.layers[i].isMatrix = s.useMatrix
+		s.layers[i].pirType = s.pirType
 	}
 
 	// The smallest layer always uses matrix
-	s.layers[len(s.layers)-1].isMatrix = true
+	s.layers[len(s.layers)-1].pirType = PirMatrix
 }
 
-func NewPirServerUpdatable(source *rand.Rand, useMatrix bool) *pirServerUpdatable {
+func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatable {
 	s := pirServerUpdatable{
 		randSource:   source,
 		curTimestamp: 0,
 		defragRatio:  4,
-		useMatrix:    useMatrix,
+		pirType:      pirType,
 	}
 	return &s
 }
@@ -149,6 +155,7 @@ func (s *pirServerUpdatable) updateLayers(timedRows []TimedRow) {
 		}
 
 		s.layers[i].numTimedRows = 0
+		s.layers[i].numRows = 0
 		s.layers[i].pir = nil
 	}
 	processedRows, _ := processDeletes(s.timedRows[len(s.timedRows)-numNewRows:])
@@ -203,15 +210,12 @@ func (s *pirServerUpdatable) defrag(numRowsToFree int) {
 }
 
 func (layer *serverLayer) init(randSrc *rand.Rand, db []Row) {
+	layer.numRows = len(db)
 	if len(db) == 0 {
 		layer.pir = nil
 		return
 	}
-	if layer.isMatrix {
-		layer.pir = NewPirServerMatrix(randSrc, db)
-	} else {
-		layer.pir = NewPirServerPunc(randSrc, db)
-	}
+	layer.pir = NewPirServerByType(layer.pirType, randSrc, db)
 }
 
 func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
@@ -227,7 +231,7 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 			layer.pir.Hint(
 				HintReq{RandSeed: int64(clientSrc.Uint64())},
 				&resp.BatchResps[l])
-			resp.BatchResps[l].IsMatrix = layer.isMatrix
+			resp.BatchResps[l].PirType = layer.pirType
 		}
 		resp.BatchResps[l].EndTimestamp = s.timedRows[layerEnd-1].Timestamp
 	}
@@ -258,12 +262,16 @@ func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int) []TimedRow {
 }
 
 func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
+
 	resp.BatchResps = make([]QueryResp, len(req.BatchReqs))
 	for l, q := range req.BatchReqs {
 		if s.layers[l].pir == nil {
 			continue
 		}
+		//		start := time.Now()
 		err := s.layers[l].pir.Answer(q, &(resp.BatchResps[l]))
+		//		log.Printf("pirServerPunc::Answer layer: %d | nRows: %d | time: %dµs", l, s.layers[l].numRows, time.Since(start).Microseconds())
+
 		if err != nil {
 			return err
 		}
@@ -345,11 +353,8 @@ func (c *pirClientUpdatable) initLayers(resp HintResp) error {
 		if subResp.NumRows == 0 {
 			continue
 		}
-		if subResp.IsMatrix {
-			newLayers[l].pir = NewPirClientMatrix(c.randSource)
-		} else {
-			newLayers[l].pir = NewPirClientPunc(c.randSource)
-		}
+
+		newLayers[l].pir = NewPirClientByType(subResp.PirType, c.randSource)
 		err := newLayers[l].pir.initHint(&subResp)
 		if err != nil {
 			return err
@@ -416,7 +421,7 @@ func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 			LatestKeyTimestamp: c.latestKeyTimestamp(),
 			BatchReqs:          make([]QueryReq, len(c.layers))},
 	}
-	reconstructFuncs := make([]ReconstructFunc, len(c.layers))
+	var reconstructFunc ReconstructFunc
 
 	// Slight hack for now: using i as key
 	iPos, ok := c.positions[uint32(i)]
@@ -428,26 +433,19 @@ func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 		if layer.pir == nil {
 			continue
 		}
-		q, reconstructFuncs[l] = layer.pir.query(iPos.posInLayer)
+		if l == iPos.layer {
+			q, reconstructFunc = layer.pir.query(iPos.posInLayer)
+		} else {
+			q = layer.pir.dummyQuery()
+		}
+
 		req[Left].BatchReqs[l] = q[Left]
 		req[Right].BatchReqs[l] = q[Right]
 	}
 	return req, func(resps []QueryResp) (Row, error) {
-		var ans Row
-		for l, f := range reconstructFuncs {
-			if f == nil {
-				continue
-			}
-			row, err := f([]QueryResp{
-				resps[Left].BatchResps[l],
-				resps[Right].BatchResps[l]})
-			if err != nil {
-				return row, err
-			}
-			if l == iPos.layer {
-				ans = row
-			}
-		}
-		return ans, nil
+		row, err := reconstructFunc([]QueryResp{
+			resps[Left].BatchResps[iPos.layer],
+			resps[Right].BatchResps[iPos.layer]})
+		return row, err
 	}
 }

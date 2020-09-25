@@ -9,6 +9,15 @@ import (
 
 var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")
 
+//go:generate enumer -type=PirType
+type PirType int
+
+const (
+	PirMatrix PirType = iota
+	PirPuncturable
+	PirPerm
+)
+
 // One database row.
 type Row []byte
 
@@ -29,6 +38,7 @@ type TimedRow struct {
 
 //HintResp is a response to a hint request.
 type HintResp struct {
+	PirType   PirType
 	NumRows   int
 	RowLen    int
 	SetSize   int
@@ -97,12 +107,37 @@ type ReconstructFunc func(resp []QueryResp) (Row, error)
 type pirClientImpl interface {
 	initHint(resp *HintResp) error
 	query(i int) ([]QueryReq, ReconstructFunc)
+	dummyQuery() []QueryReq
 }
 
 type pirClient struct {
 	impl       pirClientImpl
 	servers    [2]PirServer
 	randSource *rand.Rand
+}
+
+func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer {
+	switch pirType {
+	case PirMatrix:
+		return NewPirServerMatrix(randSrc, db)
+	case PirPuncturable:
+		return NewPirServerPunc(randSrc, db)
+	case PirPerm:
+		return NewPirPermServer(db)
+	}
+	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
+}
+
+func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
+	switch pirType {
+	case PirMatrix:
+		return NewPirClientMatrix(randSrc)
+	case PirPuncturable:
+		return NewPirClientPunc(randSrc)
+	case PirPerm:
+		return NewPirPermClient(randSrc)
+	}
+	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }
 
 func NewPIRClient(impl pirClientImpl, source *rand.Rand, servers [2]PirServer) PirClient {
@@ -168,4 +203,13 @@ func xorRowsFlatSlice(flatDb []byte, rowLen int, rows Set, out []byte) {
 func numRecordsToUnivSizeBits(nRecords int) int {
 	// Round univsize to next power of 4
 	return ((int(math.Log2(float64(nRecords)))-1)/2 + 1) * 2
+}
+
+func PirTypeStrings() []string {
+	vals := PirTypeValues()
+	strs := make([]string, len(vals))
+	for i, val := range vals {
+		strs[i] = val.String()
+	}
+	return strs
 }

@@ -113,10 +113,16 @@ func (c *pirPermClient) query(i int) ([]QueryReq, ReconstructFunc) {
 	}
 	puncSet := c.partition.Set(setNumber)
 
-	return []QueryReq{QueryReq{}, QueryReq{PuncturedSet: &puncSet}},
+	return []QueryReq{{}, {PuncturedSet: &puncSet}},
 		func(resp []QueryResp) (Row, error) {
 			return c.reconstruct(permQueryCtx{i, setNumber, posInSet, decoy, newSetIdx}, resp[1])
 		}
+}
+
+func (c *pirPermClient) dummyQuery() []QueryReq {
+	set := c.partition.Set(0)
+	puncSet := set.Punc(set.ElemAt(0))
+	return []QueryReq{{}, {PuncturedSet: puncSet}}
 }
 
 func (c *pirPermClient) reconstruct(ctx permQueryCtx, resp QueryResp) (Row, error) {

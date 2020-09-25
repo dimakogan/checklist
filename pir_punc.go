@@ -146,6 +146,7 @@ func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 
 	// Debug
 	resp.Val = s.dbElem(q.Index)
+
 	return nil
 }
 
@@ -261,6 +262,14 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		func(resp []QueryResp) (Row, error) {
 			return c.reconstruct(ctx, resp)
 		}
+}
+
+func (c *pirClientPunc) dummyQuery() []QueryReq {
+	newSet := c.setGen.GenWith(c.nRows, c.setSize, 0)
+	extra := c.randomMemberExcept(newSet, 0)
+	puncSet := newSet.Punc(0)
+	q := QueryReq{PuncturedSet: puncSet, ExtraElem: extra, Index: 0}
+	return []QueryReq{q, q}
 }
 
 func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []QueryResp) (Row, error) {

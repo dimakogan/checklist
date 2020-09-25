@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,7 +28,7 @@ func main() {
 	numRecords := flag.Int("n", 10000, "Num DB Records")
 	recordSize := flag.Int("r", 1000, "Record size in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
-	pirType := flag.String("t", "punc", "PIR Type: [punc|matrix]")
+	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
 	answerProf := flag.String("answerprof", "", "Profile Server.Answer filename")
 
@@ -46,7 +47,12 @@ func main() {
 
 	fmt.Printf("Setting up remote DB...")
 	var none int
-	err = proxyLeft.SetPIRType(*pirType, &none)
+
+	pirType, err := b.PirTypeString(*pirTypeStr)
+	if err != nil {
+		log.Fatalf("Bad PirType: %s", *pirTypeStr)
+	}
+	err = proxyLeft.SetPIRType(pirType, &none)
 	err = proxyLeft.ResetDBDimensions(b.DBDimensions{*numRecords, *recordSize}, &none)
 	if err != nil {
 		log.Fatalf("Failed to ResetDBDimensions: %s\n", err)

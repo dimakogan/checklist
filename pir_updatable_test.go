@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/rpc"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 // For testing server over RPC.
 var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
+var updatablePirType = flag.String("pirType", PirPuncturable.String(), fmt.Sprintf("Updatable PIR type: [%s]", strings.Join(PirTypeStrings(), "|")))
 
 func updatableServer() (PirServerDriver, error) {
 	if *serverAddr != "" {
@@ -48,8 +50,8 @@ func TestPIRUpdatableStatic(t *testing.T) {
 	db := MakeDB(RandSource(), 256, 100)
 	keys := MakeKeys(RandSource(), len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -65,8 +67,8 @@ func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
 
 	initialSize := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 	leftServer.AddRows(keys[0:initialSize], db[0:initialSize])
@@ -97,8 +99,8 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 
 	initialSize := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -133,8 +135,8 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 
 	initialSize := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -173,8 +175,8 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 	db := MakeDB(RandSource(), finalSize, 100)
 	keys := MakeKeys(RandSource(), len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -214,8 +216,8 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	db := MakeDB(RandSource(), initialSize, 100)
 	keys := MakeKeys(RandSource(), len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -249,8 +251,8 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 
 	numDeletes := 1000
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -288,8 +290,8 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	numDeletesAndAdds := 10
 	initialSize := len(db) - numDeletesAndAdds
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -348,8 +350,8 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 	db := MakeDB(RandSource(), 2, 100)
 	keys := MakeKeys(RandSource(), len(db))
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -368,8 +370,8 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 
 	numDeletesAndAdds := len(db) * 10
 
-	leftServer := NewPirServerUpdatable(RandSource(), false)
-	rightServer := NewPirServerUpdatable(RandSource(), false)
+	leftServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
+	rightServer := NewPirServerUpdatable(RandSource(), PirPuncturable)
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -412,10 +414,13 @@ func TestPIRServerOverRPC(t *testing.T) {
 func BenchmarkPirUpdatable(b *testing.B) {
 	driver, err := updatableServer()
 	assert.NilError(b, err)
+	pirType, err := PirTypeString(*updatablePirType)
+	assert.NilError(b, err)
 
 	for _, dim := range dbDimensions() {
 
 		var none int
+		assert.NilError(b, driver.SetPIRType(pirType, &none))
 		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
 		assert.NilError(b, driver.SetRecordValue(RecordIndexVal{7, 0x1234, make([]byte, dim.RecordSize)}, &none))
 
@@ -439,24 +444,28 @@ func BenchmarkPirUpdatable(b *testing.B) {
 	}
 }
 
-func BenchmarkPirUpdate(b *testing.B) {
+func BenchmarkUpdatablePirHint(b *testing.B) {
 	driver, err := updatableServer()
+	assert.NilError(b, err)
+	pirType, err := PirTypeString(*updatablePirType)
 	assert.NilError(b, err)
 
 	for _, dim := range dbDimensions() {
 
 		var none int
+		assert.NilError(b, driver.SetPIRType(pirType, &none))
 		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
 		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 
 		err = client.Init()
 		assert.NilError(b, err)
 
-		var clientAndServerHintTime time.Duration
+		var clientAndServerHintTime, clientAndServerAnswerTime, serverHintTime, serverAnswerTime time.Duration
 
 		changeBatchSize := int(math.Sqrt(float64(dim.NumRecords))) / 2
 		numChanges := 3 * dim.NumRecords
-		for i := 0; i < numChanges/changeBatchSize; i++ {
+		numBatches := numChanges / changeBatchSize
+		for i := 0; i < numBatches; i++ {
 			assert.NilError(b, driver.AddRows(changeBatchSize, &none))
 			assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
 
@@ -465,16 +474,69 @@ func BenchmarkPirUpdate(b *testing.B) {
 			clientAndServerHintTime += time.Since(startTime)
 		}
 
-		var serverTime time.Duration
-		assert.NilError(b, driver.GetHintTimer(0, &serverTime))
+		var record RecordIndexVal
+		assert.NilError(b, driver.GetRecord(7, &record))
+		startTime := time.Now()
+		row, err := client.Read(int(record.Key))
+		clientAndServerAnswerTime += time.Since(startTime)
 
-		b.ReportMetric(float64(clientAndServerHintTime.Nanoseconds())/float64(numChanges), "total-ns/change")
-		b.ReportMetric(float64(serverTime.Nanoseconds())/float64(numChanges), "server-ns/change")
+		assert.NilError(b, err)
+		assert.DeepEqual(b, row, record.Value)
+
+		assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
+		assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
+
+		b.ReportMetric(float64(clientAndServerHintTime.Nanoseconds())/float64(numBatches), "total-ns/hint")
+		b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(numBatches), "server-ns/hint")
+
+		b.ReportMetric(float64(clientAndServerAnswerTime.Nanoseconds()), "ns/query")
+		b.ReportMetric(float64(serverAnswerTime.Nanoseconds()), "server-ns/query")
+	}
+}
+
+func BenchmarkUpdatablePir(b *testing.B) {
+	driver, err := updatableServer()
+	assert.NilError(b, err)
+	pirType, err := PirTypeString(*updatablePirType)
+
+	for _, dim := range dbDimensions() {
+
+		var none int
+		assert.NilError(b, driver.SetPIRType(pirType, &none))
+		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
+		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+
+		err = client.Init()
+		assert.NilError(b, err)
+
+		var serverAnswerTime time.Duration
+
+		changeBatchSize := int(math.Sqrt(float64(dim.NumRecords)) * 9 / 10)
+		numBatches := 10
+		for i := 0; i < numBatches; i++ {
+			assert.NilError(b, driver.AddRows(changeBatchSize, &none))
+			assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
+		}
+
+		assert.NilError(b, client.Update())
 
 		var record RecordIndexVal
 		assert.NilError(b, driver.GetRecord(7, &record))
-		row, err := client.Read(int(record.Key))
-		assert.NilError(b, err)
-		assert.DeepEqual(b, row, record.Value)
+
+		b.Run("Answer", func(b *testing.B) {
+			b.StopTimer()
+			assert.NilError(b, driver.ResetTimers(0, nil))
+			b.StartTimer()
+			for i := 0; i < b.N; i++ {
+				row, err := client.Read(int(record.Key))
+				assert.NilError(b, err)
+				assert.DeepEqual(b, row, record.Value)
+			}
+			b.StopTimer()
+			assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
+			// Divide by 2 to get per-server time
+			b.ReportMetric(float64(serverAnswerTime.Nanoseconds())/float64(b.N)/2, "server-ns/query")
+			b.StartTimer()
+		})
 	}
 }
