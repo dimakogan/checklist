@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"net/rpc"
+	"time"
 )
 
 type PirRpcProxy struct {
@@ -70,4 +71,12 @@ func (p *PirRpcProxy) SetPIRType(pirType string, none *int) error {
 
 func (p *PirRpcProxy) GetRecord(idx int, record *RecordIndexVal) error {
 	return p.remote.Call("PirServerDriver.RawRead", idx, record)
+}
+
+func (p *PirRpcProxy) GetHintTimer(none int, out *time.Duration) error {
+	return p.remote.Call("PirServerDriver.GetHintTimer", none, out)
+}
+
+func (p *PirRpcProxy) GetAnswerTimer(none int, out *time.Duration) error {
+	return p.remote.Call("PirServerDriver.GetAnswerTimer", none, out)
 }

@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 )
@@ -27,15 +28,14 @@ type pirServerUpdatable struct {
 	curTimestamp    int
 	defragTimestamp int
 
-	smallestLayerSize int
-	defragRatio       int
+	defragRatio int
 }
 
 func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	if nRows == 0 {
 		return []int{}
 	}
-	maxSize := []int{s.smallestLayerSize}
+	maxSize := []int{int(math.Round(math.Sqrt(float64(nRows))))}
 	for maxSize[len(maxSize)-1] < nRows {
 		maxSize = append(maxSize, 2*maxSize[len(maxSize)-1])
 	}
@@ -108,11 +108,10 @@ func (s *pirServerUpdatable) initLayers(nRows int) {
 
 func NewPirServerUpdatable(source *rand.Rand, useMatrix bool) *pirServerUpdatable {
 	s := pirServerUpdatable{
-		randSource:        source,
-		curTimestamp:      0,
-		smallestLayerSize: *SecParam * *SecParam,
-		defragRatio:       4,
-		useMatrix:         useMatrix,
+		randSource:   source,
+		curTimestamp: 0,
+		defragRatio:  4,
+		useMatrix:    useMatrix,
 	}
 	return &s
 }
@@ -298,8 +297,9 @@ func (c *pirClientUpdatable) Init() error {
 }
 
 func (c *pirClientUpdatable) Update() error {
+	latestKeyTimestamp := c.latestKeyTimestamp()
 	hintReq := HintReq{
-		LatestKeyTimestamp: c.latestKeyTimestamp(),
+		LatestKeyTimestamp: latestKeyTimestamp,
 		RandSeed:           int64(c.randSource.Uint64())}
 	var hintResp HintResp
 	if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
@@ -308,13 +308,15 @@ func (c *pirClientUpdatable) Update() error {
 
 	if hintResp.ShouldDeleteHistory {
 		c.timedKeys = []TimedRow{}
+		c.positions = make(map[uint32]rowLayerPosition)
 	}
 	c.timedKeys = append(c.timedKeys, hintResp.TimedKeys...)
 
 	if err := c.initLayers(hintResp); err != nil {
 		return err
 	}
-	c.recomputePositionMap()
+
+	c.recomputePositionMap(latestKeyTimestamp)
 	return nil
 }
 
@@ -370,16 +372,24 @@ func (c *pirClientUpdatable) initLayers(resp HintResp) error {
 	return nil
 }
 
-func (c *pirClientUpdatable) recomputePositionMap() {
-	c.positions = make(map[uint32]rowLayerPosition)
-
-	layerStart := 0
+func (c *pirClientUpdatable) recomputePositionMap(latestKeyTimestamp int) {
+	layerEnd := 0
 	for l := range c.layers {
-		layerEnd := sort.Search(len(c.timedKeys), func(i int) bool {
+		layerStart := layerEnd
+		layerEnd = sort.Search(len(c.timedKeys), func(i int) bool {
 			return c.layers[l].endTimestamp < c.timedKeys[i].Timestamp
 		})
+		// If a layer has not changed relative to previous update, no need to recompute.
+		if c.layers[l].endTimestamp < latestKeyTimestamp {
+			continue
+		}
 		processedKeys, deletedRows := processDeletes(c.timedKeys[layerStart:layerEnd])
-		layerStart = layerEnd
+		// The first (oldest) layer can always be defragmented on the client end
+		if l == 0 {
+			c.timedKeys = append(processedKeys, c.timedKeys[layerEnd:]...)
+			layerEnd = len(processedKeys)
+		}
+
 		for _, row := range deletedRows {
 			// propagate deletes backwards to previous layers
 			delete(c.positions, row.Key)

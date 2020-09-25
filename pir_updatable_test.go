@@ -3,6 +3,7 @@ package boosted
 import (
 	"flag"
 	"fmt"
+	"math"
 	"net/rpc"
 	"sync"
 	"testing"
@@ -50,9 +51,6 @@ func TestPIRUpdatableStatic(t *testing.T) {
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
 
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
-
 	servers := [2]PirServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, db)
@@ -69,9 +67,6 @@ func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 	leftServer.AddRows(keys[0:initialSize], db[0:initialSize])
@@ -104,9 +99,6 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -143,9 +135,6 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -186,9 +175,6 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -231,9 +217,6 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
 
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
-
 	servers := [2]PirServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, db)
@@ -268,9 +251,6 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -310,9 +290,6 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -374,9 +351,6 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
 
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
-
 	servers := [2]PirServer{leftServer, rightServer}
 
 	leftServer.DeleteRows([]uint32{keys[0]})
@@ -396,9 +370,6 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 
 	leftServer := NewPirServerUpdatable(RandSource(), false)
 	rightServer := NewPirServerUpdatable(RandSource(), false)
-
-	leftServer.smallestLayerSize = 10
-	rightServer.smallestLayerSize = 10
 
 	servers := [2]PirServer{leftServer, rightServer}
 
@@ -478,23 +449,27 @@ func BenchmarkPirUpdate(b *testing.B) {
 		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
 		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 
-		startTime := time.Now()
-
 		err = client.Init()
 		assert.NilError(b, err)
 
-		changeBatchSize := *SecParam * *SecParam / 2
-		numChanges := 10 * dim.NumRecords
+		var clientAndServerHintTime time.Duration
+
+		changeBatchSize := int(math.Sqrt(float64(dim.NumRecords))) / 2
+		numChanges := 3 * dim.NumRecords
 		for i := 0; i < numChanges/changeBatchSize; i++ {
 			assert.NilError(b, driver.AddRows(changeBatchSize, &none))
 			assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
 
+			startTime := time.Now()
 			client.Update()
+			clientAndServerHintTime += time.Since(startTime)
 		}
 
-		duration := time.Since(startTime)
+		var serverTime time.Duration
+		assert.NilError(b, driver.GetHintTimer(0, &serverTime))
 
-		b.ReportMetric(float64(duration.Nanoseconds())/float64(numChanges), "ns/change")
+		b.ReportMetric(float64(clientAndServerHintTime.Nanoseconds())/float64(numChanges), "total-ns/change")
+		b.ReportMetric(float64(serverTime.Nanoseconds())/float64(numChanges), "server-ns/change")
 
 		var record RecordIndexVal
 		assert.NilError(b, driver.GetRecord(7, &record))

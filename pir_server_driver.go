@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime/pprof"
+	"time"
 )
 
 type PirServerDriver interface {
@@ -19,6 +20,8 @@ type PirServerDriver interface {
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
 	GetRecord(idx int, record *RecordIndexVal) error
+	GetHintTimer(none int, out *time.Duration) error
+	GetAnswerTimer(none int, out *time.Duration) error
 }
 
 type pirServerDriver struct {
@@ -31,6 +34,10 @@ type pirServerDriver struct {
 	pirType    string
 
 	profBuf bytes.Buffer
+
+	// For profiling
+	hintTime   time.Duration
+	answerTime time.Duration
 }
 
 func registerExtraTypes() {
@@ -49,6 +56,20 @@ func NewPirServerDriver() (*pirServerDriver, error) {
 		pirType:    "punc",
 	}
 	return &driver, nil
+}
+
+func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
+	start := time.Now()
+	err := driver.PirServer.Hint(req, resp)
+	driver.hintTime += time.Since(start)
+	return err
+}
+
+func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
+	start := time.Now()
+	err := driver.PirServer.Answer(q, resp)
+	driver.answerTime += time.Since(start)
+	return err
 }
 
 func (driver *pirServerDriver) ResetDBDimensions(dim DBDimensions, none *int) (err error) {
@@ -100,6 +121,16 @@ func (driver *pirServerDriver) StopCpuProfile(none int, out *string) error {
 	return nil
 }
 
+func (driver *pirServerDriver) GetHintTimer(none int, out *time.Duration) error {
+	*out = driver.hintTime
+	return nil
+}
+
+func (driver *pirServerDriver) GetAnswerTimer(none int, out *time.Duration) error {
+	*out = driver.answerTime
+	return nil
+}
+
 func (driver *pirServerDriver) reloadServer() {
 	var server *pirServerUpdatable
 	switch driver.pirType {
@@ -111,6 +142,10 @@ func (driver *pirServerDriver) reloadServer() {
 	driver.PirServer = server
 	driver.PirDB = server
 	driver.PirDB.AddRows(driver.keys, driver.db)
+
+	// Reset timers
+	driver.hintTime = 0
+	driver.answerTime = 0
 }
 
 func (driver *pirServerDriver) GetRecord(idx int, record *RecordIndexVal) error {
