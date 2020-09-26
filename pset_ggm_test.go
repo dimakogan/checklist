@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -68,4 +69,21 @@ func TestGGMPuncSetGenWithPunc(t *testing.T) {
 
 func TestGGMInSet(t *testing.T) {
 	testInSet(t, NewGGMSetGenerator(RandSource()))
+}
+
+// Starting result:
+// BenchmarkGGMEval-4   	    2926	    373090 ns/op	  104448 B/op	    2699 allocs/op
+//
+// Combine SetGenAndEval:
+// BenchmarkGGMEval-4   	    3864	    294564 ns/op	   79615 B/op	    1663 allocs/op
+//
+// Preallocate keys for treeEvalAll:
+// BenchmarkGGMEval-4   	    5881	    203453 ns/op	   53334 B/op	      14 allocs/op
+func BenchmarkGGMEval(b *testing.B) {
+	gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
+	univSize := 1 * 1000 * 1000
+	setSize := int(math.Sqrt(float64(univSize)))
+	for i := 0; i < b.N; i++ {
+		gen.SetGenAndEval(univSize, setSize)
+	}
 }

@@ -27,6 +27,7 @@ type PuncturableSet interface {
 
 type SetGenerator interface {
 	SetGen(univSize int, setSize int) PuncturableSet
+	SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set)
 }
 
 type shiftedSetGenerator struct {
@@ -157,5 +158,5 @@ func (set Set) distinct() bool {
 		}
 		elemsSet[elem] = true
 	}
-	return len(elemsSet) == len(set)
+	return true
 }

@@ -32,6 +32,11 @@ func NewGGMSetGenerator(randReader io.Reader) SetGenerator {
 }
 
 func (g *ggmSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
+	pset, _ := g.SetGenAndEval(univSize, setSize)
+	return pset
+}
+
+func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set) {
 	key := make([]byte, 16)
 	height := int(math.Ceil(math.Log2(float64(setSize))))
 	for {
@@ -39,19 +44,25 @@ func (g *ggmSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 			panic(err)
 		}
 
-		set := ggmSet{key: key, setSize: setSize, height: height, univSize: univSize,
+		pset := ggmSet{key: key, setSize: setSize, height: height, univSize: univSize,
 			prg: g.prg,
 		}
 
-		if set.Eval().distinct() {
-			return &set
+		if set := pset.Eval(); set.distinct() {
+			return &pset, set
 		}
 	}
 }
 
 func (set *ggmSet) Eval() Set {
 	elems := make(Set, 1<<set.height)
-	treeEvalAll(set.prg, set.key, set.height, set.univSize, elems)
+	return set.Eval_prealloc(elems)
+}
+
+func (set *ggmSet) Eval_prealloc(elems Set) Set {
+	preallocKey := make([]byte, 16*(set.height+1))
+	copy(preallocKey[0:16], set.key)
+	treeEvalAll(set.prg, preallocKey, set.height, set.univSize, elems)
 	return elems[0:set.setSize]
 }
 
@@ -108,16 +119,18 @@ func rightChild(prg cipher.Block, seed []byte, out []byte) {
 	seed[0] ^= 1
 }
 
-func treeEvalAll(prg cipher.Block, key []byte, height int, univSize int, out []int) {
+func treeEvalAll(prg cipher.Block, preallocKey []byte, height int, univSize int, out []int) {
+	key := preallocKey[0:16]
 	if height == 0 {
-		out[0] = MathMod(int(binary.LittleEndian.Uint32(key)), univSize)
+		out[0] = int(binary.LittleEndian.Uint32(key) % uint32(univSize))
 		return
 	}
-	nextKey := make([]byte, 16)
+	remainingKey := preallocKey[16:]
+	nextKey := remainingKey[0:16]
 	leftChild(prg, key, nextKey)
-	treeEvalAll(prg, nextKey, height-1, univSize, out[0:1<<(height-1)])
+	treeEvalAll(prg, remainingKey, height-1, univSize, out[0:1<<(height-1)])
 	rightChild(prg, key, nextKey)
-	treeEvalAll(prg, nextKey, height-1, univSize, out[1<<(height-1):])
+	treeEvalAll(prg, remainingKey, height-1, univSize, out[1<<(height-1):])
 }
 
 func (set *ggmSet) Punc(idx int) SuccinctSet {
@@ -178,9 +191,11 @@ func puncturedTreeEvalAll(prg cipher.Block, keys [][]byte, hole int, height int,
 	}
 	if hole < (1 << (height - 1)) {
 		puncturedTreeEvalAll(prg, keys[1:], hole, height-1, univSize, out[0:1<<(height-1)-1])
-		treeEvalAll(prg, keys[0], height-1, univSize, out[1<<(height-1)-1:])
+		pathKey := append(keys[0], make([]byte, height*len(keys[0]))...)
+		treeEvalAll(prg, pathKey, height-1, univSize, out[1<<(height-1)-1:])
 	} else {
-		treeEvalAll(prg, keys[0], height-1, univSize, out[0:1<<(height-1)])
+		pathKey := append(keys[0], make([]byte, height*len(keys[0]))...)
+		treeEvalAll(prg, pathKey, height-1, univSize, out[0:1<<(height-1)])
 		puncturedTreeEvalAll(prg, keys[1:], hole-(1<<(height-1)), height-1, univSize, out[1<<(height-1):])
 	}
 

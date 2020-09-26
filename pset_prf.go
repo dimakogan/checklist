@@ -26,6 +26,11 @@ func NewPRFSetGenerator(src io.Reader) SetGenerator {
 }
 
 func (g prfSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
+	pset, _ := g.SetGenAndEval(univSize, setSize)
+	return pset
+}
+
+func (g prfSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set) {
 	if univSize < setSize {
 		panic("Set size too large.")
 	}
@@ -40,12 +45,12 @@ func (g prfSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 		if err != nil {
 			panic(fmt.Sprintf("Failed to create AES cipher: %s", err))
 		}
-		set := prfSet{univSize, setSize, key, prf}
-		if set.Eval().distinct() {
-			return &set
+		pset := prfSet{univSize, setSize, key, prf}
+		if set := pset.Eval(); set.distinct() {
+			return &pset, set
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (set *prfSet) Size() int {

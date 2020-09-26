@@ -411,7 +411,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.DeepEqual(t, val, Row("Cool"))
 }
 
-func BenchmarkPirUpdatable(b *testing.B) {
+func BenchmarkPirUpdatableInitial(b *testing.B) {
 	driver, err := updatableServer()
 	assert.NilError(b, err)
 	pirType, err := PirTypeString(*updatablePirType)
@@ -451,7 +451,6 @@ func BenchmarkUpdatablePirHint(b *testing.B) {
 	assert.NilError(b, err)
 
 	for _, dim := range dbDimensions() {
-
 		var none int
 		assert.NilError(b, driver.SetPIRType(pirType, &none))
 		assert.NilError(b, driver.ResetDBDimensions(dim, &none))
@@ -460,11 +459,11 @@ func BenchmarkUpdatablePirHint(b *testing.B) {
 		err = client.Init()
 		assert.NilError(b, err)
 
-		var clientAndServerHintTime, clientAndServerAnswerTime, serverHintTime, serverAnswerTime time.Duration
+		var clientAndServerHintTime, clientAndServerAnswerTime, serverHintTime time.Duration
 
 		changeBatchSize := int(math.Sqrt(float64(dim.NumRecords))) / 2
-		numChanges := 3 * dim.NumRecords
-		numBatches := numChanges / changeBatchSize
+		//numChanges := 3 * dim.NumRecords
+		numBatches := 100 //numChanges / changeBatchSize
 		for i := 0; i < numBatches; i++ {
 			assert.NilError(b, driver.AddRows(changeBatchSize, &none))
 			assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
@@ -484,13 +483,14 @@ func BenchmarkUpdatablePirHint(b *testing.B) {
 		assert.DeepEqual(b, row, record.Value)
 
 		assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
-		assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
 
 		b.ReportMetric(float64(clientAndServerHintTime.Nanoseconds())/float64(numBatches), "total-ns/hint")
 		b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(numBatches), "server-ns/hint")
 
-		b.ReportMetric(float64(clientAndServerAnswerTime.Nanoseconds()), "ns/query")
-		b.ReportMetric(float64(serverAnswerTime.Nanoseconds()), "server-ns/query")
+		// var serverAnswerTime int
+		//assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
+		// b.ReportMetric(float64(clientAndServerAnswerTime.Nanoseconds()), "ns/query")
+		// b.ReportMetric(float64(serverAnswerTime.Nanoseconds()/2), "server-ns/query")
 	}
 }
 

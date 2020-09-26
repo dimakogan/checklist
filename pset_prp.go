@@ -53,6 +53,11 @@ func (g prpSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 	return &prpSet{univSize, setSize, key, prp}
 }
 
+func (g prpSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set) {
+	pset := g.SetGen(univSize, setSize)
+	return pset, pset.Eval()
+}
+
 func (set *prpSet) Size() int {
 	return set.SetSize
 }
