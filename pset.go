@@ -78,7 +78,7 @@ func (g shiftedSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 func (ss *ShiftedSet) Eval() Set {
 	elems := ss.BaseSet.Eval()
 	for i := 0; i < len(elems); i++ {
-		elems[i] = MathMod(elems[i]+ss.Delta, ss.UnivSize)
+		elems[i] = int(uint32(elems[i]+ss.Delta) % uint32(ss.UnivSize))
 	}
 	return elems
 }

@@ -119,18 +119,44 @@ func rightChild(prg cipher.Block, seed []byte, out []byte) {
 	seed[0] ^= 1
 }
 
-func treeEvalAll(prg cipher.Block, preallocKey []byte, height int, univSize int, out []int) {
-	key := preallocKey[0:16]
-	if height == 0 {
-		out[0] = int(binary.LittleEndian.Uint32(key) % uint32(univSize))
-		return
+func treeEvalAll(prg cipher.Block, pathKey []byte, height int, univSize int, out []int) {
+	curHeight := height
+	curKeyPos := 0
+	curNode := 0
+	for {
+		if curHeight == 0 {
+			out[curNode] = int(binary.LittleEndian.Uint32(pathKey[curKeyPos:]) % uint32(univSize))
+			for isRight := true; isRight; curNode >>= 1 {
+				isRight = (curNode&1 == 1)
+				curHeight++
+				curKeyPos -= 16
+			}
+			if curHeight > height {
+				return
+			}
+			rightChild(prg, pathKey[curKeyPos:curKeyPos+16], pathKey[curKeyPos+16:curKeyPos+32])
+			curNode = (curNode << 1) + 1
+			curHeight--
+			curKeyPos += 16
+			continue
+		}
+		leftChild(prg, pathKey[curKeyPos:curKeyPos+16], pathKey[curKeyPos+16:curKeyPos+32])
+		curNode = (curNode << 1)
+		curHeight--
+		curKeyPos += 16
 	}
-	remainingKey := preallocKey[16:]
-	nextKey := remainingKey[0:16]
-	leftChild(prg, key, nextKey)
-	treeEvalAll(prg, remainingKey, height-1, univSize, out[0:1<<(height-1)])
-	rightChild(prg, key, nextKey)
-	treeEvalAll(prg, remainingKey, height-1, univSize, out[1<<(height-1):])
+
+	// key := pathKey[0:16]
+	// if height == 0 {
+	// 	out[0] = int(binary.LittleEndian.Uint32(key) % uint32(univSize))
+	// 	return
+	// }
+	// remainingKey := pathKey[16:]
+	// nextKey := remainingKey[0:16]
+	// leftChild(prg, key, nextKey)
+	// treeEvalAll(prg, remainingKey, height-1, univSize, out[0:1<<(height-1)])
+	// rightChild(prg, key, nextKey)
+	// treeEvalAll(prg, remainingKey, height-1, univSize, out[1<<(height-1):])
 }
 
 func (set *ggmSet) Punc(idx int) SuccinctSet {
