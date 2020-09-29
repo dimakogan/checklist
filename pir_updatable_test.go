@@ -1,31 +1,13 @@
 package boosted
 
 import (
-	"flag"
 	"math"
 	"math/rand"
-	"net/rpc"
 	"testing"
 	"time"
 
 	"gotest.tools/assert"
 )
-
-// For testing server over RPC.
-var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
-
-func updatableServer() (PirServerDriver, error) {
-	if *serverAddr != "" {
-		// Create a TCP connection to localhost on port 1234
-		remote, err := rpc.DialHTTP("tcp", *serverAddr)
-		if err != nil {
-			return nil, err
-		}
-		return NewPirRpcProxy(remote), nil
-	} else {
-		return NewPirServerDriver()
-	}
-}
 
 func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
 	client := NewPirClientUpdatable(RandSource(), servers)
@@ -390,7 +372,7 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 }
 
 func TestPIRServerOverRPC(t *testing.T) {
-	driver, err := updatableServer()
+	driver, err := ServerDriver()
 	assert.NilError(t, err)
 
 	var none int
@@ -409,7 +391,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 }
 
 func BenchmarkUpdatableInitial(b *testing.B) {
-	driver, err := updatableServer()
+	driver, err := ServerDriver()
 	assert.NilError(b, err)
 
 	for _, config := range testConfigs() {
@@ -442,7 +424,7 @@ func BenchmarkUpdatableInitial(b *testing.B) {
 }
 
 func BenchmarkUpdatableIncrementalHint(b *testing.B) {
-	driver, err := updatableServer()
+	driver, err := ServerDriver()
 	assert.NilError(b, err)
 	assert.NilError(b, err)
 	rand := RandSource()
@@ -499,7 +481,7 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 }
 
 func BenchmarkUpdatableIncrementalAnswer(b *testing.B) {
-	driver, err := updatableServer()
+	driver, err := ServerDriver()
 	assert.NilError(b, err)
 
 	for _, config := range testConfigs() {
