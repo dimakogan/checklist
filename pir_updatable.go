@@ -37,7 +37,7 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	if nRows == 0 {
 		return []int{}
 	}
-	if s.pirType == PirMatrix {
+	if s.pirType == Matrix {
 		return []int{nRows}
 	}
 	maxSize := []int{nRows}
@@ -109,7 +109,7 @@ func (s *pirServerUpdatable) initLayers(nRows int) {
 	}
 
 	// The smallest layer always uses matrix
-	s.layers[len(s.layers)-1].pirType = PirMatrix
+	s.layers[len(s.layers)-1].pirType = Matrix
 }
 
 func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatable {

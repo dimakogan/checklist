@@ -1,6 +1,7 @@
 package boosted
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 )
@@ -34,16 +35,18 @@ func MakeKeys(src *rand.Rand, nRows int) []uint32 {
 	return keys
 }
 
-type DBDimensions struct {
-	NumRecords int
-	RecordSize int
+type TestConfig struct {
+	NumRows int
+	RowLen  int
+
+	PirType PirType
 }
 
-func MakeDBWithDimensions(src *rand.Rand, dim DBDimensions) []Row {
-	return MakeDB(src, dim.NumRecords, dim.RecordSize)
+func (c TestConfig) String() string {
+	return fmt.Sprintf("%s/n=%d,r=%d", c.PirType, c.NumRows, c.RowLen)
 }
 
-type RecordIndexVal struct {
+type RowIndexVal struct {
 	Index int
 	Key   uint32
 	Value Row

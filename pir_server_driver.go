@@ -12,14 +12,13 @@ import (
 type PirServerDriver interface {
 	PirServer
 
-	SetPIRType(pirType PirType, none *int) error
-	ResetDBDimensions(dim DBDimensions, none *int) error
+	Configure(config TestConfig, none *int) error
 	AddRows(numRows int, none *int) error
 	DeleteRows(numRows int, none *int) error
-	SetRecordValue(rec RecordIndexVal, none *int) error
+	SetRow(row RowIndexVal, none *int) error
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
-	GetRecord(idx int, record *RecordIndexVal) error
+	GetRow(idx int, row *RowIndexVal) error
 	ResetTimers(none int, none2 *int) error
 	GetHintTimer(none int, out *time.Duration) error
 	GetAnswerTimer(none int, out *time.Duration) error
@@ -49,12 +48,12 @@ func registerExtraTypes() {
 func NewPirServerDriver() (*pirServerDriver, error) {
 	randSource := RandSource()
 	registerExtraTypes()
-	server := NewPirServerUpdatable(randSource, PirPuncturable)
+	server := NewPirServerUpdatable(randSource, Punc)
 	driver := pirServerDriver{
 		PirServer:  server,
 		PirDB:      server,
 		randSource: randSource,
-		pirType:    PirPuncturable,
+		pirType:    Punc,
 	}
 	return &driver, nil
 }
@@ -73,16 +72,19 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 	return err
 }
 
-func (driver *pirServerDriver) ResetDBDimensions(dim DBDimensions, none *int) (err error) {
-	driver.db = MakeDBWithDimensions(driver.randSource, dim)
-	driver.keys = MakeKeys(driver.randSource, dim.NumRecords)
+func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err error) {
+	driver.db = MakeDB(driver.randSource, config.NumRows, config.RowLen)
+	driver.keys = MakeKeys(driver.randSource, config.NumRows)
+	driver.pirType = config.PirType
+
+	driver.ResetTimers(0, nil)
 	driver.reloadServer()
 	return nil
 
 }
 
 func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
-	newVals := MakeDBWithDimensions(driver.randSource, DBDimensions{numRows, len(driver.db[0])})
+	newVals := MakeDB(driver.randSource, numRows, len(driver.db[0]))
 	newKeys := MakeKeys(driver.randSource, numRows)
 	driver.db = append(driver.db, newVals...)
 	driver.keys = append(driver.keys, newKeys...)
@@ -97,16 +99,10 @@ func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
 	return nil
 }
 
-func (driver *pirServerDriver) SetRecordValue(rec RecordIndexVal, none *int) (err error) {
+func (driver *pirServerDriver) SetRow(row RowIndexVal, none *int) (err error) {
 	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
-	driver.db[rec.Index] = rec.Value
-	driver.keys[rec.Index] = rec.Key
-	driver.reloadServer()
-	return nil
-}
-
-func (driver *pirServerDriver) SetPIRType(pirType PirType, none *int) error {
-	driver.pirType = pirType
+	driver.db[row.Index] = row.Value
+	driver.keys[row.Index] = row.Key
 	driver.reloadServer()
 	return nil
 }
@@ -149,12 +145,12 @@ func (driver *pirServerDriver) reloadServer() {
 	driver.answerTime = 0
 }
 
-func (driver *pirServerDriver) GetRecord(idx int, record *RecordIndexVal) error {
+func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
 	if idx >= len(driver.db) {
 		return fmt.Errorf("Index %d out of bounds %d", idx, len(driver.db))
 	}
-	record.Index = idx
-	record.Key = driver.keys[idx]
-	record.Value = driver.db[idx]
+	row.Index = idx
+	row.Key = driver.keys[idx]
+	row.Value = driver.db[idx]
 	return nil
 }

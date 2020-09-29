@@ -31,9 +31,9 @@ func TestPIRPuncErasure(t *testing.T) {
 	assert.DeepEqual(t, val, db[readIndex])
 }
 
-func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
+func runPirErasure(b *testing.B, config TestConfig, chunkSize int) {
 	randSource := rand.New(rand.NewSource(12345))
-	db := MakeDBWithDimensions(randSource, dim)
+	db := MakeDB(randSource, config.NumRows, config.RowLen)
 
 	server, err := NewPirServerErasure(randSource, db, chunkSize)
 	assert.NilError(b, err)
@@ -42,14 +42,14 @@ func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
 	leftServer := benchmarkServer{
 		PirServer: server,
 		b:         b,
-		name:      fmt.Sprintf("Left/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
+		name:      fmt.Sprintf("Left/n=%d,r=%d,CS=%d", config.NumRows, config.RowLen, chunkSize),
 		mutex:     &mutex,
 	}
 
 	rightServer := benchmarkServer{
 		PirServer: server,
 		b:         b,
-		name:      fmt.Sprintf("Right/n=%d,B=%d,CS=%d", dim.NumRecords, dim.RecordSize, chunkSize),
+		name:      fmt.Sprintf("Right/n=%d,r=%d,CS=%d", config.NumRows, config.RowLen, chunkSize),
 		mutex:     &mutex,
 	}
 
@@ -67,17 +67,17 @@ func runPirErasure(b *testing.B, dim DBDimensions, chunkSize int) {
 }
 
 func BenchmarkPirErasure(b *testing.B) {
-	for _, dim := range dbDimensions() {
+	for _, config := range testConfigs() {
 		for _, cs := range chunkSizes {
-			runPirErasure(b, dim, cs)
+			runPirErasure(b, config, cs)
 		}
 	}
 }
 
 func BenchmarkPirErasureClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(randSource, dim)
+	for _, config := range testConfigs() {
+		db := MakeDB(randSource, config.NumRows, config.RowLen)
 		server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
 		assert.NilError(b, err)
 
@@ -95,7 +95,7 @@ func BenchmarkPirErasureClient(b *testing.B) {
 		assert.NilError(b, client.Init())
 
 		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			fmt.Sprintf("n=%d,r=%d", config.NumRows, config.RowLen),
 			func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					pauseServer.b = b

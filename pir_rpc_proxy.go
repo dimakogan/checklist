@@ -41,8 +41,8 @@ func (p *PirRpcProxy) Answer(query QueryReq, resp *QueryResp) error {
 	return err
 }
 
-func (p *PirRpcProxy) ResetDBDimensions(dim DBDimensions, none *int) error {
-	return p.remote.Call("PirServerDriver.ResetDBDimensions", dim, none)
+func (p *PirRpcProxy) Configure(config TestConfig, none *int) error {
+	return p.remote.Call("PirServerDriver.Configure", config, none)
 }
 
 func (p *PirRpcProxy) AddRows(numRows int, none *int) (err error) {
@@ -61,16 +61,12 @@ func (p *PirRpcProxy) StopCpuProfile(none int, out *string) error {
 	return p.remote.Call("PirServerDriver.StopCpuProfile", none, out)
 }
 
-func (p *PirRpcProxy) SetRecordValue(rec RecordIndexVal, none *int) error {
-	return p.remote.Call("PirServerDriver.SetRecordValue", rec, none)
+func (p *PirRpcProxy) SetRow(row RowIndexVal, none *int) error {
+	return p.remote.Call("PirServerDriver.SetRow", row, none)
 }
 
-func (p *PirRpcProxy) SetPIRType(pirType PirType, none *int) error {
-	return p.remote.Call("PirServerDriver.SetPIRType", pirType, none)
-}
-
-func (p *PirRpcProxy) GetRecord(idx int, record *RecordIndexVal) error {
-	return p.remote.Call("PirServerDriver.RawRead", idx, record)
+func (p *PirRpcProxy) GetRow(idx int, row *RowIndexVal) error {
+	return p.remote.Call("PirServerDriver.RawRead", idx, row)
 }
 
 func (p *PirRpcProxy) GetHintTimer(none int, out *time.Duration) error {

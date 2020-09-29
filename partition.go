@@ -18,7 +18,7 @@ type partition struct {
 }
 
 func NewPartition(key []byte, univSize, numSets int) (*partition, error) {
-	univSizeBits := numRecordsToUnivSizeBits(univSize)
+	univSizeBits := numRowsToUnivSizeBits(univSize)
 	prp, err := NewPRP(key, univSizeBits)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create PRP: %s", err)

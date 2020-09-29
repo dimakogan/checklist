@@ -3,6 +3,8 @@ package boosted
 import (
 	"flag"
 	"fmt"
+	"log"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -72,25 +74,48 @@ var resp *QueryResp
 
 var numRows = flag.String("numRows", "10000", "Num DB Rows (comma-separated list)")
 var rowLen = flag.String("rowLen", "1000", "Row length in bytes (comma-separated list)")
+var updatablePirType = flag.String("pirType", Punc.String(),
+	fmt.Sprintf("Updatable PIR type: [%s] (comma-separated list)", strings.Join(PirTypeStrings(), "|")))
 
-func dbDimensions() []DBDimensions {
-	var dims []DBDimensions
-	numDBRecordsStr := strings.Split(*numRows, ",")
-	dbRecordSizeStr := strings.Split(*rowLen, ",")
+func testConfigs() []TestConfig {
+	var configs []TestConfig
+	numRowsStr := strings.Split(*numRows, ",")
+	dbRowLenStr := strings.Split(*rowLen, ",")
+	pirTypeStrs := strings.Split(*updatablePirType, ",")
+
 	// Set maximum on total size to avoid really large DBs.
 	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
 
-	for _, nStr := range numDBRecordsStr {
-		n, _ := strconv.Atoi(nStr)
-		for _, recSizeStr := range dbRecordSizeStr {
-			recSize, _ := strconv.Atoi(recSizeStr)
+	for _, nStr := range numRowsStr {
+		n, err := strconv.Atoi(nStr)
+		if err != nil {
+			log.Fatalf("Bad numRows: %s\n", nStr)
+		}
+		for _, rowLenStr := range dbRowLenStr {
+			recSize, err := strconv.Atoi(rowLenStr)
+			if err != nil {
+				log.Fatalf("Bad rowLen: %s\n", rowLenStr)
+			}
+
 			if int64(n)*int64(recSize) > maxDBSizeBytes {
 				continue
 			}
-			dims = append(dims, DBDimensions{NumRecords: n, RecordSize: recSize})
+			for _, pirTypeStr := range pirTypeStrs {
+				pirType, err := PirTypeString(pirTypeStr)
+				if err != nil {
+					log.Fatalf("Bad PirType: %s\n", pirTypeStr)
+				}
+				config := TestConfig{NumRows: n, RowLen: recSize, PirType: pirType}
+				if pirType == Perm {
+					config.NumRows = 1 << int(math.Ceil(math.Log2(float64(config.NumRows))))
+				}
+				configs = append(configs, config)
+			}
 		}
+
 	}
-	return dims
+
+	return configs
 }
 
 var chunkSizes = []int{DEFAULT_CHUNK_SIZE}
@@ -130,30 +155,29 @@ func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func BenchmarkPirPunc(b *testing.B) {
+func BenchmarkNonUpdatable(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(randSource, dim)
+	for _, config := range testConfigs() {
+		db := MakeDB(randSource, config.NumRows, config.RowLen)
 
-		server := NewPirServerPunc(randSource, db)
+		server := NewPirServerByType(config.PirType, randSource, db)
 		var mutex sync.Mutex
 		leftServer := benchmarkServer{
 			PirServer: server,
 			b:         b,
-			name:      fmt.Sprintf("Left/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			name:      "Left/" + config.String(),
 			mutex:     &mutex,
 		}
 
 		rightServer := benchmarkServer{
 			PirServer: server,
 			b:         b,
-			name:      fmt.Sprintf("Right/n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			name:      "Right/" + config.String(),
 			mutex:     &mutex,
 		}
 
-		client := NewPIRClient(
-			NewPirClientPunc(randSource),
-			randSource,
+		client := NewPIRClient(NewPirClientByType(config.PirType,
+			randSource), randSource,
 			[2]PirServer{&leftServer, &rightServer})
 
 		err := client.Init()
@@ -167,11 +191,11 @@ func BenchmarkPirPunc(b *testing.B) {
 	}
 }
 
-func BenchmarkPirPuncClient(b *testing.B) {
+func BenchmarkReadClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(randSource, dim)
-		server := NewPirServerPunc(randSource, db)
+	for _, config := range testConfigs() {
+		db := MakeDB(randSource, config.NumRows, config.RowLen)
+		server := NewPirServerByType(config.PirType, randSource, db)
 
 		var mutex sync.Mutex
 		pauseServer := pauseTimingServer{
@@ -179,15 +203,14 @@ func BenchmarkPirPuncClient(b *testing.B) {
 			mutex:     &mutex,
 		}
 
-		client := NewPIRClient(
-			NewPirClientPunc(randSource),
+		client := NewPIRClient(NewPirClientByType(config.PirType, randSource),
 			randSource,
 			[2]PirServer{&pauseServer, &pauseServer})
 
 		assert.NilError(b, client.Init())
 
 		b.Run(
-			fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
+			config.String(),
 			func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					pauseServer.b = b
@@ -222,40 +245,19 @@ func (s *pauseTimingServer) Answer(q QueryReq, resp *QueryResp) error {
 	return err
 }
 
-func BenchmarkHintOnce(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, dim := range dbDimensions() {
-		db := MakeDBWithDimensions(randSource, dim)
-
-		server := NewPirServerPunc(randSource, db)
-		benchmarkServer := benchmarkServer{
-			PirServer: server,
-			b:         b,
-			name:      fmt.Sprintf("n=%d,B=%d", dim.NumRecords, dim.RecordSize),
-		}
-
-		client := NewPIRClient(
-			NewPirClientPunc(randSource),
-			randSource,
-			[2]PirServer{&benchmarkServer, server})
-		err := client.Init()
-		assert.NilError(b, err)
-	}
-}
-
 func BenchmarkNothingRandom(b *testing.B) {
-	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
-	db := MakeDBWithDimensions(RandSource(), dim)
+	config := TestConfig{NumRows: 1024 * 1024, RowLen: 1024}
+	db := MakeDB(RandSource(), config.NumRows, config.RowLen)
 
 	nHints := 1024
 	setLen := 1024
 
-	out := make(Row, dim.RecordSize)
+	out := make(Row, config.RowLen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < nHints; j++ {
 			for k := 0; k < setLen; k++ {
-				q := ((123124124 * k) + 912812367) % dim.NumRecords
+				q := ((123124124 * k) + 912812367) % config.NumRows
 				xorInto(out, db[q])
 			}
 		}
@@ -263,20 +265,20 @@ func BenchmarkNothingRandom(b *testing.B) {
 }
 
 func BenchmarkNothingLinear(b *testing.B) {
-	dim := DBDimensions{NumRecords: 1024 * 1024, RecordSize: 1024}
-	db := MakeDBWithDimensions(RandSource(), dim)
+	config := TestConfig{NumRows: 1024 * 1024, RowLen: 1024}
+	db := MakeDB(RandSource(), config.NumRows, config.RowLen)
 
 	nHints := 1024
 	setLen := 1024
 
-	out := make(Row, dim.RecordSize)
+	out := make(Row, config.RowLen)
 	b.ResetTimer()
 	q := 0
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < nHints; j++ {
 			for k := 0; k < setLen; k++ {
 				xorInto(out, db[q])
-				q = (q + 1) % dim.NumRecords
+				q = (q + 1) % config.NumRows
 			}
 		}
 	}

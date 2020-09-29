@@ -25,8 +25,8 @@ var NumDifferentReads = 100
 
 func main() {
 	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
-	numRecords := flag.Int("n", 10000, "Num DB Records")
-	recordSize := flag.Int("r", 1000, "Record size in bytes")
+	numRows := flag.Int("n", 10000, "Num DB rows")
+	rowLength := flag.Int("r", 1000, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
@@ -52,27 +52,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("Bad PirType: %s", *pirTypeStr)
 	}
-	err = proxyLeft.SetPIRType(pirType, &none)
-	err = proxyLeft.ResetDBDimensions(b.DBDimensions{*numRecords, *recordSize}, &none)
+	err = proxyLeft.Configure(b.TestConfig{*numRows, *rowLength, pirType}, &none)
 	if err != nil {
-		log.Fatalf("Failed to ResetDBDimensions: %s\n", err)
+		log.Fatalf("Failed to Configure: %s\n", err)
 	}
 
 	cachedVals := make(map[int]b.Row)
 	cachedIndices := make([]int, 0)
 	cachedKeys := make([]uint32, 0)
 	for i := 0; i < NumDifferentReads; i++ {
-		idx := i % *numRecords
+		idx := i % *numRows
 		cachedIndices = append(cachedIndices, idx)
 		cachedKeys = append(cachedKeys, rand.Uint32())
-		cachedVals[idx] = make([]byte, *recordSize)
+		cachedVals[idx] = make([]byte, *rowLength)
 		rand.Read(cachedVals[idx])
 
-		err = proxyLeft.SetRecordValue(
-			b.RecordIndexVal{Index: idx, Key: cachedKeys[idx], Value: cachedVals[idx]},
+		err = proxyLeft.SetRow(
+			b.RowIndexVal{Index: idx, Key: cachedKeys[idx], Value: cachedVals[idx]},
 			&none)
 		if err != nil {
-			log.Fatalf("Failed to SetRecordValue: %s\n", err)
+			log.Fatalf("Failed to SetRow: %s\n", err)
 		}
 	}
 	fmt.Printf("[OK]\n")
@@ -113,7 +112,7 @@ func main() {
 			log.Fatalf("Failed to read index %d: %s", i, err)
 		}
 		if !reflect.DeepEqual(cachedVals[idx], readVal) {
-			log.Fatalf("Mismatching record value at index %d", idx)
+			log.Fatalf("Mismatching row value at index %d", idx)
 		}
 	}
 	proxyLeft.ShouldRecord = false

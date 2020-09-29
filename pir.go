@@ -13,9 +13,9 @@ var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")
 type PirType int
 
 const (
-	PirMatrix PirType = iota
-	PirPuncturable
-	PirPerm
+	Matrix PirType = iota
+	Punc
+	Perm
 )
 
 // One database row.
@@ -118,11 +118,11 @@ type pirClient struct {
 
 func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer {
 	switch pirType {
-	case PirMatrix:
+	case Matrix:
 		return NewPirServerMatrix(randSrc, db)
-	case PirPuncturable:
+	case Punc:
 		return NewPirServerPunc(randSrc, db)
-	case PirPerm:
+	case Perm:
 		return NewPirPermServer(db)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
@@ -130,11 +130,11 @@ func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer
 
 func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
 	switch pirType {
-	case PirMatrix:
+	case Matrix:
 		return NewPirClientMatrix(randSrc)
-	case PirPuncturable:
+	case Punc:
 		return NewPirClientPunc(randSrc)
-	case PirPerm:
+	case Perm:
 		return NewPirPermClient(randSrc)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
@@ -200,9 +200,9 @@ func xorRowsFlatSlice(flatDb []byte, rowLen int, rows Set, out []byte) {
 	}
 }
 
-func numRecordsToUnivSizeBits(nRecords int) int {
+func numRowsToUnivSizeBits(nRows int) int {
 	// Round univsize to next power of 4
-	return ((int(math.Log2(float64(nRecords)))-1)/2 + 1) * 2
+	return ((int(math.Log2(float64(nRows)))-1)/2 + 1) * 2
 }
 
 func PirTypeStrings() []string {
