@@ -61,10 +61,6 @@ func (p *PirRpcProxy) StopCpuProfile(none int, out *string) error {
 	return p.remote.Call("PirServerDriver.StopCpuProfile", none, out)
 }
 
-func (p *PirRpcProxy) SetRow(row RowIndexVal, none *int) error {
-	return p.remote.Call("PirServerDriver.SetRow", row, none)
-}
-
 func (p *PirRpcProxy) GetRow(idx int, row *RowIndexVal) error {
 	return p.remote.Call("PirServerDriver.RawRead", idx, row)
 }

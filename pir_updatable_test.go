@@ -1,12 +1,13 @@
 package boosted
 
 import (
+	"fmt"
 	"math"
-	"math/rand"
 	"testing"
 	"time"
 
 	"gotest.tools/assert"
+	"gotest.tools/assert/cmp"
 )
 
 func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
@@ -375,9 +376,11 @@ func TestPIRServerOverRPC(t *testing.T) {
 	driver, err := ServerDriver()
 	assert.NilError(t, err)
 
-	var none int
-	assert.NilError(t, driver.Configure(TestConfig{NumRows: 1000, RowLen: 4}, &none))
-	assert.NilError(t, driver.SetRow(RowIndexVal{7, 0x1234, Row{'C', 'o', 'o', 'l'}}, &none))
+	assert.NilError(t, driver.Configure(TestConfig{
+		NumRows:    1000,
+		RowLen:     4,
+		PresetRows: []RowIndexVal{{7, 0x1234, Row{'C', 'o', 'o', 'l'}}},
+	}, nil))
 
 	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
 	client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
@@ -396,12 +399,13 @@ func BenchmarkUpdatableInitial(b *testing.B) {
 
 	for _, config := range testConfigs() {
 		var client *pirClientUpdatable
+		config.PresetRows = []RowIndexVal{
+			{7, 0x1234, make([]byte, config.RowLen)}}
 		b.Run("Init/"+config.String(), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				b.StopTimer()
 				var none int
 				assert.NilError(b, driver.Configure(config, &none))
-				assert.NilError(b, driver.SetRow(RowIndexVal{7, 0x1234, make([]byte, config.RowLen)}, &none))
 				assert.NilError(b, driver.ResetTimers(0, nil))
 				b.StartTimer()
 
@@ -508,12 +512,17 @@ func BenchmarkUpdatableIncrementalAnswer(b *testing.B) {
 			assert.NilError(b, driver.ResetTimers(0, nil))
 			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal
-				assert.NilError(b, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
+				//rand.Intn(config.NumRows)
+				assert.NilError(b, driver.GetRow(i, &rowIV))
 
 				b.StartTimer()
 				row, err := client.Read(int(rowIV.Key))
 				b.StopTimer()
 				assert.NilError(b, err)
+				if !cmp.DeepEqual(row, rowIV.Value)().Success() {
+					fmt.Printf("i=%d,idx=%d,key=%d\n", i, rowIV.Index, rowIV.Key)
+
+				}
 				assert.DeepEqual(b, row, rowIV.Value)
 			}
 

@@ -15,7 +15,6 @@ type PirServerDriver interface {
 	Configure(config TestConfig, none *int) error
 	AddRows(numRows int, none *int) error
 	DeleteRows(numRows int, none *int) error
-	SetRow(row RowIndexVal, none *int) error
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
 	GetRow(idx int, row *RowIndexVal) error
@@ -28,9 +27,9 @@ type pirServerDriver struct {
 	PirServer
 	PirDB
 
+	config TestConfig
+
 	randSource *rand.Rand
-	db         []Row
-	keys       []uint32
 	pirType    PirType
 
 	profBuf bytes.Buffer
@@ -73,37 +72,34 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err error) {
-	driver.db = MakeDB(driver.randSource, config.NumRows, config.RowLen)
-	driver.keys = MakeKeys(driver.randSource, config.NumRows)
-	driver.pirType = config.PirType
+	server := NewPirServerUpdatable(driver.randSource, driver.pirType)
+	db := MakeDB(driver.randSource, config.NumRows, config.RowLen)
+	keys := MakeKeys(driver.randSource, config.NumRows)
+	for _, preset := range config.PresetRows {
+		copy(db[preset.Index], preset.Value)
+		keys[preset.Index] = preset.Key
+	}
+	server.AddRows(keys, db)
 
 	driver.ResetTimers(0, nil)
-	driver.reloadServer()
+	driver.config = config
+	driver.pirType = config.PirType
+	driver.PirServer = server
+	driver.PirDB = server
 	return nil
 
 }
 
 func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
-	newVals := MakeDB(driver.randSource, numRows, len(driver.db[0]))
+	newVals := MakeDB(driver.randSource, numRows, driver.config.RowLen)
 	newKeys := MakeKeys(driver.randSource, numRows)
-	driver.db = append(driver.db, newVals...)
-	driver.keys = append(driver.keys, newKeys...)
 	driver.PirDB.AddRows(newKeys, newVals)
 	return nil
 }
 
 func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
-	driver.PirDB.DeleteRows(driver.keys[0:numRows])
-	driver.db = driver.db[numRows:]
-	driver.keys = driver.keys[numRows:]
-	return nil
-}
-
-func (driver *pirServerDriver) SetRow(row RowIndexVal, none *int) (err error) {
-	// There is a single shallow copy, so this should propagate into the PIR serve rinstance.
-	driver.db[row.Index] = row.Value
-	driver.keys[row.Index] = row.Key
-	driver.reloadServer()
+	keys, _ := driver.PirDB.Elements(0, numRows)
+	driver.PirDB.DeleteRows(keys)
 	return nil
 }
 
@@ -134,23 +130,17 @@ func (driver *pirServerDriver) ResetTimers(none int, none2 *int) error {
 	return nil
 }
 
-func (driver *pirServerDriver) reloadServer() {
-	server := NewPirServerUpdatable(driver.randSource, driver.pirType)
-	driver.PirServer = server
-	driver.PirDB = server
-	driver.PirDB.AddRows(driver.keys, driver.db)
-
-	// Reset timers
-	driver.hintTime = 0
-	driver.answerTime = 0
-}
-
 func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
-	if idx >= len(driver.db) {
-		return fmt.Errorf("Index %d out of bounds %d", idx, len(driver.db))
+	keys, rows := driver.Elements(idx, idx+1)
+	if keys == nil {
+		return fmt.Errorf("Index %d out of bounds", idx)
+	}
+	if len(keys) != 1 || len(rows) != 1 {
+		panic(fmt.Sprintf("Invalid returned slice length: %d, %d", len(keys), len(rows)))
 	}
 	row.Index = idx
-	row.Key = driver.keys[idx]
-	row.Value = driver.db[idx]
+	row.Key = keys[0]
+	row.Value = rows[0]
+
 	return nil
 }

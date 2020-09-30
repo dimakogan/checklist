@@ -40,6 +40,8 @@ type TestConfig struct {
 	RowLen  int
 
 	PirType PirType
+
+	PresetRows []RowIndexVal
 }
 
 func (c TestConfig) String() string {

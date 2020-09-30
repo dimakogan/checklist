@@ -146,6 +146,35 @@ func (s *pirServerUpdatable) tick() int {
 	return s.curTimestamp
 }
 
+func (s *pirServerUpdatable) Elements(start, end int) (keys []uint32, rows []Row) {
+	if end == -1 {
+		keys = make([]uint32, 0)
+		rows = make([]Row, 0)
+	} else {
+		keys = make([]uint32, 0, end-start)
+		rows = make([]Row, 0, end-start)
+	}
+	pos := 0
+	for _, row := range s.timedRows {
+		if pos >= end {
+			break
+		}
+		if row.Delete || row.DeletedTimestamp > 0 {
+			continue
+		}
+
+		if pos >= start {
+			keys = append(keys, row.Key)
+			rows = append(rows, row.data)
+		}
+		pos++
+	}
+	if pos < end {
+		return nil, nil
+	}
+	return keys, rows
+}
+
 func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
 	timedRows := make([]TimedRow, len(keys))
 	for i := range keys {

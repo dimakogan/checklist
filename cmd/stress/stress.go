@@ -41,39 +41,33 @@ func main() {
 	}
 	fmt.Printf("[OK]\n")
 
-	proxyLeft := b.NewPirRpcProxy(remote)
-	proxyRight := b.NewPirRpcProxy(remote)
-	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
-
 	fmt.Printf("Setting up remote DB...")
 	var none int
 
-	pirType, err := b.PirTypeString(*pirTypeStr)
+	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength}
+	config.PirType, err = b.PirTypeString(*pirTypeStr)
 	if err != nil {
 		log.Fatalf("Bad PirType: %s", *pirTypeStr)
 	}
-	err = proxyLeft.Configure(b.TestConfig{*numRows, *rowLength, pirType}, &none)
+
+	for i := 0; i < NumDifferentReads; i++ {
+		idx := i % *numRows
+		value := make([]byte, *rowLength)
+		rand.Read(value)
+		config.PresetRows = append(config.PresetRows, b.RowIndexVal{
+			Index: idx,
+			Key:   rand.Uint32(),
+			Value: value})
+	}
+
+	proxyLeft := b.NewPirRpcProxy(remote)
+	proxyRight := b.NewPirRpcProxy(remote)
+	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
+	err = proxyLeft.Configure(config, &none)
 	if err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
 
-	cachedVals := make(map[int]b.Row)
-	cachedIndices := make([]int, 0)
-	cachedKeys := make([]uint32, 0)
-	for i := 0; i < NumDifferentReads; i++ {
-		idx := i % *numRows
-		cachedIndices = append(cachedIndices, idx)
-		cachedKeys = append(cachedKeys, rand.Uint32())
-		cachedVals[idx] = make([]byte, *rowLength)
-		rand.Read(cachedVals[idx])
-
-		err = proxyLeft.SetRow(
-			b.RowIndexVal{Index: idx, Key: cachedKeys[idx], Value: cachedVals[idx]},
-			&none)
-		if err != nil {
-			log.Fatalf("Failed to SetRow: %s\n", err)
-		}
-	}
 	fmt.Printf("[OK]\n")
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
@@ -106,12 +100,12 @@ func main() {
 	proxyLeft.ShouldRecord = true
 	proxyRight.ShouldRecord = true
 	for i := 0; i < NumDifferentReads; i++ {
-		idx := cachedIndices[rand.Intn(len(cachedIndices))]
-		readVal, err := client.Read(int(cachedKeys[idx]))
+		idx := rand.Intn(NumDifferentReads)
+		readVal, err := client.Read(int(config.PresetRows[idx].Key))
 		if err != nil {
 			log.Fatalf("Failed to read index %d: %s", i, err)
 		}
-		if !reflect.DeepEqual(cachedVals[idx], readVal) {
+		if !reflect.DeepEqual(config.PresetRows[idx].Value, readVal) {
 			log.Fatalf("Mismatching row value at index %d", idx)
 		}
 	}
