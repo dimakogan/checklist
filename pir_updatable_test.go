@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"gotest.tools/assert"
-	"gotest.tools/assert/cmp"
 )
 
 func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
@@ -445,7 +444,7 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 			assert.NilError(b, err)
 
 			var serverHintTime time.Duration
-
+			fmt.Println("Progress:")
 			for i := 0; i < b.N; i++ {
 				changeBatchSize := int(math.Sqrt(float64(config.NumRows))) / 2
 				numChanges := rand.Intn(3 * config.NumRows)
@@ -464,13 +463,14 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 				driver.ResetTimers(0, &none)
 				b.StartTimer()
 				client.Update()
+				fmt.Printf("\r                                \r%d/%d", i, b.N)
 				b.StopTimer()
 
-				var rowIV RowIndexVal
-				assert.NilError(b, driver.GetRow(7, &rowIV))
-				row, err := client.Read(int(rowIV.Key))
-				assert.NilError(b, err)
-				assert.DeepEqual(b, row, rowIV.Value)
+				// var rowIV RowIndexVal
+				// assert.NilError(b, driver.GetRow(7, &rowIV))
+				// row, err := client.Read(int(rowIV.Key))
+				// assert.NilError(b, err)
+				// assert.DeepEqual(b, row, rowIV.Value)
 			}
 			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
 
@@ -519,10 +519,6 @@ func BenchmarkUpdatableIncrementalAnswer(b *testing.B) {
 				row, err := client.Read(int(rowIV.Key))
 				b.StopTimer()
 				assert.NilError(b, err)
-				if !cmp.DeepEqual(row, rowIV.Value)().Success() {
-					fmt.Printf("i=%d,idx=%d,key=%d\n", i, rowIV.Index, rowIV.Key)
-
-				}
 				assert.DeepEqual(b, row, rowIV.Value)
 			}
 

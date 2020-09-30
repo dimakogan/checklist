@@ -91,15 +91,6 @@ func setToSlice(set Set) []int {
 	return out
 }
 
-func genSets(masterKey []byte, nSets, setSize, univSize int) []PuncturableSet {
-	setGen := NewSetGenerator(NewGGMSetGenerator, masterKey)
-	sets := make([]PuncturableSet, nSets)
-	for i := 0; i < nSets; i++ {
-		sets[i] = setGen.SetGen(univSize, setSize)
-	}
-	return sets
-}
-
 func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	setSize := int(math.Round(math.Pow(float64(s.nRows), 0.5)))
 	nHints := int(math.Round(math.Pow(float64(s.nRows), 0.5))) * s.numHintsMultiplier
@@ -109,11 +100,14 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 		panic(err)
 	}
 
-	sets := genSets(key, nHints, setSize, s.nRows)
+	sets := make([]PuncturableSet, nHints)
+	setGen := NewSetGenerator(NewGGMSetGenerator, key)
+	for i := 0; i < nHints; i++ {
+		sets[i] = setGen.SetGen(s.nRows, setSize)
+	}
+
 	hints := make([]Row, nHints)
-
 	totalRows := 0
-
 	for j := 0; j < nHints; j++ {
 		hints[j] = make(Row, s.rowLen)
 		set := sets[j].Eval()
@@ -172,16 +166,21 @@ func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.nRows = resp.NumRows
 	c.setSize = resp.SetSize
 	c.hints = resp.Hints
+	c.setGen = NewSetGenerator(NewGGMSetGenerator, resp.SetGenKey)
 
-	c.sets = genSets(resp.SetGenKey, len(c.hints), c.setSize, c.nRows)
+	return nil
+}
 
+func (c *pirClientPunc) initSets() {
+	c.sets = make([]PuncturableSet, len(c.hints))
+	for i := 0; i < len(c.hints); i++ {
+		c.sets[i] = c.setGen.SetGen(c.nRows, c.setSize)
+	}
 	// Use a separate set generator with a new key for all future sets
 	// since they must look random to the left server.
 	newSetGenKey := make([]byte, 16)
 	io.ReadFull(c.randSource, newSetGenKey)
 	c.setGen = NewSetGenerator(NewGGMSetGenerator, newSetGenKey)
-
-	return nil
 }
 
 // Sample a biased coin that comes up heads (true) with
@@ -220,6 +219,9 @@ type puncQueryCtx struct {
 func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
+	}
+	if len(c.sets) < 1 {
+		c.initSets()
 	}
 
 	var set PuncturableSet
@@ -265,7 +267,10 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 }
 
 func (c *pirClientPunc) dummyQuery() []QueryReq {
-	newSet := c.setGen.GenWith(c.nRows, c.setSize, 0)
+	newSetGenKey := make([]byte, 16)
+	io.ReadFull(c.randSource, newSetGenKey)
+	setGen := NewSetGenerator(NewGGMSetGenerator, newSetGenKey)
+	newSet := setGen.GenWith(c.nRows, c.setSize, 0)
 	extra := c.randomMemberExcept(newSet, 0)
 	puncSet := newSet.Punc(0)
 	q := QueryReq{PuncturedSet: puncSet, ExtraElem: extra, Index: 0}
