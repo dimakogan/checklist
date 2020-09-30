@@ -92,6 +92,7 @@ type PirDB interface {
 	Elements(start, end int) (keys []uint32, rows []Row)
 	AddRows(keys []uint32, vals []Row)
 	DeleteRows(keys []uint32)
+	SomeKeys(num int) []uint32
 }
 
 type PirServer interface {

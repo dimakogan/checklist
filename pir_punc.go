@@ -101,18 +101,15 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	sets := make([]PuncturableSet, nHints)
-	setGen := NewSetGenerator(NewGGMSetGenerator, key)
-	for i := 0; i < nHints; i++ {
-		sets[i] = setGen.SetGen(s.nRows, setSize)
-	}
-
 	hints := make([]Row, nHints)
 	totalRows := 0
-	for j := 0; j < nHints; j++ {
-		hints[j] = make(Row, s.rowLen)
-		set := sets[j].Eval()
+	setGen := NewSetGenerator(NewGGMSetGenerator, key)
+	for i := 0; i < nHints; i++ {
+		var set Set
+		sets[i], set = setGen.SetGenAndEval(s.nRows, setSize)
+		hints[i] = make(Row, s.rowLen)
 		totalRows += len(set)
-		xorRowsFlatSlice(s.flatDb, s.rowLen, set, hints[j])
+		xorRowsFlatSlice(s.flatDb, s.rowLen, set, hints[i])
 	}
 	//fmt.Printf("nHints: %d, total Rows: %d \n", req.NumHints, totalRows)
 	resp.Hints = hints

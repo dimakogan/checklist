@@ -175,6 +175,17 @@ func (s *pirServerUpdatable) Elements(start, end int) (keys []uint32, rows []Row
 	return keys, rows
 }
 
+func (s *pirServerUpdatable) SomeKeys(num int) []uint32 {
+	keys := make([]uint32, 0, num)
+	for key := range s.keyToPos {
+		keys = append(keys, key)
+		if len(keys) == num {
+			return keys
+		}
+	}
+	return keys
+}
+
 func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
 	timedRows := make([]TimedRow, len(keys))
 	for i := range keys {

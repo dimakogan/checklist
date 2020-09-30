@@ -98,7 +98,7 @@ func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
 }
 
 func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
-	keys, _ := driver.PirDB.Elements(0, numRows)
+	keys := driver.PirDB.SomeKeys(numRows)
 	driver.PirDB.DeleteRows(keys)
 	return nil
 }

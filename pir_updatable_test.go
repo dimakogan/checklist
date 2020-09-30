@@ -444,7 +444,6 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 			assert.NilError(b, err)
 
 			var serverHintTime time.Duration
-			fmt.Println("Progress:")
 			for i := 0; i < b.N; i++ {
 				changeBatchSize := int(math.Sqrt(float64(config.NumRows))) / 2
 				numChanges := rand.Intn(3 * config.NumRows)
@@ -463,24 +462,13 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 				driver.ResetTimers(0, &none)
 				b.StartTimer()
 				client.Update()
-				fmt.Printf("\r                                \r%d/%d", i, b.N)
 				b.StopTimer()
-
-				// var rowIV RowIndexVal
-				// assert.NilError(b, driver.GetRow(7, &rowIV))
-				// row, err := client.Read(int(rowIV.Key))
-				// assert.NilError(b, err)
-				// assert.DeepEqual(b, row, rowIV.Value)
+				fmt.Printf("%3d/%-3d\b\b\b\b\b\b\b", i, b.N)
 			}
 			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
 
 			b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(b.N), "server-ns/op")
 		})
-
-		// var serverAnswerTime int
-		//assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
-		// b.ReportMetric(float64(clientAndServerAnswerTime.Nanoseconds()), "ns/query")
-		// b.ReportMetric(float64(serverAnswerTime.Nanoseconds()/2), "server-ns/query")
 	}
 }
 
