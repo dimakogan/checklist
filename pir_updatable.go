@@ -20,6 +20,7 @@ type serverLayer struct {
 
 type pirServerUpdatable struct {
 	timedRows []TimedRow
+	keyToPos  map[uint32]int
 
 	layers   []serverLayer
 	maxSizes []int
@@ -49,11 +50,27 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 }
 
 func rowsToRawDb(rows []TimedRow) []Row {
-	db := make([]Row, len(rows))
-	for i, timedRow := range rows {
-		db[i] = timedRow.data
+	db := make([]Row, 0, len(rows))
+	for _, timedRow := range rows {
+		if timedRow.Delete || timedRow.DeletedTimestamp > 0 {
+			continue
+		}
+		db = append(db, timedRow.data)
 	}
 	return db
+}
+
+func (s *pirServerUpdatable) processUpdates(timedRows []TimedRow) {
+	for i, row := range timedRows {
+		if pos, ok := s.keyToPos[row.Key]; ok {
+			s.timedRows[pos].DeletedTimestamp = row.Timestamp
+			delete(s.keyToPos, row.Key)
+		}
+		if !row.Delete {
+			s.keyToPos[row.Key] = len(s.timedRows) + i
+		}
+	}
+	s.timedRows = append(s.timedRows, timedRows...)
 }
 
 func processDeletes(timedRows []TimedRow) (adds, deletes []TimedRow) {
@@ -118,6 +135,7 @@ func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatab
 		curTimestamp: 0,
 		defragRatio:  4,
 		pirType:      pirType,
+		keyToPos:     make(map[uint32]int),
 	}
 	return &s
 }
@@ -145,7 +163,7 @@ func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
 }
 
 func (s *pirServerUpdatable) updateLayers(timedRows []TimedRow) {
-	s.timedRows = append(s.timedRows, timedRows...)
+	s.processUpdates(timedRows)
 	numNewRows := len(timedRows)
 	var i int
 	for i = len(s.layers) - 1; i >= 0; i-- {
@@ -158,18 +176,19 @@ func (s *pirServerUpdatable) updateLayers(timedRows []TimedRow) {
 		s.layers[i].numRows = 0
 		s.layers[i].pir = nil
 	}
-	processedRows, _ := processDeletes(s.timedRows[len(s.timedRows)-numNewRows:])
+
+	rawDB := rowsToRawDb(s.timedRows[len(s.timedRows)-numNewRows:])
 
 	if i <= 0 {
 		// If the the number of deletions ovewhelms the actual size of the DB, then
 		// `defrag` the database.
-		if s.defragRatio*len(processedRows) < numNewRows {
-			s.defrag(len(processedRows) * s.defragRatio / 2)
+		if s.defragRatio*len(rawDB) < numNewRows {
+			s.defrag(len(rawDB) * s.defragRatio / 2)
 			numNewRows = len(s.timedRows)
 		}
 		// Biggest layer reached capacity.
 		// Recompute all layer sizes and reinitialize
-		s.initLayers(len(processedRows))
+		s.initLayers(len(rawDB))
 		i = 0
 	}
 
@@ -177,29 +196,26 @@ func (s *pirServerUpdatable) updateLayers(timedRows []TimedRow) {
 		return
 	}
 	s.layers[i].numTimedRows = numNewRows
-	s.layers[i].init(s.randSource, rowsToRawDb(processedRows))
+	s.layers[i].init(s.randSource, rawDB)
 }
 
 func (s *pirServerUpdatable) defrag(numRowsToFree int) {
-	defragRows := make(map[uint32]int)
-	var i int
-	var row TimedRow
-	for i, row = range s.timedRows {
-		if row.Delete {
-			delete(defragRows, row.Key)
-		} else {
-			defragRows[row.Key] = i
-		}
-		if i-len(defragRows)+1 >= numRowsToFree {
-			break
+	freed := 0
+	endDefrag := 0
+	for i, row := range s.timedRows {
+		if !row.Delete && row.DeletedTimestamp <= 0 {
+			s.keyToPos[row.Key] -= freed
+		} else if freed < numRowsToFree {
+			freed++
+			endDefrag = i
 		}
 	}
-	s.defragTimestamp = s.timedRows[i].Timestamp
+	s.defragTimestamp = s.timedRows[endDefrag].Timestamp
 	// Push forward all defragged rows
-	pos := i
+	pos := endDefrag
 	newTs := s.defragTimestamp
-	for ; i >= 0; i-- {
-		if i2, ok := defragRows[s.timedRows[i].Key]; ok && i2 == i {
+	for i := endDefrag; i >= 0; i-- {
+		if !s.timedRows[i].Delete && s.timedRows[i].DeletedTimestamp <= 0 {
 			s.timedRows[pos] = s.timedRows[i]
 			s.timedRows[pos].Timestamp = newTs
 			newTs--

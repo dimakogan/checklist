@@ -30,10 +30,11 @@ type HintReq struct {
 }
 
 type TimedRow struct {
-	Timestamp int
-	Key       uint32
-	Delete    bool
-	data      Row
+	Timestamp        int
+	Key              uint32
+	Delete           bool
+	DeletedTimestamp int
+	data             Row
 }
 
 //HintResp is a response to a hint request.
