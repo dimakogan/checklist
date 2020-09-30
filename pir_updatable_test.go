@@ -430,7 +430,7 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 	driver, err := ServerDriver()
 	assert.NilError(b, err)
 	assert.NilError(b, err)
-	rand := RandSource()
+	//rand := RandSource()
 
 	for _, config := range testConfigs() {
 		b.Run(config.String(), func(b *testing.B) {
@@ -444,26 +444,26 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 			assert.NilError(b, err)
 
 			var serverHintTime time.Duration
+			driver.ResetTimers(0, &none)
 			for i := 0; i < b.N; i++ {
 				changeBatchSize := int(math.Sqrt(float64(config.NumRows))) / 2
-				numChanges := rand.Intn(3 * config.NumRows)
-				numBatches := numChanges / changeBatchSize
+				// numChanges := rand.Intn(3 * config.NumRows)
+				// numBatches := numChanges / changeBatchSize
 
-				for i := 0; i < numBatches-1; i++ {
-					assert.NilError(b, driver.AddRows(changeBatchSize, &none))
-					assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
-				}
+				// for i := 0; i < numBatches-1; i++ {
+				// 	assert.NilError(b, driver.AddRows(changeBatchSize, &none))
+				// 	assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
+				// }
 
-				assert.NilError(b, client.Update())
+				// assert.NilError(b, client.Update())
 
 				assert.NilError(b, driver.AddRows(changeBatchSize, &none))
 				assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
 
-				driver.ResetTimers(0, &none)
 				b.StartTimer()
 				client.Update()
 				b.StopTimer()
-				fmt.Printf("%3d/%-3d\b\b\b\b\b\b\b", i, b.N)
+				fmt.Printf("%3d/%-5d\b\b\b\b\b\b\b\b\b", i, b.N)
 			}
 			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
 

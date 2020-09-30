@@ -100,13 +100,11 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 		panic(err)
 	}
 
-	sets := make([]PuncturableSet, nHints)
 	hints := make([]Row, nHints)
 	totalRows := 0
 	setGen := NewSetGenerator(NewGGMSetGenerator, key)
 	for i := 0; i < nHints; i++ {
-		var set Set
-		sets[i], set = setGen.SetGenAndEval(s.nRows, setSize)
+		_, set := setGen.SetGenAndEval(s.nRows, setSize)
 		hints[i] = make(Row, s.rowLen)
 		totalRows += len(set)
 		xorRowsFlatSlice(s.flatDb, s.rowLen, set, hints[i])

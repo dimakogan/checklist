@@ -60,7 +60,6 @@ func NewSetGenerator(
 
 func (g shiftedSetGenerator) GenWith(univSize int, setSize int, val int) PuncturableSet {
 	baseSet := g.SetGenerator.SetGen(univSize, setSize)
-
 	pos := g.src.Intn(setSize)
 
 	return &ShiftedSet{
@@ -72,7 +71,23 @@ func (g shiftedSetGenerator) GenWith(univSize int, setSize int, val int) Punctur
 }
 
 func (g shiftedSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
-	return g.GenWith(univSize, setSize, g.src.Intn(univSize))
+	pset, _ := g.SetGenAndEval(univSize, setSize)
+	return pset
+}
+
+func (g shiftedSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set) {
+	baseSet, elems := g.SetGenerator.SetGenAndEval(univSize, setSize)
+	ss := ShiftedSet{
+		BaseSet:              baseSet,
+		baseSetAsPuncturable: baseSet,
+		Delta:                g.src.Intn(univSize),
+		UnivSize:             univSize,
+	}
+
+	for i := 0; i < len(elems); i++ {
+		elems[i] = int(uint32(elems[i]+ss.Delta) % uint32(ss.UnivSize))
+	}
+	return &ss, elems
 }
 
 func (ss *ShiftedSet) Eval() Set {
