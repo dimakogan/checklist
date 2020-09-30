@@ -61,16 +61,17 @@ func rowsToRawDb(rows []TimedRow) []Row {
 }
 
 func (s *pirServerUpdatable) processUpdates(timedRows []TimedRow) {
+	prevLen := len(s.timedRows)
+	s.timedRows = append(s.timedRows, timedRows...)
 	for i, row := range timedRows {
 		if pos, ok := s.keyToPos[row.Key]; ok {
 			s.timedRows[pos].DeletedTimestamp = row.Timestamp
 			delete(s.keyToPos, row.Key)
 		}
 		if !row.Delete {
-			s.keyToPos[row.Key] = len(s.timedRows) + i
+			s.keyToPos[row.Key] = prevLen + i
 		}
 	}
-	s.timedRows = append(s.timedRows, timedRows...)
 }
 
 func processDeletes(timedRows []TimedRow) (adds, deletes []TimedRow) {
