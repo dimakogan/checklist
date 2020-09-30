@@ -463,7 +463,10 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 				b.StartTimer()
 				client.Update()
 				b.StopTimer()
-				fmt.Printf("%3d/%-5d\b\b\b\b\b\b\b\b\b", i, b.N)
+
+				if *progress {
+					fmt.Printf("%3d/%-5d\b\b\b\b\b\b\b\b\b", i, b.N)
+				}
 			}
 			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
 

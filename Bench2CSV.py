@@ -18,7 +18,7 @@ for line in lines:
         continue
     fields = line.split()
     name = fields[0]
-    time = fields[2]
+    time = fields[-2]
 
     parts_of_name = re.split(param+"=([^,-]*)",name)
     if len(parts_of_name) < 3:

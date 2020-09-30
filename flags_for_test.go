@@ -15,6 +15,7 @@ var rowLen = flag.String("rowLen", "32", "Row length in bytes (comma-separated l
 var pirType = flag.String("pirType", Punc.String(),
 	fmt.Sprintf("Updatable PIR type: [%s] (comma-separated list)", strings.Join(PirTypeStrings(), "|")))
 var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
+var progress = flag.Bool("progress", true, "Show benchmarks progress")
 
 func testConfigs() []TestConfig {
 	var configs []TestConfig
