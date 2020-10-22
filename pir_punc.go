@@ -162,7 +162,7 @@ func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.setSize = resp.SetSize
 	c.hints = resp.Hints
 	c.setGen = NewSetGenerator(NewGGMSetGenerator, resp.SetGenKey)
-
+	c.initSets()
 	return nil
 }
 
@@ -214,9 +214,6 @@ type puncQueryCtx struct {
 func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
-	}
-	if len(c.sets) < 1 {
-		c.initSets()
 	}
 
 	var set PuncturableSet

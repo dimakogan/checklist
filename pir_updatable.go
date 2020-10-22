@@ -34,6 +34,10 @@ type pirServerUpdatable struct {
 	defragRatio int
 }
 
+func smallestLayerSize(nRows int) int {
+	return int(math.Round(math.Sqrt(float64(nRows))))
+}
+
 func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	if nRows == 0 {
 		return []int{}
@@ -42,7 +46,7 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 		return []int{nRows}
 	}
 	maxSize := []int{nRows}
-	smallest := int(math.Round(math.Sqrt(float64(nRows))))
+	smallest := smallestLayerSize(nRows)
 	for maxSize[len(maxSize)-1] > smallest {
 		maxSize = append(maxSize, maxSize[len(maxSize)-1]/4)
 	}

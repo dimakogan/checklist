@@ -80,10 +80,14 @@ func TestGGMInSet(t *testing.T) {
 // Preallocate keys for treeEvalAll:
 // BenchmarkGGMEval-4   	    5881	    203453 ns/op	   53334 B/op	      14 allocs/op
 func BenchmarkGGMEval(b *testing.B) {
-	gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
-	univSize := 1 * 1000 * 1000
-	setSize := int(math.Sqrt(float64(univSize)))
-	for i := 0; i < b.N; i++ {
-		gen.SetGenAndEval(univSize, setSize)
+	for _, config := range testConfigs() {
+		gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
+		univSize := config.NumRows
+		setSize := int(math.Sqrt(float64(univSize)))
+		b.Run(config.String(), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				gen.SetGenAndEval(univSize, setSize)
+			}
+		})
 	}
 }

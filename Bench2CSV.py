@@ -14,7 +14,7 @@ data = {}
 constants = {}
 
 for line in lines:
-    if not re.search("Benchmark.*ns/op", line):
+    if not re.search("^Benchmark.*ns/op", line):
         continue
     fields = line.split()
     name = fields[0]
@@ -38,4 +38,7 @@ for line in lines:
 print("\t".join(headers))
 for val in sorted(data):    
     data[val].update(constants)
-    print("\t".join([str(val)]+[data[val][h] for h in headers[1:] ]))
+    try:
+        print("\t".join([str(val)]+[data[val][h] for h in headers[1:] ]))
+    except Exception as e:
+        print("error: %s\n" % e, file=sys.stderr)

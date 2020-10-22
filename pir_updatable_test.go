@@ -426,7 +426,7 @@ func BenchmarkUpdatableInitial(b *testing.B) {
 	}
 }
 
-func BenchmarkUpdatableIncrementalHint(b *testing.B) {
+func BenchmarkUpdatableIncremental(b *testing.B) {
 	driver, err := ServerDriver()
 	assert.NilError(b, err)
 	assert.NilError(b, err)
@@ -434,8 +434,6 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 
 	for _, config := range testConfigs() {
 		b.Run(config.String(), func(b *testing.B) {
-			b.StopTimer()
-
 			var none int
 			assert.NilError(b, driver.Configure(config, &none))
 			client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
@@ -443,79 +441,40 @@ func BenchmarkUpdatableIncrementalHint(b *testing.B) {
 			err = client.Init()
 			assert.NilError(b, err)
 
-			var serverHintTime time.Duration
 			driver.ResetTimers(0, &none)
+			var clientUpdateTime, clientReadTime time.Duration
+
 			for i := 0; i < b.N; i++ {
-				changeBatchSize := int(math.Sqrt(float64(config.NumRows))) / 2
-				// numChanges := rand.Intn(3 * config.NumRows)
-				// numBatches := numChanges / changeBatchSize
-
-				// for i := 0; i < numBatches-1; i++ {
-				// 	assert.NilError(b, driver.AddRows(changeBatchSize, &none))
-				// 	assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
-				// }
-
-				// assert.NilError(b, client.Update())
-
+				changeBatchSize := int(math.Round(math.Sqrt(float64(config.NumRows)))) + 1
 				assert.NilError(b, driver.AddRows(changeBatchSize, &none))
 				assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
 
-				b.StartTimer()
+				start := time.Now()
 				client.Update()
-				b.StopTimer()
+				clientUpdateTime += time.Since(start)
 
-				if *progress {
-					fmt.Printf("%3d/%-5d\b\b\b\b\b\b\b\b\b", i, b.N)
-				}
-			}
-			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
-
-			b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(b.N), "server-ns/op")
-		})
-	}
-}
-
-func BenchmarkUpdatableIncrementalAnswer(b *testing.B) {
-	driver, err := ServerDriver()
-	assert.NilError(b, err)
-
-	for _, config := range testConfigs() {
-		b.Run(config.String(), func(b *testing.B) {
-			b.StopTimer()
-			var none int
-			assert.NilError(b, driver.Configure(config, &none))
-			client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
-
-			err = client.Init()
-			assert.NilError(b, err)
-
-			var serverAnswerTime time.Duration
-
-			changeBatchSize := int(math.Sqrt(float64(config.NumRows)) * 9 / 10)
-			numBatches := 10
-			for i := 0; i < numBatches; i++ {
-				assert.NilError(b, driver.AddRows(changeBatchSize, &none))
-				assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
-			}
-
-			assert.NilError(b, client.Update())
-
-			assert.NilError(b, driver.ResetTimers(0, nil))
-			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal
 				//rand.Intn(config.NumRows)
 				assert.NilError(b, driver.GetRow(i, &rowIV))
 
-				b.StartTimer()
+				start = time.Now()
 				row, err := client.Read(int(rowIV.Key))
-				b.StopTimer()
+				clientReadTime += time.Since(start)
 				assert.NilError(b, err)
 				assert.DeepEqual(b, row, rowIV.Value)
-			}
 
+				if *progress {
+					fmt.Printf("%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, b.N)
+				}
+			}
+			var serverHintTime, serverAnswerTime time.Duration
+			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
 			assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
-			// Divide by 2 to get per-server time
-			b.ReportMetric(float64(serverAnswerTime.Nanoseconds())/float64(b.N)/2, "server-ns/query")
+
+			b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(b.N), "hint-ns/op")
+			b.ReportMetric(float64(serverAnswerTime.Nanoseconds())/float64(b.N), "answer-ns/op")
+			b.ReportMetric(float64(clientUpdateTime.Nanoseconds())/float64(b.N), "update-ns/op")
+			b.ReportMetric(float64(clientReadTime.Nanoseconds())/float64(b.N), "read-ns/op")
 		})
 	}
 }

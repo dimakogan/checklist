@@ -23,9 +23,6 @@ func testConfigs() []TestConfig {
 	dbRowLenStr := strings.Split(*rowLen, ",")
 	pirTypeStrs := strings.Split(*pirType, ",")
 
-	// Set maximum on total size to avoid really large DBs.
-	maxDBSizeBytes := int64(1 * 1024 * 1024 * 1024)
-
 	for _, nStr := range numRowsStr {
 		n, err := strconv.Atoi(nStr)
 		if err != nil {
@@ -37,9 +34,6 @@ func testConfigs() []TestConfig {
 				log.Fatalf("Bad rowLen: %s\n", rowLenStr)
 			}
 
-			if int64(n)*int64(recSize) > maxDBSizeBytes {
-				continue
-			}
 			for _, pirTypeStr := range pirTypeStrs {
 				pirType, err := PirTypeString(pirTypeStr)
 				if err != nil {
