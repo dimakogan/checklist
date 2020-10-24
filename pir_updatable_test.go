@@ -379,6 +379,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 		NumRows:    1000,
 		RowLen:     4,
 		PresetRows: []RowIndexVal{{7, 0x1234, Row{'C', 'o', 'o', 'l'}}},
+		Updatable:  true,
 	}, nil))
 
 	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
@@ -392,45 +393,63 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.DeepEqual(t, val, Row("Cool"))
 }
 
-func BenchmarkUpdatableInitial(b *testing.B) {
+func BenchmarkInitial(b *testing.B) {
 	driver, err := ServerDriver()
 	assert.NilError(b, err)
+	rand := RandSource()
 
 	for _, config := range testConfigs() {
-		var client *pirClientUpdatable
-		config.PresetRows = []RowIndexVal{
-			{7, 0x1234, make([]byte, config.RowLen)}}
-		b.Run("Init/"+config.String(), func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				var none int
-				assert.NilError(b, driver.Configure(config, &none))
-				assert.NilError(b, driver.ResetTimers(0, nil))
-				b.StartTimer()
+		var client PirClient
+		var clientInitTime, clientReadTime time.Duration
+		var none int
+		assert.NilError(b, driver.Configure(config, &none))
 
-				client = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+		b.Run("Init/"+config.String(), func(b *testing.B) {
+			assert.NilError(b, driver.ResetTimers(0, nil))
+			for i := 0; i < b.N; i++ {
+				if config.Updatable {
+					client = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+				} else {
+					client = NewPIRClient(NewPirClientByType(config.PirType, rand), rand,
+						[2]PirServer{driver, driver})
+				}
+				start := time.Now()
 				err = client.Init()
 				assert.NilError(b, err)
+				clientInitTime += time.Since(start)
 			}
+
+			var serverHintTime time.Duration
+			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
+			b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(b.N), "hint-ns/op")
+			b.ReportMetric(float64(clientInitTime.Nanoseconds())/float64(b.N), "init-ns/op")
 		})
-		var rowIV RowIndexVal
-		driver.GetRow(7, &rowIV)
 
 		b.Run("Read/"+config.String(), func(b *testing.B) {
+			assert.NilError(b, driver.ResetTimers(0, nil))
 			for i := 0; i < b.N; i++ {
+				var rowIV RowIndexVal
+				assert.NilError(b, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
+
+				start := time.Now()
 				row, err := client.Read(int(rowIV.Key))
+				clientReadTime += time.Since(start)
 				assert.NilError(b, err)
 				assert.DeepEqual(b, row, rowIV.Value)
 			}
+			var serverAnswerTime time.Duration
+			assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
+			b.ReportMetric(float64(serverAnswerTime.Nanoseconds())/float64(b.N), "answer-ns/op")
+			b.ReportMetric(float64(clientReadTime.Nanoseconds())/float64(b.N), "read-ns/op")
 		})
 	}
 }
 
-func BenchmarkUpdatableIncremental(b *testing.B) {
+func BenchmarkIncremental(b *testing.B) {
 	driver, err := ServerDriver()
 	assert.NilError(b, err)
 	assert.NilError(b, err)
-	//rand := RandSource()
+	rand := RandSource()
 
 	for _, config := range testConfigs() {
 		b.Run(config.String(), func(b *testing.B) {
@@ -454,8 +473,7 @@ func BenchmarkUpdatableIncremental(b *testing.B) {
 				clientUpdateTime += time.Since(start)
 
 				var rowIV RowIndexVal
-				//rand.Intn(config.NumRows)
-				assert.NilError(b, driver.GetRow(i, &rowIV))
+				assert.NilError(b, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
 
 				start = time.Now()
 				row, err := client.Read(int(rowIV.Key))

@@ -107,3 +107,61 @@ func BenchmarkPirErasureClient(b *testing.B) {
 	}
 
 }
+
+type benchmarkServer struct {
+	PirServer
+	b    *testing.B
+	name string
+
+	// Keep mutex to avoid parallelizm between two "servers" in  tests
+	mutex *sync.Mutex
+}
+
+func (s *benchmarkServer) Hint(req HintReq, resp *HintResp) error {
+	s.b.Run(
+		"Hint/"+s.name,
+		func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := s.PirServer.Hint(req, resp)
+				assert.NilError(b, err)
+			}
+		})
+	return s.PirServer.Hint(req, resp)
+}
+
+func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.b.Run(
+		"Answer/"+s.name,
+		func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := s.PirServer.Answer(q, resp)
+				assert.NilError(b, err)
+			}
+		})
+	return nil
+}
+
+type pauseTimingServer struct {
+	PirServer
+	b *testing.B
+
+	// Keep mutex to avoid parallelizm between two "servers" in  tests
+	mutex *sync.Mutex
+}
+
+func (s *pauseTimingServer) Hint(req HintReq, resp *HintResp) error {
+	err := s.PirServer.Hint(req, resp)
+	return err
+}
+
+func (s *pauseTimingServer) Answer(q QueryReq, resp *QueryResp) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.b.StopTimer()
+	var err error
+	err = s.PirServer.Answer(q, resp)
+	s.b.StartTimer()
+	return err
+}

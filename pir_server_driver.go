@@ -17,7 +17,6 @@ type PirServerDriver interface {
 	DeleteRows(numRows int, none *int) error
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
-	GetRow(idx int, row *RowIndexVal) error
 	ResetTimers(none int, none2 *int) error
 	GetHintTimer(none int, out *time.Duration) error
 	GetAnswerTimer(none int, out *time.Duration) error
@@ -31,6 +30,7 @@ type pirServerDriver struct {
 
 	randSource *rand.Rand
 	pirType    PirType
+	updatable  bool
 
 	profBuf bytes.Buffer
 
@@ -72,25 +72,35 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err error) {
-	server := NewPirServerUpdatable(driver.randSource, driver.pirType)
 	db := MakeDB(driver.randSource, config.NumRows, config.RowLen)
 	keys := MakeKeys(driver.randSource, config.NumRows)
 	for _, preset := range config.PresetRows {
 		copy(db[preset.Index], preset.Value)
 		keys[preset.Index] = preset.Key
 	}
-	server.AddRows(keys, db)
+
+	if config.Updatable {
+		server := NewPirServerUpdatable(driver.randSource, driver.pirType)
+		server.AddRows(keys, db)
+		driver.PirServer = server
+		driver.PirDB = server
+	} else {
+		driver.PirServer = NewPirServerByType(config.PirType, driver.randSource, db)
+		driver.PirDB = nil
+	}
 
 	driver.ResetTimers(0, nil)
 	driver.config = config
 	driver.pirType = config.PirType
-	driver.PirServer = server
-	driver.PirDB = server
+	driver.updatable = config.Updatable
 	return nil
 
 }
 
 func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
+	if !driver.updatable {
+		return fmt.Errorf("Cannot AddRows to Non-Updatable PIR server")
+	}
 	newVals := MakeDB(driver.randSource, numRows, driver.config.RowLen)
 	newKeys := MakeKeys(driver.randSource, numRows)
 	driver.PirDB.AddRows(newKeys, newVals)
@@ -98,6 +108,9 @@ func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
 }
 
 func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
+	if !driver.updatable {
+		return fmt.Errorf("Cannot DeleteRows from Non-Updatable PIR server")
+	}
 	keys := driver.PirDB.SomeKeys(numRows)
 	driver.PirDB.DeleteRows(keys)
 	return nil
@@ -127,20 +140,5 @@ func (driver *pirServerDriver) GetAnswerTimer(none int, out *time.Duration) erro
 func (driver *pirServerDriver) ResetTimers(none int, none2 *int) error {
 	driver.hintTime = 0
 	driver.answerTime = 0
-	return nil
-}
-
-func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
-	keys, rows := driver.Elements(idx, idx+1)
-	if keys == nil {
-		return fmt.Errorf("Index %d out of bounds", idx)
-	}
-	if len(keys) != 1 || len(rows) != 1 {
-		panic(fmt.Sprintf("Invalid returned slice length: %d, %d", len(keys), len(rows)))
-	}
-	row.Index = idx
-	row.Key = keys[0]
-	row.Value = rows[0]
-
 	return nil
 }

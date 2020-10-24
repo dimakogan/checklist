@@ -31,6 +31,7 @@ func main() {
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
 	answerProf := flag.String("answerprof", "", "Profile Server.Answer filename")
+	updatable := flag.Bool("updatable", true, "Use Updatable PIR")
 
 	flag.Parse()
 
@@ -44,7 +45,7 @@ func main() {
 	fmt.Printf("Setting up remote DB...")
 	var none int
 
-	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength}
+	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength, Updatable: *updatable}
 	config.PirType, err = b.PirTypeString(*pirTypeStr)
 	if err != nil {
 		log.Fatalf("Bad PirType: %s", *pirTypeStr)

@@ -14,6 +14,7 @@ var numRows = flag.String("numRows", "10000", "Num DB Rows (comma-separated list
 var rowLen = flag.String("rowLen", "32", "Row length in bytes (comma-separated list)")
 var pirType = flag.String("pirType", Punc.String(),
 	fmt.Sprintf("Updatable PIR type: [%s] (comma-separated list)", strings.Join(PirTypeStrings(), "|")))
+var updatable = flag.Bool("updatable", true, "Test Updatable PIR")
 var serverAddr = flag.String("serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 var progress = flag.Bool("progress", true, "Show benchmarks progress")
 
@@ -39,7 +40,7 @@ func testConfigs() []TestConfig {
 				if err != nil {
 					log.Fatalf("Bad PirType: %s\n", pirTypeStr)
 				}
-				config := TestConfig{NumRows: n, RowLen: recSize, PirType: pirType}
+				config := TestConfig{NumRows: n, RowLen: recSize, PirType: pirType, Updatable: *updatable}
 				if pirType == Perm {
 					config.NumRows = 1 << int(math.Ceil(math.Log2(float64(config.NumRows))))
 				}

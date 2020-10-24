@@ -1,6 +1,7 @@
 package boosted
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 )
@@ -87,6 +88,16 @@ func (s pirMatrix) Hint(req HintReq, resp *HintResp) error {
 
 func (s *pirMatrix) Answer(q QueryReq, resp *QueryResp) error {
 	*resp = QueryResp{Answer: s.matVecProduct(q.BitVector)}
+	return nil
+}
+
+func (s *pirMatrix) GetRow(idx int, row *RowIndexVal) error {
+	if idx < 0 || idx >= s.numRows {
+		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)
+	}
+	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
+	row.Index = idx
+	row.Key = uint32(idx)
 	return nil
 }
 

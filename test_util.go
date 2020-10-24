@@ -39,7 +39,8 @@ type TestConfig struct {
 	NumRows int
 	RowLen  int
 
-	PirType PirType
+	PirType   PirType
+	Updatable bool
 
 	PresetRows []RowIndexVal
 }

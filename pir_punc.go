@@ -125,6 +125,16 @@ func (s pirServerPunc) dbElem(i int) Row {
 	}
 }
 
+func (s pirServerPunc) GetRow(idx int, row *RowIndexVal) error {
+	if idx < 0 || idx >= s.nRows {
+		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
+	}
+	row.Index = idx
+	row.Key = uint32(idx)
+	row.Value = s.dbElem(idx)
+	return nil
+}
+
 func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 	if q.BatchReqs != nil {
 		return s.answerBatch(q.BatchReqs, &resp.BatchResps)

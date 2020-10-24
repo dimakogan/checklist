@@ -150,7 +150,23 @@ func (s *pirServerUpdatable) tick() int {
 	return s.curTimestamp
 }
 
-func (s *pirServerUpdatable) Elements(start, end int) (keys []uint32, rows []Row) {
+func (s *pirServerUpdatable) GetRow(idx int, row *RowIndexVal) error {
+	keys, rows := s.elements(idx, idx+1)
+	if keys == nil {
+		return fmt.Errorf("Index %d out of bounds", idx)
+	}
+	if len(keys) != 1 || len(rows) != 1 {
+		panic(fmt.Sprintf("Invalid returned slice length: %d, %d", len(keys), len(rows)))
+	}
+
+	row.Key = keys[0]
+	row.Value = rows[0]
+	row.Index = idx
+
+	return nil
+}
+
+func (s *pirServerUpdatable) elements(start, end int) (keys []uint32, rows []Row) {
 	if end == -1 {
 		keys = make([]uint32, 0)
 		rows = make([]Row, 0)
@@ -329,7 +345,7 @@ func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
 		if s.layers[l].pir == nil {
 			continue
 		}
-		//		start := time.Now()
+		// start := time.Now()
 		err := s.layers[l].pir.Answer(q, &(resp.BatchResps[l]))
 		//		log.Printf("pirServerPunc::Answer layer: %d | nRows: %d | time: %dµs", l, s.layers[l].numRows, time.Since(start).Microseconds())
 

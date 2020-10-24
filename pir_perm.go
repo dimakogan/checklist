@@ -82,6 +82,16 @@ func (s pirPermServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
+func (s pirPermServer) GetRow(idx int, row *RowIndexVal) error {
+	if idx < 0 || idx >= s.nRows {
+		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
+	}
+	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
+	row.Index = idx
+	row.Key = uint32(idx)
+	return nil
+}
+
 func (c *pirPermClient) initHint(resp *HintResp) (err error) {
 	c.hints = resp.Hints
 	c.nRows = resp.NumRows

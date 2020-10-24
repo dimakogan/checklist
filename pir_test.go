@@ -2,7 +2,6 @@ package boosted
 
 import (
 	"math/rand"
-	"sync"
 	"testing"
 
 	"gotest.tools/assert"
@@ -67,131 +66,6 @@ var hint *HintResp
 var resp *QueryResp
 
 var chunkSizes = []int{DEFAULT_CHUNK_SIZE}
-
-type benchmarkServer struct {
-	PirServer
-	b    *testing.B
-	name string
-
-	// Keep mutex to avoid parallelizm between two "servers" in  tests
-	mutex *sync.Mutex
-}
-
-func (s *benchmarkServer) Hint(req HintReq, resp *HintResp) error {
-	s.b.Run(
-		"Hint/"+s.name,
-		func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				err := s.PirServer.Hint(req, resp)
-				assert.NilError(b, err)
-			}
-		})
-	return s.PirServer.Hint(req, resp)
-}
-
-func (s *benchmarkServer) Answer(q QueryReq, resp *QueryResp) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.b.Run(
-		"Answer/"+s.name,
-		func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				err := s.PirServer.Answer(q, resp)
-				assert.NilError(b, err)
-			}
-		})
-	return nil
-}
-
-func BenchmarkNonUpdatable(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, config := range testConfigs() {
-		db := MakeDB(randSource, config.NumRows, config.RowLen)
-
-		server := NewPirServerByType(config.PirType, randSource, db)
-		var mutex sync.Mutex
-		leftServer := benchmarkServer{
-			PirServer: server,
-			b:         b,
-			name:      "Left/" + config.String(),
-			mutex:     &mutex,
-		}
-
-		rightServer := benchmarkServer{
-			PirServer: server,
-			b:         b,
-			name:      "Right/" + config.String(),
-			mutex:     &mutex,
-		}
-
-		client := NewPIRClient(NewPirClientByType(config.PirType,
-			randSource), randSource,
-			[2]PirServer{&leftServer, &rightServer})
-
-		err := client.Init()
-		assert.NilError(b, err)
-
-		readIndex := rand.Intn(len(db))
-
-		val, err := client.Read(readIndex)
-		assert.NilError(b, err)
-		assert.DeepEqual(b, val, db[readIndex])
-	}
-}
-
-func BenchmarkReadClient(b *testing.B) {
-	randSource := rand.New(rand.NewSource(12345))
-	for _, config := range testConfigs() {
-		db := MakeDB(randSource, config.NumRows, config.RowLen)
-		server := NewPirServerByType(config.PirType, randSource, db)
-
-		var mutex sync.Mutex
-		pauseServer := pauseTimingServer{
-			PirServer: server,
-			mutex:     &mutex,
-		}
-
-		client := NewPIRClient(NewPirClientByType(config.PirType, randSource),
-			randSource,
-			[2]PirServer{&pauseServer, &pauseServer})
-
-		assert.NilError(b, client.Init())
-
-		b.Run(
-			config.String(),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					pauseServer.b = b
-					val, err := client.Read(5)
-					assert.NilError(b, err)
-					assert.DeepEqual(b, val, db[5])
-				}
-			})
-	}
-}
-
-type pauseTimingServer struct {
-	PirServer
-	b *testing.B
-
-	// Keep mutex to avoid parallelizm between two "servers" in  tests
-	mutex *sync.Mutex
-}
-
-func (s *pauseTimingServer) Hint(req HintReq, resp *HintResp) error {
-	err := s.PirServer.Hint(req, resp)
-	return err
-}
-
-func (s *pauseTimingServer) Answer(q QueryReq, resp *QueryResp) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.b.StopTimer()
-	var err error
-	err = s.PirServer.Answer(q, resp)
-	s.b.StartTimer()
-	return err
-}
 
 func BenchmarkNothingRandom(b *testing.B) {
 	config := TestConfig{NumRows: 1024 * 1024, RowLen: 1024}
