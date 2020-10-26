@@ -1,10 +1,7 @@
 package boosted
 
 import (
-	"fmt"
-	"math"
 	"testing"
-	"time"
 
 	"gotest.tools/assert"
 )
@@ -391,108 +388,4 @@ func TestPIRServerOverRPC(t *testing.T) {
 	val, err := client.Read(0x1234)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, Row("Cool"))
-}
-
-func BenchmarkInitial(b *testing.B) {
-	driver, err := ServerDriver()
-	assert.NilError(b, err)
-	rand := RandSource()
-
-	for _, config := range testConfigs() {
-		var client PirClient
-		var clientInitTime, clientReadTime time.Duration
-		var none int
-		assert.NilError(b, driver.Configure(config, &none))
-
-		b.Run("Init/"+config.String(), func(b *testing.B) {
-			assert.NilError(b, driver.ResetTimers(0, nil))
-			for i := 0; i < b.N; i++ {
-				if config.Updatable {
-					client = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
-				} else {
-					client = NewPIRClient(NewPirClientByType(config.PirType, rand), rand,
-						[2]PirServer{driver, driver})
-				}
-				start := time.Now()
-				err = client.Init()
-				assert.NilError(b, err)
-				clientInitTime += time.Since(start)
-			}
-
-			var serverHintTime time.Duration
-			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
-			b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(b.N), "hint-ns/op")
-			b.ReportMetric(float64(clientInitTime.Nanoseconds())/float64(b.N), "init-ns/op")
-		})
-
-		b.Run("Read/"+config.String(), func(b *testing.B) {
-			assert.NilError(b, driver.ResetTimers(0, nil))
-			for i := 0; i < b.N; i++ {
-				var rowIV RowIndexVal
-				assert.NilError(b, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
-
-				start := time.Now()
-				row, err := client.Read(int(rowIV.Key))
-				clientReadTime += time.Since(start)
-				assert.NilError(b, err)
-				assert.DeepEqual(b, row, rowIV.Value)
-			}
-			var serverAnswerTime time.Duration
-			assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
-			b.ReportMetric(float64(serverAnswerTime.Nanoseconds())/float64(b.N), "answer-ns/op")
-			b.ReportMetric(float64(clientReadTime.Nanoseconds())/float64(b.N), "read-ns/op")
-		})
-	}
-}
-
-func BenchmarkIncremental(b *testing.B) {
-	driver, err := ServerDriver()
-	assert.NilError(b, err)
-	assert.NilError(b, err)
-	rand := RandSource()
-
-	for _, config := range testConfigs() {
-		b.Run(config.String(), func(b *testing.B) {
-			var none int
-			assert.NilError(b, driver.Configure(config, &none))
-			client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
-
-			err = client.Init()
-			assert.NilError(b, err)
-
-			driver.ResetTimers(0, &none)
-			var clientUpdateTime, clientReadTime time.Duration
-
-			for i := 0; i < b.N; i++ {
-				changeBatchSize := int(math.Round(math.Sqrt(float64(config.NumRows)))) + 1
-				assert.NilError(b, driver.AddRows(changeBatchSize, &none))
-				assert.NilError(b, driver.DeleteRows(changeBatchSize, &none))
-
-				start := time.Now()
-				client.Update()
-				clientUpdateTime += time.Since(start)
-
-				var rowIV RowIndexVal
-				assert.NilError(b, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
-
-				start = time.Now()
-				row, err := client.Read(int(rowIV.Key))
-				clientReadTime += time.Since(start)
-				assert.NilError(b, err)
-				assert.DeepEqual(b, row, rowIV.Value)
-
-				if *progress {
-					fmt.Printf("%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, b.N)
-				}
-			}
-			var serverHintTime, serverAnswerTime time.Duration
-			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
-			assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
-
-			b.ReportMetric(float64(serverHintTime.Nanoseconds())/float64(b.N), "hint-ns/op")
-			b.ReportMetric(float64(serverAnswerTime.Nanoseconds())/float64(b.N), "answer-ns/op")
-			b.ReportMetric(float64(clientUpdateTime.Nanoseconds())/float64(b.N), "update-ns/op")
-			b.ReportMetric(float64(clientReadTime.Nanoseconds())/float64(b.N), "read-ns/op")
-		})
-	}
 }
