@@ -23,6 +23,7 @@ compare/fig/*.pdf
 compare/fig/__pycache__/
 /*.pdf
 /*.csv
+/*.tsv
 /*.txt
 /.ipynb_checkpoints/
 *.out
