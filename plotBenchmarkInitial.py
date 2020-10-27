@@ -21,7 +21,7 @@ def plot(in_names, cols, pretty_col_names, out_name):
 
     for in_num, in_name in enumerate(in_names):
         pretty_in_name = os.path.splitext(os.path.basename(in_name))[0]
-        results = np.genfromtxt(in_name, names=True, skip_footer=1, usecols=cols)
+        results = np.genfromtxt(in_name, names=True, skip_header=1, skip_footer=1, usecols=cols)
 
         for idx, col_name in enumerate(results.dtype.names[1:]):
             plt.plot(results[results.dtype.names[0]],results[col_name]/1000, 

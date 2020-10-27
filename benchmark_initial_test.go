@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +16,7 @@ import (
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-
+	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
 	fmt.Printf("numRows\tHintServerTime[us]\tHintClientTime[us]\tReadServerTime[us]\tReadClientTime[us]\n")
 
 	for _, config := range testConfigs() {
