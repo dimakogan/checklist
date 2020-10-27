@@ -77,6 +77,5 @@ func TestMain(m *testing.M) {
 		fmt.Printf("%d\t%d\n",
 			int(result.Extra["answer-us/op"]),
 			int(result.Extra["read-us/op"]))
-
 	}
 }
