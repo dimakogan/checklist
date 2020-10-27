@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
+import argparse
 import matplotlib 
 matplotlib.use('Agg')
+import math
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 import sys
-import numpy as np
-import math
 
 def plot(in_names, cols, pretty_col_names, out_name):
     fig, ax = plt.subplots()
@@ -35,13 +36,26 @@ def plot(in_names, cols, pretty_col_names, out_name):
     fig.legend()
     plt.savefig(out_name)
 
-names = sys.argv[1:] 
+parser = argparse.ArgumentParser(description='Plot benchmark results.')
+parser.add_argument('input_files', metavar='input_files', type=str, nargs='+',
+                   help='filenames of TSV benchmark results')
+parser.add_argument('-o', 
+                    dest='out_basename',
+                    default='initial',
+                    help='output file basename (default: \'initial\')')
+
+args = parser.parse_args()
+
+
+
+names = args.input_files
 server_cols = [0, 1, 3]
 client_cols = [0, 2 ,4]
 
 pretty_col_names = ["Num Rows", "Offline", "Online"]
 
-plot(names, server_cols, pretty_col_names, "initial_server.pdf")
-plot(names, client_cols, pretty_col_names, "initial_client.pdf")
+plot(names, server_cols, pretty_col_names, args.out_basename+"_server.pdf")
+plot(names, client_cols, pretty_col_names, args.out_basename+"_client.pdf")
+
 
 
