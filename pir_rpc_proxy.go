@@ -73,6 +73,14 @@ func (p *PirRpcProxy) GetAnswerTimer(none int, out *time.Duration) error {
 	return p.remote.Call("PirServerDriver.GetAnswerTimer", none, out)
 }
 
-func (p *PirRpcProxy) ResetTimers(none int, none2 *int) error {
-	return p.remote.Call("PirServerDriver.ResetTimers", none, none2)
+func (p *PirRpcProxy) ResetMetrics(none int, none2 *int) error {
+	return p.remote.Call("PirServerDriver.ResetMetrics", none, none2)
+}
+
+func (p *PirRpcProxy) GetHintBytes(none int, out *int) error {
+	return p.remote.Call("PirServerDriver.GetHintBytes", none, out)
+}
+
+func (p *PirRpcProxy) GetAnswerBytes(none int, out *int) error {
+	return p.remote.Call("PirServerDriver.GetAnswerBytes", none, out)
 }

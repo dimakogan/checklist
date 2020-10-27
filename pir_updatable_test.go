@@ -389,3 +389,26 @@ func TestPIRServerOverRPC(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, Row("Cool"))
 }
+
+func TestMatrix(t *testing.T) {
+	driver, err := ServerDriver()
+	assert.NilError(t, err)
+
+	assert.NilError(t, driver.Configure(TestConfig{
+		NumRows:    100000,
+		RowLen:     4,
+		PresetRows: []RowIndexVal{{7, 0x7, Row{'C', 'o', 'o', 'l'}}},
+		PirType:    Matrix,
+		Updatable:  false,
+	}, nil))
+
+	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
+	client := NewPIRClient(NewPirClientMatrix(RandSource()), RandSource(), [2]PirServer{driver, driver})
+
+	err = client.Init()
+	assert.NilError(t, err)
+
+	val, err := client.Read(0x7)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, Row("Cool"))
+}

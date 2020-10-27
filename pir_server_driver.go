@@ -17,9 +17,11 @@ type PirServerDriver interface {
 	DeleteRows(numRows int, none *int) error
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
-	ResetTimers(none int, none2 *int) error
+	ResetMetrics(none int, none2 *int) error
 	GetHintTimer(none int, out *time.Duration) error
 	GetAnswerTimer(none int, out *time.Duration) error
+	GetHintBytes(none int, out *int) error
+	GetAnswerBytes(none int, out *int) error
 }
 
 type pirServerDriver struct {
@@ -35,8 +37,8 @@ type pirServerDriver struct {
 	profBuf bytes.Buffer
 
 	// For profiling
-	hintTime   time.Duration
-	answerTime time.Duration
+	hintTime, answerTime   time.Duration
+	hintBytes, answerBytes int
 }
 
 func registerExtraTypes() {
@@ -58,17 +60,43 @@ func NewPirServerDriver() (*pirServerDriver, error) {
 }
 
 func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
+	reqSize, err := SerializedSizeOf(req)
+	if err != nil {
+		return err
+	}
+	driver.hintBytes += reqSize
+
 	start := time.Now()
-	err := driver.PirServer.Hint(req, resp)
+	if err = driver.PirServer.Hint(req, resp); err != nil {
+		return err
+	}
 	driver.hintTime += time.Since(start)
-	return err
+
+	respSize, err := SerializedSizeOf(resp)
+	if err != nil {
+		return err
+	}
+	driver.hintBytes += respSize
+	return nil
 }
 
 func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
+	reqSize, err := SerializedSizeOf(q)
+	if err != nil {
+		return err
+	}
+	driver.answerBytes += reqSize
+
 	start := time.Now()
-	err := driver.PirServer.Answer(q, resp)
+	err = driver.PirServer.Answer(q, resp)
 	driver.answerTime += time.Since(start)
-	return err
+
+	respSize, err := SerializedSizeOf(resp)
+	if err != nil {
+		return err
+	}
+	driver.answerBytes += respSize
+	return nil
 }
 
 func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err error) {
@@ -89,7 +117,7 @@ func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err erro
 		driver.PirDB = nil
 	}
 
-	driver.ResetTimers(0, nil)
+	driver.ResetMetrics(0, nil)
 	driver.config = config
 	driver.pirType = config.PirType
 	driver.updatable = config.Updatable
@@ -137,8 +165,20 @@ func (driver *pirServerDriver) GetAnswerTimer(none int, out *time.Duration) erro
 	return nil
 }
 
-func (driver *pirServerDriver) ResetTimers(none int, none2 *int) error {
+func (driver *pirServerDriver) GetHintBytes(none int, out *int) error {
+	*out = driver.hintBytes
+	return nil
+}
+
+func (driver *pirServerDriver) GetAnswerBytes(none int, out *int) error {
+	*out = driver.answerBytes
+	return nil
+}
+
+func (driver *pirServerDriver) ResetMetrics(none int, none2 *int) error {
 	driver.hintTime = 0
 	driver.answerTime = 0
+	driver.hintBytes = 0
+	driver.answerBytes = 0
 	return nil
 }

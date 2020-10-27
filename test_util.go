@@ -1,6 +1,8 @@
 package boosted
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"math/rand"
@@ -53,4 +55,13 @@ type RowIndexVal struct {
 	Index int
 	Key   uint32
 	Value Row
+}
+
+func SerializedSizeOf(e interface{}) (int, error) {
+	buf := new(bytes.Buffer)
+	enc := gob.NewEncoder(buf)
+	if err := enc.Encode(e); err != nil {
+		return -1, fmt.Errorf("Failed to Encode: %s", err)
+	}
+	return buf.Len(), nil
 }

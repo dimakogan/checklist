@@ -17,7 +17,7 @@ import (
 func TestMain(m *testing.M) {
 	flag.Parse()
 	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
-	fmt.Printf("numRows\tHintServerTime[us]\tHintClientTime[us]\tReadServerTime[us]\tReadClientTime[us]\n")
+	fmt.Printf("numRows\tOfflineServerTime[us]\tOfflineClientTime[us]\tOfflineBytes\tOnlineServerTime[us]\tOnlineClientTime[us]\tOnlineBytes\n")
 
 	for _, config := range testConfigs() {
 		driver, err := ServerDriver()
@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 		}
 
 		result := testing.Benchmark(func(b *testing.B) {
-			assert.NilError(b, driver.ResetTimers(0, nil))
+			assert.NilError(b, driver.ResetMetrics(0, nil))
 			for i := 0; i < b.N; i++ {
 				if config.Updatable {
 					client = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
@@ -53,14 +53,19 @@ func TestMain(m *testing.M) {
 			assert.NilError(b, driver.GetHintTimer(0, &serverHintTime))
 			b.ReportMetric(float64(serverHintTime.Microseconds())/float64(b.N), "hint-us/op")
 			b.ReportMetric(float64((clientInitTime-serverHintTime).Microseconds())/float64(b.N), "init-us/op")
+
+			var hintBytes int
+			assert.NilError(b, driver.GetHintBytes(0, &hintBytes))
+			b.ReportMetric(float64(hintBytes)/float64(b.N), "hint-bytes/op")
 		})
-		fmt.Printf("%d\t%d\t%d\t",
+		fmt.Printf("%d\t%d\t%d\t%d\t",
 			config.NumRows,
 			int(result.Extra["hint-us/op"]),
-			int(result.Extra["init-us/op"]))
+			int(result.Extra["init-us/op"]),
+			int(result.Extra["hint-bytes/op"]))
 
 		result = testing.Benchmark(func(b *testing.B) {
-			assert.NilError(b, driver.ResetTimers(0, nil))
+			assert.NilError(b, driver.ResetMetrics(0, nil))
 			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal
 				assert.NilError(b, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
@@ -75,9 +80,15 @@ func TestMain(m *testing.M) {
 			assert.NilError(b, driver.GetAnswerTimer(0, &serverAnswerTime))
 			b.ReportMetric(float64(serverAnswerTime.Microseconds())/float64(b.N), "answer-us/op")
 			b.ReportMetric(float64((clientReadTime-serverAnswerTime).Microseconds())/float64(b.N), "read-us/op")
+
+			var answerBytes int
+			assert.NilError(b, driver.GetAnswerBytes(0, &answerBytes))
+			b.ReportMetric(float64(answerBytes)/float64(b.N), "answer-bytes/op")
+
 		})
-		fmt.Printf("%d\t%d\n",
+		fmt.Printf("%d\t%d\t%d\n",
 			int(result.Extra["answer-us/op"]),
-			int(result.Extra["read-us/op"]))
+			int(result.Extra["read-us/op"]),
+			int(result.Extra["answer-bytes/op"]))
 	}
 }
