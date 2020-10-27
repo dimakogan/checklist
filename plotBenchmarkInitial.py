@@ -8,7 +8,7 @@ import sys
 import numpy as np
 import math
 
-def plot(in_name, cols, out_name):
+def plot(in_names, cols, pretty_col_names, out_name):
     fig, ax = plt.subplots()
 
     ax.set_xscale('log')
@@ -16,21 +16,32 @@ def plot(in_name, cols, out_name):
 
     ax.tick_params('x', pad=0.5)
 
-    results = np.genfromtxt(in_name, names=True, skip_footer=1, usecols=cols)
+    linestyles = ["solid", "dashed", "dotted"]
+    colors=["red", "blue"]
 
-    for col_name in results.dtype.names[1:]:
-        plt.plot(results[results.dtype.names[0]],results[col_name]/1000, "-o", label=col_name)
+    for in_num, in_name in enumerate(in_names):
+        pretty_in_name = os.path.splitext(os.path.basename(in_name))[0]
+        results = np.genfromtxt(in_name, names=True, skip_footer=1, usecols=cols)
 
-    plt.xlabel(results.dtype.names[0])
-    plt.ylabel('Running time (ms)')
+        for idx, col_name in enumerate(results.dtype.names[1:]):
+            plt.plot(results[results.dtype.names[0]],results[col_name]/1000, 
+                "-o",
+                color=colors[idx],
+                linestyle=linestyles[in_num], 
+                label=f'{pretty_col_names[idx+1]} ({pretty_in_name})')
+
+        plt.xlabel(pretty_col_names[0])
+        plt.ylabel('Running time (ms)')
     fig.legend()
     plt.savefig(out_name)
 
-name = sys.argv[1] 
+names = sys.argv[1:] 
 server_cols = [0, 1, 3]
 client_cols = [0, 2 ,4]
 
-plot(name, server_cols, os.path.splitext(name)[0]+"_server.pdf")
-plot(name, client_cols, os.path.splitext(name)[0]+"_client.pdf")
+pretty_col_names = ["Num Rows", "Offline", "Online"]
+
+plot(names, server_cols, pretty_col_names, "initial_server.pdf")
+plot(names, client_cols, pretty_col_names, "initial_client.pdf")
 
 
