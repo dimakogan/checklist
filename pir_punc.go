@@ -22,8 +22,9 @@ type pirClientPunc struct {
 	sets  []PuncturableSet
 	hints []Row
 
-	randSource *rand.Rand
-	setGen     *shiftedSetGenerator
+	randSource  *rand.Rand
+	setGen      *shiftedSetGenerator
+	idxToSetIdx []int16
 }
 
 type pirServerPunc struct {
@@ -178,8 +179,16 @@ func (c *pirClientPunc) initHint(resp *HintResp) error {
 
 func (c *pirClientPunc) initSets() {
 	c.sets = make([]PuncturableSet, len(c.hints))
+	c.idxToSetIdx = make([]int16, c.nRows)
+	for i := range c.idxToSetIdx {
+		c.idxToSetIdx[i] = -1
+	}
 	for i := 0; i < len(c.hints); i++ {
-		c.sets[i] = c.setGen.SetGen(c.nRows, c.setSize)
+		var set Set
+		c.sets[i], set = c.setGen.SetGenAndEval(c.nRows, c.setSize)
+		for _, j := range set {
+			c.idxToSetIdx[j] = int16(i)
+		}
 	}
 	// Use a separate set generator with a new key for all future sets
 	// since they must look random to the left server.
@@ -207,9 +216,22 @@ func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
 }
 
 func (c *pirClientPunc) findIndex(i int) int {
+	if i >= c.nRows {
+		return -1
+	}
+	if c.idxToSetIdx[i] >= 0 {
+		return int(c.idxToSetIdx[i])
+	}
+	// If set pointer of i is invalid, use this opportunity to upgrade other invalid pointers while doing linear scan
 	for j, set := range c.sets {
-		if set.Contains(i) {
-			return j
+		for _, v := range set.Eval() {
+			if v == i {
+				return j
+			}
+			if v < c.nRows && c.idxToSetIdx[v] < 0 {
+				// upgrade invalid pointer to valid one
+				c.idxToSetIdx[v] = int16(j)
+			}
 		}
 	}
 	return -1
@@ -244,7 +266,7 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		puncSetL = newSet.Punc(i)
 		puncSetR = set.Punc(i)
 		if ctx.setIdx >= 0 {
-			c.sets[ctx.setIdx] = newSet
+			c.replaceSet(ctx.setIdx, newSet)
 		}
 	case 1:
 		newSet := c.setGen.GenWith(c.nRows, c.setSize, i)
@@ -266,6 +288,21 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		func(resp []QueryResp) (Row, error) {
 			return c.reconstruct(ctx, resp)
 		}
+}
+
+func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
+	oldElems := c.sets[setIdx].Eval()
+	for _, idx := range oldElems {
+		if idx < c.nRows && c.idxToSetIdx[idx] == int16(setIdx) {
+			c.idxToSetIdx[idx] = -1
+		}
+	}
+
+	c.sets[setIdx] = newSet
+	newElems := newSet.Eval()
+	for _, v := range newElems {
+		c.idxToSetIdx[v] = int16(setIdx)
+	}
 }
 
 func (c *pirClientPunc) dummyQuery() []QueryReq {
