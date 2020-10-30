@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+
+	"github.com/dkales/dpf-go/dpf"
 )
 
 var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")
@@ -16,6 +18,7 @@ const (
 	Matrix PirType = iota
 	Punc
 	Perm
+	DPF
 )
 
 // One database row.
@@ -65,6 +68,9 @@ type QueryReq struct {
 
 	// For PirErasure
 	BatchReqs []QueryReq
+
+	// For PirDPF
+	DPFkey dpf.DPFkey
 
 	// For PirUpdatable
 	LatestKeyTimestamp int
@@ -124,11 +130,13 @@ type pirClient struct {
 func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer {
 	switch pirType {
 	case Matrix:
-		return NewPirServerMatrix(randSrc, db)
+		return NewPirServerMatrix(db)
 	case Punc:
 		return NewPirServerPunc(randSrc, db)
 	case Perm:
 		return NewPirPermServer(db)
+	case DPF:
+		return NewPIRDPFServer(db)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }
@@ -141,6 +149,8 @@ func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
 		return NewPirClientPunc(randSrc)
 	case Perm:
 		return NewPirPermClient(randSrc)
+	case DPF:
+		return NewPIRDPFClient(randSrc)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }

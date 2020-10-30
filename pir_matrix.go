@@ -20,8 +20,6 @@ type pirMatrix struct {
 	width   int
 	rowLen  int
 	flatDb  []byte
-
-	randSource *rand.Rand
 }
 
 func getHeightWidth(nRows int, rowLen int) (int, int) {
@@ -32,7 +30,7 @@ func getHeightWidth(nRows int, rowLen int) (int, int) {
 	return width, height
 }
 
-func NewPirServerMatrix(source *rand.Rand, data []Row) PirServer {
+func NewPirServerMatrix(data []Row) PirServer {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}
@@ -50,12 +48,11 @@ func NewPirServerMatrix(source *rand.Rand, data []Row) PirServer {
 
 	width, height := getHeightWidth(len(data), rowLen)
 	return &pirMatrix{
-		numRows:    len(data),
-		rowLen:     rowLen,
-		flatDb:     flatDb,
-		randSource: source,
-		height:     height,
-		width:      width,
+		numRows: len(data),
+		rowLen:  rowLen,
+		flatDb:  flatDb,
+		height:  height,
+		width:   width,
 	}
 }
 

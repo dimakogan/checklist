@@ -7,9 +7,9 @@ import (
 	"fmt"
 )
 
-const _PirTypeName = "MatrixPuncPerm"
+const _PirTypeName = "MatrixPuncPermDPF"
 
-var _PirTypeIndex = [...]uint8{0, 6, 10, 14}
+var _PirTypeIndex = [...]uint8{0, 6, 10, 14, 17}
 
 func (i PirType) String() string {
 	if i < 0 || i >= PirType(len(_PirTypeIndex)-1) {
@@ -18,12 +18,13 @@ func (i PirType) String() string {
 	return _PirTypeName[_PirTypeIndex[i]:_PirTypeIndex[i+1]]
 }
 
-var _PirTypeValues = []PirType{0, 1, 2}
+var _PirTypeValues = []PirType{0, 1, 2, 3}
 
 var _PirTypeNameToValueMap = map[string]PirType{
 	_PirTypeName[0:6]:   0,
 	_PirTypeName[6:10]:  1,
 	_PirTypeName[10:14]: 2,
+	_PirTypeName[14:17]: 3,
 }
 
 // PirTypeString retrieves an enum value from the enum constants string name.

@@ -76,6 +76,29 @@ func TestMatrix(t *testing.T) {
 	assert.DeepEqual(t, val, Row("Cool"))
 }
 
+func TestDPF(t *testing.T) {
+	driver, err := ServerDriver()
+	assert.NilError(t, err)
+
+	assert.NilError(t, driver.Configure(TestConfig{
+		NumRows:    512,
+		RowLen:     32,
+		PresetRows: []RowIndexVal{{128, 128, Row("12345678901234567890123456789012")}},
+		PirType:    DPF,
+		Updatable:  false,
+	}, nil))
+
+	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
+	client := NewPIRClient(NewPIRDPFClient(RandSource()), RandSource(), [2]PirServer{driver, driver})
+
+	err = client.Init()
+	assert.NilError(t, err)
+
+	val, err := client.Read(128)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, Row("12345678901234567890123456789012"))
+}
+
 // Not testing this for now since disabled it
 func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	src := RandSource()
@@ -166,3 +189,30 @@ func TestSample(t *testing.T) {
 		assert.Check(t, c > 280)
 	}
 }
+
+// func TestDPFEval(t *testing.T) {
+// 	key1, key2 := dpf.Gen(128, 9)
+// 	log.Printf("\n%v\n%v\n", dpf.EvalFull(key1, 9)[0:64], dpf.EvalFull(key2, 9))
+
+// 	for i := 0; i < 1<<9; i++ {
+// 		assert.Assert(t, dpf.Eval(key1, uint64(i), 9) != dpf.Eval(key2, uint64(i), 9) {
+// 			log.Printf("differ at: %d\n", i)
+// 		}
+// 	}
+
+// }
+
+// func TestEvalFull(test *testing.T) {
+// 	logN := uint64(9)
+// 	alpha := uint64(128)
+// 	a, b := dpf.Gen(alpha, logN)
+// 	aa := dpf.EvalFull(a, logN)
+// 	bb := dpf.EvalFull(b, logN)
+// 	for i := uint64(0); i < (uint64(1) << logN); i++ {
+// 		aaa := (aa[i/8] >> (i % 8)) & 1
+// 		bbb := (bb[i/8] >> (i % 8)) & 1
+// 		if (aaa^bbb == 1 && i != alpha) || (aaa^bbb == 0 && i == alpha) {
+// 			test.Fail()
+// 		}
+// 	}
+// }
