@@ -76,7 +76,7 @@ plot({**{name : [0, 7, 3] for name in names},
     ["Num Rows", 'Bytes sent'], 
     args.out_basename+"_comm.pdf")
 
-plot({name : [0, 4] for name in no_offline_names[0:1]},
+plot({name : [0, 4] for name in names},
     [""], 
     ["linear", "linear"],
     ["Num Rows", 'Client storage (bytes)'], 
