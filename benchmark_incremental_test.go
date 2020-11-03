@@ -19,6 +19,9 @@ import (
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 
 func TestMain(m *testing.M) {
+	var numBatches int
+	flag.IntVar(&numBatches, "numBatches", 0, "number of update batches (default: ~sqrt(numRows))")
+
 	flag.Parse()
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -60,7 +63,9 @@ func TestMain(m *testing.M) {
 		var clientUpdateTime, clientReadTime time.Duration
 
 		changeBatchSize := int(math.Round(math.Sqrt(float64(config.NumRows)))) + 1
-		numBatches := config.NumRows / changeBatchSize
+		if numBatches == 0 {
+			numBatches = config.NumRows / changeBatchSize
+		}
 
 		for i := 0; i < numBatches; i++ {
 			assert.NilError(ep, driver.AddRows(changeBatchSize, &none))

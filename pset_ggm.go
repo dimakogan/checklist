@@ -20,6 +20,8 @@ type ggmSet struct {
 type ggmSetGenerator struct {
 	keyGen io.Reader
 	prg    cipher.Block
+
+	exist []bool
 }
 
 func NewGGMSetGenerator(randReader io.Reader) SetGenerator {
@@ -38,6 +40,9 @@ func (g *ggmSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
 
 func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set) {
 	key := make([]byte, 16)
+	if len(g.exist) != univSize {
+		g.exist = make([]bool, univSize)
+	}
 	height := int(math.Ceil(math.Log2(float64(setSize))))
 	for {
 		if _, err := io.ReadFull(g.keyGen, key); err != nil {
@@ -48,7 +53,7 @@ func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableS
 			prg: g.prg,
 		}
 
-		if set := pset.Eval(); set.distinct() {
+		if set := pset.Eval(); set.distinct2(g.exist) {
 			return &pset, set
 		}
 	}

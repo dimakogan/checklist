@@ -175,3 +175,16 @@ func (set Set) distinct() bool {
 	}
 	return true
 }
+
+func (set Set) distinct2(exist []bool) bool {
+	for i := range exist {
+		exist[i] = false
+	}
+	for i := 0; i < len(set); i++ {
+		if exist[set[i]] {
+			return false
+		}
+		exist[set[i]] = true
+	}
+	return true
+}
