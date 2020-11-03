@@ -1,0 +1,11 @@
+# go test -tags=BenchmarkInitial -test.timeout=16h40m0s -numRows=100000,200000,400000,800000,1600000,2000000,3000000,5000000 -updatable=false -pirType=DPF
+numRows	OfflineServerTime[us]	OfflineClientTime[us]	OfflineBytes	OnlineServerTime[us]	OnlineClientTime[us]	OnlineBytes
+100000	0	16	436	1881	411	1180
+200000	0	25	436	3561	1270	1216
+400000	0	14	436	7336	4800	1252
+800000	0	14	436	14662	337	1292
+1600000	0	14	436	29790	1024	1328
+2000000	0	14	436	36102	1440	1328
+3000000	0	14	436	55597	3241	1364
+5000000	0	14	436	91670	87641	1400
+ok  	github.com/dimakogan/boosted-pir	24.385s
