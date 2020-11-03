@@ -9,11 +9,11 @@ import numpy as np
 import os
 import sys
 
-def plot(file_to_cols, pretty_col_names, labels, out_name):
+def plot(file_to_cols, pretty_col_names, scales, labels, out_name):
     fig, ax = plt.subplots()
 
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    ax.set_xscale(scales[0])
+    ax.set_yscale(scales[1])
 
     ax.tick_params('x', pad=0.5)
 
@@ -38,7 +38,7 @@ def plot(file_to_cols, pretty_col_names, labels, out_name):
     plt.savefig(out_name)
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
-parser.add_argument('input_files', metavar='input_files', type=str, nargs='+',
+parser.add_argument('input_files', metavar='input_files', type=str, nargs='*',
                    help='filenames of TSV benchmark results')
 parser.add_argument('--no_offline', action='append')                   
 parser.add_argument('-o', 
@@ -58,23 +58,27 @@ if no_offline_names == None:
 plot({**{name : [0, 5, 1] for name in names}, 
     **{name : [0, 5] for name in no_offline_names}}, 
     ["", " (Offline)"], 
+    ["linear", "linear"],
     ["Num Rows", 'Server Running time (ms)'], 
     args.out_basename+"_server.pdf")
 
 plot({**{name : [0, 6, 2] for name in names}, 
     **{name : [0, 6] for name in no_offline_names}}, 
     ["", " (Offline)"], 
+    ["log", "log"],
     ["Num Rows", 'Client Running time (ms)'], 
     args.out_basename+"_client.pdf")
 
 plot({**{name : [0, 7, 3] for name in names}, 
     **{name : [0, 7] for name in no_offline_names}}, 
     ["", " (Offline)"], 
+    ["log", "log"],
     ["Num Rows", 'Bytes sent'], 
     args.out_basename+"_comm.pdf")
 
 plot({name : [0, 4] for name in names},
     [""], 
+    ["linear", "linear"],
     ["Num Rows", 'Client storage (bytes)'], 
     args.out_basename+"_client_storage.pdf")
 
