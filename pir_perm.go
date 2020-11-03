@@ -82,6 +82,11 @@ func (s pirPermServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
+func (s pirPermServer) NumRows(none int, out *int) error {
+	*out = s.nRows
+	return nil
+}
+
 func (s pirPermServer) GetRow(idx int, row *RowIndexVal) error {
 	if idx < 0 || idx >= s.nRows {
 		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)

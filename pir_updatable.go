@@ -152,6 +152,17 @@ func (s *pirServerUpdatable) tick() int {
 	return s.curTimestamp
 }
 
+func (s *pirServerUpdatable) NumRows(none int, out *int) error {
+	*out = 0
+	for _, row := range s.timedRows {
+		if row.Delete || row.DeletedTimestamp > 0 {
+			continue
+		}
+		(*out)++
+	}
+	return nil
+}
+
 func (s *pirServerUpdatable) GetRow(idx int, row *RowIndexVal) error {
 	keys, rows := s.elements(idx, idx+1)
 	if keys == nil {

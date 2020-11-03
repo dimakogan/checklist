@@ -126,6 +126,11 @@ func (s pirServerPunc) dbElem(i int) Row {
 	}
 }
 
+func (s pirServerPunc) NumRows(none int, out *int) error {
+	*out = s.nRows
+	return nil
+}
+
 func (s pirServerPunc) GetRow(idx int, row *RowIndexVal) error {
 	if idx < 0 || idx >= s.nRows {
 		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)

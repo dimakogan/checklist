@@ -106,6 +106,7 @@ type PirServer interface {
 
 	// For testing
 	GetRow(idx int, row *RowIndexVal) error
+	NumRows(none int, out *int) error
 }
 
 type PirClient interface {

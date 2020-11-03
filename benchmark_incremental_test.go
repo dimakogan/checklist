@@ -71,7 +71,9 @@ func TestMain(m *testing.M) {
 			clientUpdateTime += time.Since(start)
 
 			var rowIV RowIndexVal
-			assert.NilError(ep, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
+			var numRows int
+			assert.NilError(ep, driver.NumRows(none, &numRows))
+			assert.NilError(ep, driver.GetRow(rand.Intn(numRows), &rowIV))
 
 			start = time.Now()
 			row, err := client.Read(int(rowIV.Key))
