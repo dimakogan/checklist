@@ -100,6 +100,10 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err error) {
+	driver.config = config
+	driver.pirType = config.PirType
+	driver.updatable = config.Updatable
+
 	db := MakeDB(driver.randSource, config.NumRows, config.RowLen)
 	keys := MakeKeys(driver.randSource, config.NumRows)
 	for _, preset := range config.PresetRows {
@@ -118,9 +122,6 @@ func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err erro
 	}
 
 	driver.ResetMetrics(0, nil)
-	driver.config = config
-	driver.pirType = config.PirType
-	driver.updatable = config.Updatable
 	return nil
 
 }

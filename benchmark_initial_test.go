@@ -15,24 +15,6 @@ import (
 	"gotest.tools/assert"
 )
 
-// Disgusting hack since testing.Benchmark hides all logs and failures
-type errorPrinter struct {
-}
-
-func (ep errorPrinter) Log(args ...interface{}) {
-	fmt.Println(args...)
-}
-
-func (ep errorPrinter) FailNow() {
-	panic("Assertion failed")
-}
-
-func (ep errorPrinter) Fail() {
-	panic("Assertion failed")
-}
-
-var ep errorPrinter
-
 func TestMain(m *testing.M) {
 	flag.Parse()
 	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
