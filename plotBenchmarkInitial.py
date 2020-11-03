@@ -26,7 +26,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name):
             usecols=file_to_cols[filename])
 
         for idx, col_name in enumerate(results.dtype.names[1:]):
-            plt.plot(results[results.dtype.names[0]],results[col_name]/1000, 
+            plt.plot(results[results.dtype.names[0]],results[col_name], 
                 "-o",
                 color=colors[file_num],
                 linestyle=linestyles[idx], 
@@ -59,14 +59,14 @@ plot({**{name : [0, 5, 1] for name in names},
     **{name : [0, 5] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "linear"],
-    ["Num Rows", 'Server Running time (ms)'], 
+    ["Num Rows", 'Server Running time (µs)'], 
     args.out_basename+"_server.pdf")
 
 plot({**{name : [0, 6, 2] for name in names}, 
     **{name : [0, 6] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["log", "log"],
-    ["Num Rows", 'Client Running time (ms)'], 
+    ["Num Rows", 'Client Running time (µs)'], 
     args.out_basename+"_client.pdf")
 
 plot({**{name : [0, 7, 3] for name in names}, 
@@ -76,7 +76,7 @@ plot({**{name : [0, 7, 3] for name in names},
     ["Num Rows", 'Bytes sent'], 
     args.out_basename+"_comm.pdf")
 
-plot({name : [0, 4] for name in names},
+plot({name : [0, 4] for name in (names+no_offline_names)[0:1]},
     [""], 
     ["linear", "linear"],
     ["Num Rows", 'Client storage (bytes)'], 
