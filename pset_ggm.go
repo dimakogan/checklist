@@ -162,7 +162,7 @@ func treeEvalAll(prg cipher.Block, pathKey []byte, height int, univSize int, out
 func (set *ggmSet) Punc(idx int) SuccinctSet {
 	hole := set.findPos(idx)
 	if hole < 0 {
-		panic("Puncturing at non-existing element")
+		panic(fmt.Sprintf("Puncturing at non-existing element: %d", idx))
 	}
 	keys := make([][]byte, 0)
 	key := set.key

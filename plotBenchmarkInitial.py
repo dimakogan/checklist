@@ -52,24 +52,30 @@ args = parser.parse_args()
 
 names = args.input_files
 no_offline_names = args.no_offline
+if no_offline_names == None:
+    no_offline_names = {}
 
-plot({**{name : [0, 4, 1] for name in names}, 
-    **{name : [0, 4] for name in no_offline_names}}, 
+plot({**{name : [0, 5, 1] for name in names}, 
+    **{name : [0, 5] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["Num Rows", 'Server Running time (ms)'], 
     args.out_basename+"_server.pdf")
 
-plot({**{name : [0, 5, 2] for name in names}, 
-    **{name : [0, 5] for name in no_offline_names}}, 
+plot({**{name : [0, 6, 2] for name in names}, 
+    **{name : [0, 6] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["Num Rows", 'Client Running time (ms)'], 
     args.out_basename+"_client.pdf")
 
-plot({**{name : [0, 6, 3] for name in names}, 
-    **{name : [0, 6] for name in no_offline_names}}, 
+plot({**{name : [0, 7, 3] for name in names}, 
+    **{name : [0, 7] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["Num Rows", 'Bytes sent'], 
     args.out_basename+"_comm.pdf")
 
+plot({name : [0, 4] for name in names},
+    [""], 
+    ["Num Rows", 'Client storage (bytes)'], 
+    args.out_basename+"_client_storage.pdf")
 
 

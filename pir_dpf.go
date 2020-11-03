@@ -5,7 +5,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/dkales/dpf-go/dpf"
+	"github.com/dimakogan/dpf-go/dpf"
 )
 
 type pirDPFClient struct {

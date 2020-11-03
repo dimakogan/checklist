@@ -24,7 +24,7 @@ type pirClientPunc struct {
 
 	randSource  *rand.Rand
 	setGen      *shiftedSetGenerator
-	idxToSetIdx []int16
+	idxToSetIdx []int32
 }
 
 type pirServerPunc struct {
@@ -179,7 +179,7 @@ func (c *pirClientPunc) initHint(resp *HintResp) error {
 
 func (c *pirClientPunc) initSets() {
 	c.sets = make([]PuncturableSet, len(c.hints))
-	c.idxToSetIdx = make([]int16, c.nRows)
+	c.idxToSetIdx = make([]int32, c.nRows)
 	for i := range c.idxToSetIdx {
 		c.idxToSetIdx[i] = -1
 	}
@@ -187,7 +187,7 @@ func (c *pirClientPunc) initSets() {
 		var set Set
 		c.sets[i], set = c.setGen.SetGenAndEval(c.nRows, c.setSize)
 		for _, j := range set {
-			c.idxToSetIdx[j] = int16(i)
+			c.idxToSetIdx[j] = int32(i)
 		}
 	}
 	// Use a separate set generator with a new key for all future sets
@@ -230,7 +230,7 @@ func (c *pirClientPunc) findIndex(i int) int {
 			}
 			if v < c.nRows && c.idxToSetIdx[v] < 0 {
 				// upgrade invalid pointer to valid one
-				c.idxToSetIdx[v] = int16(j)
+				c.idxToSetIdx[v] = int32(j)
 			}
 		}
 	}
@@ -293,7 +293,7 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
 	oldElems := c.sets[setIdx].Eval()
 	for _, idx := range oldElems {
-		if idx < c.nRows && c.idxToSetIdx[idx] == int16(setIdx) {
+		if idx < c.nRows && c.idxToSetIdx[idx] == int32(setIdx) {
 			c.idxToSetIdx[idx] = -1
 		}
 	}
@@ -301,7 +301,7 @@ func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
 	c.sets[setIdx] = newSet
 	newElems := newSet.Eval()
 	for _, v := range newElems {
-		c.idxToSetIdx[v] = int16(setIdx)
+		c.idxToSetIdx[v] = int32(setIdx)
 	}
 }
 

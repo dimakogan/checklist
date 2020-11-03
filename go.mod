@@ -7,7 +7,7 @@ require (
 	github.com/apcera/termtables v0.0.0-20170405184538-bcbc5dc54055 // indirect
 	github.com/c2h5oh/datasize v0.0.0-20171227191756-4eba002a5eae // indirect
 	github.com/cespare/prettybench v0.0.0-20150116022406-03b8cfe5406c // indirect
-	github.com/dkales/dpf-go v0.0.0-20181017150600-fc650363d7a5
+	github.com/dimakogan/dpf-go v0.0.0-20201030215639-5e20cc1f5916
 	github.com/fatih/color v1.9.0
 	github.com/florianorben/prettybenchmarks v0.0.0-20151012004054-c1c7f270a2a8 // indirect
 	github.com/fsnotify/fsnotify v1.4.9

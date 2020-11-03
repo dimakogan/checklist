@@ -6,7 +6,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/dkales/dpf-go/dpf"
+	"github.com/dimakogan/dpf-go/dpf"
 )
 
 var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")

@@ -48,6 +48,13 @@ func TestPunc(t *testing.T) {
 	err = client.Init()
 	assert.NilError(t, err)
 
+	// runtime.GC()
+	// if memProf, err := os.Create("mem.prof"); err != nil {
+	// 	panic(err)
+	// } else {
+	// 	pprof.WriteHeapProfile(memProf)
+	// 	memProf.Close()
+	// }
 	val, err := client.Read(0x7)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, Row("Cool"))

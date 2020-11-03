@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -35,7 +36,9 @@ var ep errorPrinter
 func TestMain(m *testing.M) {
 	flag.Parse()
 	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
-	fmt.Printf("numRows\tOfflineServerTime[us]\tOfflineClientTime[us]\tOfflineBytes\tOnlineServerTime[us]\tOnlineClientTime[us]\tOnlineBytes\n")
+	fmt.Printf("%10s%22s%22s%15s%15s%22s%22s%15s\n",
+		"numRows", "OfflineServerTime[us]", "OfflineClientTime[us]", "OfflineBytes", "ClientBytes",
+		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")
 
 	for _, config := range testConfigs() {
 		driver, err := ServerDriver()
@@ -46,7 +49,6 @@ func TestMain(m *testing.M) {
 		rand := RandSource()
 
 		var client PirClient
-		var clientInitTime, clientReadTime time.Duration
 		var none int
 		if err := driver.Configure(config, &none); err != nil {
 			log.Fatalf("Failed to configure driver: %s\n", err)
@@ -54,7 +56,12 @@ func TestMain(m *testing.M) {
 
 		result := testing.Benchmark(func(b *testing.B) {
 			assert.NilError(ep, driver.ResetMetrics(0, nil))
+			var clientInitTime time.Duration
+			var clientBytes uint64
 			for i := 0; i < b.N; i++ {
+				var m1, m2 runtime.MemStats
+				runtime.GC()
+				runtime.ReadMemStats(&m1)
 				if config.Updatable {
 					client = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 				} else {
@@ -65,6 +72,9 @@ func TestMain(m *testing.M) {
 				err = client.Init()
 				assert.NilError(ep, err)
 				clientInitTime += time.Since(start)
+				runtime.GC()
+				runtime.ReadMemStats(&m2)
+				clientBytes += m2.Alloc - m1.Alloc
 			}
 
 			var serverHintTime time.Duration
@@ -75,15 +85,18 @@ func TestMain(m *testing.M) {
 			var hintBytes int
 			assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
 			b.ReportMetric(float64(hintBytes)/float64(b.N), "hint-bytes/op")
+			b.ReportMetric(float64(clientBytes)/float64(b.N), "client-bytes/op")
 		})
-		fmt.Printf("%d\t%d\t%d\t%d\t",
+		fmt.Printf("%10d%22d%22d%15d%15d",
 			config.NumRows,
 			int(result.Extra["hint-us/op"]),
 			int(result.Extra["init-us/op"]),
-			int(result.Extra["hint-bytes/op"]))
+			int(result.Extra["hint-bytes/op"]),
+			int(result.Extra["client-bytes/op"]))
 
 		result = testing.Benchmark(func(b *testing.B) {
 			assert.NilError(ep, driver.ResetMetrics(0, nil))
+			var clientReadTime time.Duration
 			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal
 				assert.NilError(ep, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
@@ -104,7 +117,7 @@ func TestMain(m *testing.M) {
 			b.ReportMetric(float64(answerBytes)/float64(b.N), "answer-bytes/op")
 
 		})
-		fmt.Printf("%d\t%d\t%d\n",
+		fmt.Printf("%22d%22d%15d\n",
 			int(result.Extra["answer-us/op"]),
 			int(result.Extra["read-us/op"]),
 			int(result.Extra["answer-bytes/op"]))
