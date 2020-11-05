@@ -31,3 +31,5 @@ compare/fig/__pycache__/
 /*.exe
 *.prof
 /prfggm-cpp/main
+*.o
+*.a

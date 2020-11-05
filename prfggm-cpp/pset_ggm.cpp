@@ -1,5 +1,21 @@
 #include "AES.h"
 #include "pset_ggm.h"
+#include <vector>
+
+class SetGenerator {
+    public:
+        SetGenerator(uint32_t univ_size, uint32_t set_size);
+
+        void Eval(__m128i seed, uint32_t *out);
+
+    private:
+        void tree_eval_all(uint32_t key_pos, uint32_t height, uint32_t* out);
+        void expand(uint32_t key_pos);
+    private:
+        uint32_t _univ_size, _set_size, _height;
+        std::vector<__m128i> _path_key;
+};
+
 
 int height(int v) {
     unsigned int r = 0; // r will be lg(v)
@@ -67,4 +83,11 @@ void SetGenerator::expand(uint32_t key_pos) {
     mAesFixedKey.encryptECB(_path_key[key_pos], _path_key[key_pos+2]);
     _path_key[key_pos+2] = _mm_xor_si128(_path_key[key_pos],_path_key[key_pos+2]);
     _path_key[key_pos+2] = _mm_xor_si128(_path_key[key_pos+2], one);
+}
+
+extern "C" {
+
+void pset_ggm_eval(unsigned int	 univ_size, unsigned int set_size, const unsigned char* seed, unsigned int* out) {
+    SetGenerator((uint32_t)univ_size, set_size).Eval(toBlock(seed),out);
+}
 }

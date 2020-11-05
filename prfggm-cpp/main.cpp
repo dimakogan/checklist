@@ -1,7 +1,9 @@
 #include "pset_ggm.h"
 
 #include <chrono> 
+#include <cstdint>
 #include <iostream>
+#include <vector>
 
 using namespace std::chrono; 
 
@@ -19,13 +21,12 @@ int main(int argc, char** argv) {
 
     uint32_t set_size = atoi(argv[SET_SIZE]);
 
-    SetGenerator gen(20000, set_size);
-    __m128i seed = _mm_setr_epi32(0, 0, 0, 0);
+    const uint8_t seed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> out(set_size);
     
     auto start = high_resolution_clock::now(); 
     for (int i=0; i < 1000; ++i) {
-        gen.Eval(seed, out.data());
+        pset_ggm_eval(20000, set_size, seed, out.data());
     }
     auto stop = high_resolution_clock::now(); 
 

@@ -1,18 +1,14 @@
-#include <cstdint>
+#include <stdint.h>
 #include <immintrin.h>
 #include <smmintrin.h>
-#include <vector>
 
-class SetGenerator {
-    public:
-        SetGenerator(uint32_t univ_size, uint32_t set_size);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-        void Eval(__m128i seed, uint32_t *out);
+void pset_ggm_eval(unsigned int	 univ_size, unsigned int set_size, const unsigned char* seed, unsigned int* out);
 
-    private:
-        void tree_eval_all(uint32_t key_pos, uint32_t height, uint32_t* out);
-        void expand(uint32_t key_pos);
-    private:
-        uint32_t _univ_size, _set_size, _height;
-        std::vector<__m128i> _path_key;
-};
+
+#ifdef __cplusplus
+}
+#endif

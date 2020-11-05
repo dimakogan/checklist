@@ -84,10 +84,32 @@ func BenchmarkGGMEval(b *testing.B) {
 		gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
 		univSize := config.NumRows
 		setSize := int(math.Sqrt(float64(univSize)))
+		set := gen.SetGen(univSize, setSize)
 		b.Run(config.String(), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				gen.SetGenAndEval(univSize, setSize)
+				set.Eval()
 			}
 		})
 	}
 }
+
+func BenchmarkGGMEvalC(b *testing.B) {
+	for _, config := range testConfigs() {
+		univSize := config.NumRows
+		setSize := int(math.Sqrt(float64(univSize)))
+		key := MasterKey()
+		b.Run(config.String(), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				PSetGGMEval(uint32(univSize), uint32(setSize), key)
+			}
+		})
+	}
+}
+
+// func TestGGMEvalVsC(t *testing.T) {
+// 	univSize := config.NumRows
+// 	setSize := 10
+// 	key := MasterKey()
+// 	gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
+// 	fmt.Sprintf("%v\n", gen.SetGenAndEval(univSize, setSize))
+// }
