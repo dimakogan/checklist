@@ -25,14 +25,14 @@ int main(int argc, char** argv) {
     std::vector<uint32_t> out(set_size);
     
     auto start = high_resolution_clock::now(); 
-    for (int i=0; i < 1000; ++i) {
-        pset_ggm_eval(20000, set_size, seed, out.data());
+    for (int i=0; i < 100000; ++i) {
+        pset_ggm_eval(1024*1024, set_size, seed, out.data());
     }
     auto stop = high_resolution_clock::now(); 
 
 
     std::cout   << "Eval time: " 
-                << duration_cast<microseconds>(stop - start).count()/1000
+                << duration_cast<microseconds>(stop - start).count()/100000
                 << std::endl;
     // for (const auto& i : out) {
     //     std::cout << i << " ";
