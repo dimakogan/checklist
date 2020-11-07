@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-void pset_ggm_eval(unsigned int	 univ_size, unsigned int set_size, const unsigned char* seed, unsigned int* out);
+void pset_ggm_eval(unsigned int	 univ_size, unsigned int set_size, const unsigned char* seed, unsigned long* out);
 
 
 #ifdef __cplusplus

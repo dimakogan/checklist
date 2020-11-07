@@ -6,10 +6,10 @@ class SetGenerator {
     public:
         SetGenerator(uint32_t univ_size, uint32_t set_size);
 
-        void Eval(__m128i seed, uint32_t *out);
+        void Eval(__m128i seed, uint64_t *out);
 
     private:
-        void tree_eval_all(uint32_t key_pos, uint32_t height, uint32_t* out);
+        void tree_eval_all(uint32_t key_pos, uint32_t height, uint64_t* out);
         void expand(uint32_t key_pos);
     private:
         uint32_t _univ_size, _set_size, _height;
@@ -35,12 +35,12 @@ SetGenerator::SetGenerator(uint32_t univ_size, uint32_t set_size)
         _height(height(set_size)),
         _path_key(2*(_height+1)) {}
 
-void SetGenerator::Eval(__m128i seed, uint32_t *out) {
+void SetGenerator::Eval(__m128i seed, uint64_t *out) {
     _path_key[0] = seed;
     tree_eval_all(0, _height, out);
 }
 
-void SetGenerator::tree_eval_all(uint32_t key_pos, uint32_t height, uint32_t* out) {
+void SetGenerator::tree_eval_all(uint32_t key_pos, uint32_t height, uint64_t* out) {
     uint32_t node = 0;
     while (true) {
         if (height == 0) {
@@ -87,7 +87,7 @@ void SetGenerator::expand(uint32_t key_pos) {
 
 extern "C" {
 
-void pset_ggm_eval(unsigned int	 univ_size, unsigned int set_size, const unsigned char* seed, unsigned int* out) {
+void pset_ggm_eval(unsigned int	 univ_size, unsigned int set_size, const unsigned char* seed, unsigned long* out) {
     SetGenerator((uint32_t)univ_size, set_size).Eval(toBlock(seed),out);
 }
 }

@@ -42,7 +42,7 @@ type pirServerDriver struct {
 }
 
 func registerExtraTypes() {
-	gob.Register(&ShiftedSet{})
+	gob.Register(&PuncturedSet{})
 	gob.Register(&puncturedGGMSet{})
 }
 

@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"gotest.tools/assert"
@@ -29,127 +30,69 @@ func checkSet(t *testing.T, set Set, univSize int, setSize int) {
 	}
 }
 
-func testPuncSetGenOnce(t *testing.T, gen SetGenerator, univSize int, setSize int) {
-	set := gen.SetGen(univSize, setSize)
-	elements := set.Eval()
-	checkSet(t, elements, univSize, setSize)
-}
+func testGenWith(t *testing.T, gen *SetGenerator, univSize int, setSize int, with int) {
+	set := gen.GenWith(with)
 
-func TestPuncSetGen(t *testing.T) {
-	gen := NewPRPSetSetGenerator(RandSource())
-	tests := []struct {
-		UnivSize int
-		setSize  int
-	}{
-		{16, 5},
-		{16, 16},
-		{1 << 16, 10},
-	}
-
-	for _, pair := range tests {
-		t.Run(fmt.Sprintf("%v %v", pair.UnivSize, pair.setSize),
-			func(t *testing.T) {
-				testPuncSetGenOnce(t, gen, pair.UnivSize, pair.setSize)
-			})
-	}
-}
-
-func testPuncSetGenWith(t *testing.T, gen *shiftedSetGenerator, univSize int, setSize int, with int) {
-	set := gen.GenWith(univSize, setSize, with)
-	elements := set.Eval()
-	checkSet(t, elements, univSize, setSize)
+	checkSet(t, set.elems, univSize, setSize)
 
 	inSet := false
-	for _, v := range elements {
+	for _, v := range set.elems {
 		inSet = inSet || (with == v)
 	}
 
 	assert.Assert(t, inSet)
 }
 
-func TestPuncSetGenWith(t *testing.T) {
-	gen := NewSetGenerator(NewPRPSetSetGenerator, MasterKey())
-	tests := []struct {
-		UnivSize int
-		setSize  int
-		with     int
-	}{
-		{16, 5, 0},
-		{256, 256, 8},
-		{1 << 16, 10, 7},
+func testPunc(t *testing.T, gen SetGenerator, univSize int, setSize int) {
+	set := gen.Gen()
+	checkSet(t, set.elems, univSize, setSize)
+
+	setHash := make(map[int]bool)
+	for _, elem := range set.elems {
+		setHash[elem] = true
 	}
 
-	for _, pair := range tests {
-		t.Run(fmt.Sprintf("%v %v %v", pair.UnivSize, pair.setSize, pair.with),
-			func(t *testing.T) {
-				testPuncSetGenWith(t, gen, pair.UnivSize, pair.setSize, pair.with)
-			})
-	}
-}
-
-func testPuncSetPunc(t *testing.T, gen SetGenerator, univSize int, setSize int) {
-	set := gen.SetGen(univSize, setSize)
-	elements := set.Eval()
-	checkSet(t, elements, univSize, setSize)
-
-	for i := 0; i < set.Size(); i++ {
-		hole := elements[i]
+	for _, hole := range set.elems {
 		pset := set.Punc(hole)
-		assert.Equal(t, pset.Size(), setSize-1)
+		elems := pset.Eval()
+		assert.Equal(t, len(elems), setSize-1)
 
 		inSet := false
-		for _, v := range pset.Eval() {
+		for _, v := range elems {
 			inSet = inSet || (hole == v)
-			assert.Assert(t, set.Contains(v), "Element %d in punctured set %v but not in original set %v", v, pset.Eval(), elements)
+			assert.Assert(t, setHash[v], "Element %d in punctured set %v but not in original set %v", v, pset.Eval(), set.elems)
 		}
 
 		assert.Assert(t, !inSet)
 	}
 }
 
-func testPuncSetGenWithPunc(t *testing.T, gen *shiftedSetGenerator, univSize int, setSize int, with int) {
-	set := gen.GenWith(univSize, setSize, with)
-	elements := set.Eval()
-	checkSet(t, elements, univSize, setSize)
+func testGenWithPunc(t *testing.T, gen *SetGenerator, univSize int, setSize int, with int) {
+	set := gen.GenWith(with)
+	checkSet(t, set.elems, univSize, setSize)
 
 	inSet := false
-	for _, v := range elements {
+	for _, v := range set.elems {
 		inSet = inSet || (with == v)
 	}
 	assert.Assert(t, inSet)
 
+	setHash := make(map[int]bool)
+	for _, elem := range set.elems {
+		setHash[elem] = true
+	}
+
 	pset := set.Punc(with)
-	assert.Equal(t, pset.Size(), setSize-1)
+	assert.Equal(t, pset.SetSize, setSize-1)
 
 	inSet = false
 	for _, v := range pset.Eval() {
 		//		assert.Equal(t, v, pset.ElemAt(i))
 		inSet = inSet || (with == v)
-		assert.Assert(t, set.Contains(v), "Element %d in punctured set %v, %v but not in original set %v", v, pset.Eval(), pset.Eval(), elements)
+		assert.Assert(t, setHash[v], "Element %d in punctured set %v, %v but not in original set %v", v, pset.Eval(), set.elems)
 	}
 
 	assert.Assert(t, !inSet)
-}
-
-func TestPuncSetGenWithPunc(t *testing.T) {
-	gen := NewSetGenerator(NewPRPSetSetGenerator, MasterKey())
-
-	tests := []struct {
-		UnivSize int
-		setSize  int
-		with     int
-	}{
-		{16, 5, 0},
-		{16, 16, 8},
-		{1 << 16, 10, 7},
-	}
-
-	for _, pair := range tests {
-		t.Run(fmt.Sprintf("%v %v %v", pair.UnivSize, pair.setSize, pair.with),
-			func(t *testing.T) {
-				testPuncSetGenWithPunc(t, gen, pair.UnivSize, pair.setSize, pair.with)
-			})
-	}
 }
 
 func getElement(set Set) int {
@@ -160,24 +103,123 @@ func getElement(set Set) int {
 	return 0
 }
 
-func TestPRPInSet(t *testing.T) {
-	testInSet(t, NewPRPSetSetGenerator(RandSource()))
+func TestPuncSetGen(t *testing.T) {
+	tests := []struct {
+		UnivSize int
+		setSize  int
+	}{
+		{16, 5},
+		{256, 16},
+		{1 << 16, 10},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v %v", test.UnivSize, test.setSize),
+			func(t *testing.T) {
+				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				checkSet(t, gen.Gen().elems, test.UnivSize, test.setSize)
+			})
+	}
 }
 
-func testInSet(t *testing.T, gen SetGenerator) {
-	univSize := 1 << 4
-	setSize := 4
-	set := gen.SetGen(univSize, setSize)
-	elements := set.Eval()
-	setHash := make(map[int]bool)
-	for _, elem := range elements {
-		setHash[elem] = true
+func TestPuncSetPunc(t *testing.T) {
+	tests := []struct {
+		UnivSize int
+		setSize  int
+	}{
+		{16, 5},
+		{256, 16},
+		{1 << 16, 10},
 	}
-	for i := 0; i < univSize; i++ {
-		if _, exists := setHash[i]; exists {
-			assert.Assert(t, set.Contains(i), "%v should have contained %d", set, i)
-		} else {
-			assert.Assert(t, !set.Contains(i), "%v should not contain %d", set, i)
-		}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v %v", test.UnivSize, test.setSize),
+			func(t *testing.T) {
+				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				testPunc(t, gen, test.UnivSize, test.setSize)
+			})
 	}
 }
+
+func TestPuncSetGenWith(t *testing.T) {
+	tests := []struct {
+		UnivSize int
+		setSize  int
+		with     int
+	}{
+		{16, 5, 0},
+		{256, 16, 8},
+		{1 << 16, 10, 7},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v %v %v", test.UnivSize, test.setSize, test.with),
+			func(t *testing.T) {
+				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				testGenWith(t, &gen, test.UnivSize, test.setSize, test.with)
+			})
+	}
+}
+
+func TestPuncSetGenWithPunc(t *testing.T) {
+	tests := []struct {
+		UnivSize int
+		setSize  int
+		with     int
+	}{
+		{16, 5, 0},
+		{256, 16, 8},
+		{1 << 16, 10, 7},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%v %v %v", test.UnivSize, test.setSize, test.with),
+			func(t *testing.T) {
+				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				testGenWithPunc(t, &gen, test.UnivSize, test.setSize, test.with)
+			})
+	}
+}
+
+// Starting result:
+// BenchmarkGGMEval-4   	    2926	    373090 ns/op	  104448 B/op	    2699 allocs/op
+//
+// Combine SetGenAndEval:
+// BenchmarkGGMEval-4   	    3864	    294564 ns/op	   79615 B/op	    1663 allocs/op
+//
+// Preallocate keys for treeEvalAll:
+// BenchmarkGGMEval-4   	    5881	    203453 ns/op	   53334 B/op	      14 allocs/op
+func BenchmarkPuncSetGen(b *testing.B) {
+	for _, config := range testConfigs() {
+		univSize := config.NumRows
+		setSize := int(math.Sqrt(float64(univSize)))
+		gen := NewGGMSetGenerator(RandSource())
+		b.Run(config.String(), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				gen.SetGen(univSize, setSize)
+			}
+		})
+	}
+}
+
+func BenchmarkGGMEvalC(b *testing.B) {
+	for _, config := range testConfigs() {
+		univSize := config.NumRows
+		setSize := int(math.Sqrt(float64(univSize)))
+
+		gen := NewSetGenerator(MasterKey(), 0, univSize, setSize)
+		b.Run(config.String(), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				gen.Gen()
+			}
+		})
+	}
+}
+
+// func TestGGMEvalVsC(t *testing.T) {
+// 	univSize := config.NumRows
+// 	setSize := 10
+// 	key := MasterKey()
+// 	gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
+// 	fmt.Sprintf("%v\n", gen.SetGenAndEval(univSize, setSize))
+// }

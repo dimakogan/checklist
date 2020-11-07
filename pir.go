@@ -60,7 +60,7 @@ type HintResp struct {
 
 //QueryReq is a PIR query from a client to a server.
 type QueryReq struct {
-	PuncturedSet SuccinctSet
+	PuncturedSet PuncturedSet
 	ExtraElem    int
 
 	// For PirMatrix
@@ -134,8 +134,6 @@ func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer
 		return NewPirServerMatrix(db)
 	case Punc:
 		return NewPirServerPunc(randSrc, db)
-	case Perm:
-		return NewPirPermServer(db)
 	case DPF:
 		return NewPIRDPFServer(db)
 	}
@@ -148,8 +146,6 @@ func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
 		return NewPirClientMatrix(randSrc)
 	case Punc:
 		return NewPirClientPunc(randSrc)
-	case Perm:
-		return NewPirPermClient(randSrc)
 	case DPF:
 		return NewPIRDPFClient(randSrc)
 	}

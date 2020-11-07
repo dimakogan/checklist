@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     uint32_t set_size = atoi(argv[SET_SIZE]);
 
     const uint8_t seed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    std::vector<uint32_t> out(set_size);
+    std::vector<uint64_t> out(set_size);
     
     auto start = high_resolution_clock::now(); 
     for (int i=0; i < 100000; ++i) {
