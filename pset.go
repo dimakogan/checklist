@@ -5,6 +5,8 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/dimakogan/boosted-pir/psetggm"
 )
 
 type Present int
@@ -17,6 +19,12 @@ type SetKey struct {
 	id, shift uint32
 }
 
+type BaseGenerator interface {
+	Eval(seed []byte, elems []int)
+	Punc(seed []byte, pos int) []byte
+	EvalPunctured(pset []byte, hole int, elems []int)
+}
+
 type PuncturableSet struct {
 	SetKey
 	univSize, setSize int
@@ -26,17 +34,19 @@ type PuncturableSet struct {
 
 type PuncturedSet struct {
 	UnivSize, SetSize int
-	Keys              [][]byte
+	Keys              []byte
 	Hole              int
 	Shift             uint32
 }
 
 type SetGenerator struct {
+	baseGen           BaseGenerator
 	num               uint32
 	idGen             cipher.Block
 	univSize, setSize int
 
-	exists []bool
+	exists       []uint8
+	existsMarker uint8
 }
 
 func NewSetGenerator(masterKey []byte, startId uint32, univSize int, setSize int) SetGenerator {
@@ -44,11 +54,20 @@ func NewSetGenerator(masterKey []byte, startId uint32, univSize int, setSize int
 	if err != nil {
 		panic(err)
 	}
-	return SetGenerator{num: startId, idGen: aes, univSize: univSize, setSize: setSize, exists: make([]bool, univSize)}
+
+	return SetGenerator{
+		baseGen:      psetggm.NewGGMSetGeneratorC(univSize, setSize),
+		num:          startId,
+		idGen:        aes,
+		univSize:     univSize,
+		setSize:      setSize,
+		exists:       make([]uint8, univSize),
+		existsMarker: 0,
+	}
 }
 
-func (gen *SetGenerator) Gen() (pset PuncturableSet) {
-	pset = gen.gen()
+func (gen *SetGenerator) Gen(pset *PuncturableSet) {
+	gen.gen(pset)
 
 	block := make([]byte, 16)
 	out := make([]byte, 16)
@@ -60,13 +79,10 @@ func (gen *SetGenerator) Gen() (pset PuncturableSet) {
 	for i := 0; i < len(pset.elems); i++ {
 		pset.elems[i] = int((uint32(pset.elems[i]) + pset.shift) % uint32(gen.univSize))
 	}
-
-	return pset
-
 }
 
 func (gen *SetGenerator) GenWith(val int) (pset PuncturableSet) {
-	pset = gen.gen()
+	gen.gen(&pset)
 
 	block := make([]byte, 16)
 	seed := make([]byte, 16)
@@ -83,9 +99,12 @@ func (gen *SetGenerator) GenWith(val int) (pset PuncturableSet) {
 	return pset
 }
 
-func (gen *SetGenerator) gen() (pset PuncturableSet) {
+func (gen *SetGenerator) gen(pset *PuncturableSet) {
 	pset.univSize = gen.univSize
 	pset.setSize = gen.setSize
+	if len(pset.elems) != pset.setSize {
+		pset.elems = make([]int, pset.setSize)
+	}
 	var block [16]byte
 
 	for {
@@ -95,16 +114,20 @@ func (gen *SetGenerator) gen() (pset PuncturableSet) {
 		gen.num++
 
 		gen.idGen.Encrypt(pset.seed[:], block[:])
-		pset.elems = Set(PSetGGMEval(gen.univSize, gen.setSize, pset.seed[:]))
+		gen.baseGen.Eval(pset.seed[:], pset.elems)
 
-		if pset.elems.distinct2(gen.exists) {
-			return pset
+		if gen.distinct2(pset.elems) {
+			return
 		}
 	}
 }
 
 func (gen *SetGenerator) Eval(key SetKey) PuncturableSet {
-	pset := PuncturableSet{SetKey: key, univSize: gen.univSize, setSize: gen.setSize}
+	pset := PuncturableSet{
+		SetKey:   key,
+		univSize: gen.univSize,
+		setSize:  gen.setSize,
+		elems:    make([]int, gen.setSize)}
 
 	var block [16]byte
 
@@ -112,7 +135,7 @@ func (gen *SetGenerator) Eval(key SetKey) PuncturableSet {
 	binary.LittleEndian.PutUint32(block[1:], key.id)
 
 	gen.idGen.Encrypt(pset.seed[:], block[:])
-	pset.elems = PSetGGMEval(gen.univSize, gen.setSize, pset.seed[:])
+	gen.baseGen.Eval(pset.seed[:], pset.elems)
 
 	for i := 0; i < len(pset.elems); i++ {
 		pset.elems[i] = int((uint32(pset.elems[i]) + key.shift) % uint32(gen.univSize))
@@ -121,7 +144,7 @@ func (gen *SetGenerator) Eval(key SetKey) PuncturableSet {
 	return pset
 }
 
-func (pset PuncturableSet) Punc(idx int) PuncturedSet {
+func (gen *SetGenerator) Punc(pset PuncturableSet, idx int) PuncturedSet {
 	for pos, elem := range pset.elems {
 		if elem == idx {
 			return PuncturedSet{
@@ -129,14 +152,16 @@ func (pset PuncturableSet) Punc(idx int) PuncturedSet {
 				SetSize:  pset.setSize - 1,
 				Hole:     pos,
 				Shift:    pset.shift,
-				Keys:     PSetGGMPunc(pset.univSize, pset.setSize, pset.seed[:], pos)}
+				Keys:     gen.baseGen.Punc(pset.seed[:], pos)}
 		}
 	}
 	panic(fmt.Sprintf("Failed to find idx: %d in pset: %v", idx, pset.elems))
 }
 
 func (pset *PuncturedSet) Eval() Set {
-	elems := PSetGGMEvalPunctured(pset.UnivSize, pset.SetSize, pset.Keys, pset.Hole)
+	baseGen := psetggm.NewGGMSetGeneratorC(pset.UnivSize, pset.SetSize+1)
+	elems := make([]int, pset.SetSize)
+	baseGen.EvalPunctured(pset.Keys, pset.Hole, elems)
 	for i := 0; i < len(elems); i++ {
 		elems[i] = int((uint32(elems[i]) + pset.Shift) % uint32(pset.UnivSize))
 	}
@@ -169,15 +194,19 @@ func (set Set) distinct() bool {
 	return true
 }
 
-func (set Set) distinct2(exist []bool) bool {
-	for i := range exist {
-		exist[i] = false
+func (gen *SetGenerator) distinct2(elems []int) bool {
+	gen.existsMarker++
+	if gen.existsMarker == 0 {
+		for i := range gen.exists {
+			gen.exists[i] = 0
+		}
+		gen.existsMarker++
 	}
-	for i := 0; i < len(set); i++ {
-		if exist[set[i]] {
+	for _, e := range elems {
+		if gen.exists[e] == gen.existsMarker {
 			return false
 		}
-		exist[set[i]] = true
+		gen.exists[e] = gen.existsMarker
 	}
 	return true
 }

@@ -95,8 +95,9 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 
 	hints := make([]Row, nHints)
 	setGen := NewSetGenerator(key, 0, s.nRows, setSize)
+	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
-		pset := setGen.Gen()
+		setGen.Gen(&pset)
 		hints[i] = make(Row, s.rowLen)
 		xorRowsFlatSlice(s.flatDb, s.rowLen, pset.elems, hints[i])
 	}
@@ -177,8 +178,9 @@ func (c *pirClientPunc) initSets() {
 	for i := range c.idxToSetIdx {
 		c.idxToSetIdx[i] = -1
 	}
+	var pset PuncturableSet
 	for i := 0; i < len(c.hints); i++ {
-		pset := c.origSetGen.Gen()
+		c.origSetGen.Gen(&pset)
 		c.sets[i] = pset.SetKey
 		for _, j := range pset.elems {
 			c.idxToSetIdx[j] = int32(i)
@@ -260,8 +262,8 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		newSet := c.setGen.GenWith(i)
 		extraL = c.randomMemberExcept(newSet, i)
 		extraR = c.randomMemberExcept(pset, i)
-		puncSetL = newSet.Punc(i)
-		puncSetR = pset.Punc(i)
+		puncSetL = c.setGen.Punc(newSet, i)
+		puncSetR = c.setGen.Punc(pset, i)
 		if ctx.setIdx >= 0 {
 			c.replaceSet(ctx.setIdx, newSet)
 		}
@@ -269,14 +271,14 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		newSet := c.setGen.GenWith(i)
 		extraL = c.randomMemberExcept(newSet, i)
 		extraR = c.randomMemberExcept(newSet, extraL)
-		puncSetL = newSet.Punc(extraR)
-		puncSetR = newSet.Punc(i)
+		puncSetL = c.setGen.Punc(newSet, extraR)
+		puncSetR = c.setGen.Punc(newSet, i)
 	case 2:
 		newSet := c.setGen.GenWith(i)
 		extraR = c.randomMemberExcept(newSet, i)
 		extraL = c.randomMemberExcept(newSet, extraR)
-		puncSetL = newSet.Punc(i)
-		puncSetR = newSet.Punc(extraL)
+		puncSetL = c.setGen.Punc(newSet, i)
+		puncSetR = c.setGen.Punc(newSet, extraL)
 	}
 
 	return []QueryReq{
@@ -312,7 +314,7 @@ func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
 func (c *pirClientPunc) dummyQuery() []QueryReq {
 	newSet := c.setGen.GenWith(0)
 	extra := c.randomMemberExcept(newSet, 0)
-	puncSet := newSet.Punc(0)
+	puncSet := c.setGen.Punc(newSet, 0)
 	q := QueryReq{PuncturedSet: puncSet, ExtraElem: extra, Index: 0}
 	return []QueryReq{q, q}
 }

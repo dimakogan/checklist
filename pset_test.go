@@ -44,7 +44,8 @@ func testGenWith(t *testing.T, gen *SetGenerator, univSize int, setSize int, wit
 }
 
 func testPunc(t *testing.T, gen SetGenerator, univSize int, setSize int) {
-	set := gen.Gen()
+	var set PuncturableSet
+	gen.Gen(&set)
 	checkSet(t, set.elems, univSize, setSize)
 
 	setHash := make(map[int]bool)
@@ -53,7 +54,7 @@ func testPunc(t *testing.T, gen SetGenerator, univSize int, setSize int) {
 	}
 
 	for _, hole := range set.elems {
-		pset := set.Punc(hole)
+		pset := gen.Punc(set, hole)
 		elems := pset.Eval()
 		assert.Equal(t, len(elems), setSize-1)
 
@@ -82,7 +83,7 @@ func testGenWithPunc(t *testing.T, gen *SetGenerator, univSize int, setSize int,
 		setHash[elem] = true
 	}
 
-	pset := set.Punc(with)
+	pset := gen.Punc(set, with)
 	assert.Equal(t, pset.SetSize, setSize-1)
 
 	inSet = false
@@ -113,11 +114,13 @@ func TestPuncSetGen(t *testing.T) {
 		{1 << 16, 10},
 	}
 
+	var set PuncturableSet
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v %v", test.UnivSize, test.setSize),
 			func(t *testing.T) {
 				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
-				checkSet(t, gen.Gen().elems, test.UnivSize, test.setSize)
+				gen.Gen(&set)
+				checkSet(t, set.elems, test.UnivSize, test.setSize)
 			})
 	}
 }
@@ -196,7 +199,7 @@ func BenchmarkPuncSetGen(b *testing.B) {
 		gen := NewGGMSetGenerator(RandSource())
 		b.Run(config.String(), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				gen.SetGen(univSize, setSize)
+				gen.SetGenAndEval(univSize, setSize)
 			}
 		})
 	}
@@ -208,9 +211,10 @@ func BenchmarkGGMEvalC(b *testing.B) {
 		setSize := int(math.Sqrt(float64(univSize)))
 
 		gen := NewSetGenerator(MasterKey(), 0, univSize, setSize)
+		var set PuncturableSet
 		b.Run(config.String(), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				gen.Gen()
+				gen.Gen(&set)
 			}
 		})
 	}

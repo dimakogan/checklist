@@ -2,6 +2,8 @@
 #include "pset_ggm.h"
 #include <vector>
 
+extern "C" {
+
 int get_height(unsigned int v) {
     unsigned int r = 0; // r will be lg(v)
     --v;
@@ -15,28 +17,26 @@ int get_height(unsigned int v) {
 
 typedef struct generator {
     unsigned int univ_size, set_size;
-    std::vector<uint32_t> keys, tmp;
+    __m128i *keys, *tmp;
 } generator;
 
+unsigned int workspace_size(unsigned int univ_size, unsigned int set_size) {
+    uint32_t height = get_height(set_size); 
+    return sizeof(generator) + 2*(1<<height)*sizeof(__m128i)+32;
+}
 
-generator* init_generator(unsigned int univ_size, unsigned int set_size) {
-    generator* gen = new(generator);
+generator* pset_ggm_init(unsigned int univ_size, unsigned int set_size, uint8_t* workspace) {
+    auto gen = (generator*)workspace;
     gen->univ_size = univ_size;
     gen->set_size = set_size;
+    gen->keys = (__m128i*)(workspace + sizeof(generator));
+    // align pointer
+    gen->keys = (__m128i*)((((size_t)gen->keys-1)/16+1)*16);
 
     uint32_t height = get_height(set_size); 
-    gen->keys.resize(1<<height);
-    gen->tmp.resize(1<<height);
+    gen->tmp = gen->keys + (1<<height);
 
     return gen;
-}
-
-void free_generator(generator* gen) {
-    delete(gen);
-}
-
-void free_pset(uint8_t* pset) {
-    free(pset);
 }
 
 const __m128i one = _mm_setr_epi32(0, 0, 0, 1);
@@ -51,53 +51,13 @@ void expand(const __m128i& in, __m128i* out) {
 }
 
 
-
-void tree_eval_all(unsigned int	univ_size, unsigned int set_size, __m128i seed, uint32_t* out) {
-    uint32_t key_pos = 0;
-    uint32_t max_height = get_height(set_size); 
-    uint32_t height = max_height;
-    std::vector<__m128i> path_key(2*(max_height+1));
-    path_key[0] = seed;
-    uint32_t node = 0;
-    while (true) {
-        if (height == 0) {
-            out[node] = *(uint32_t*)(&path_key[key_pos]) % univ_size;
-            bool is_right = true;
-            // while 'is right child', go up
-            while (node&1 == 1) {
-                ++height;
-                key_pos -= 1;
-                node >>= 1;
-            }
-            if (height >= max_height) {
-                return;
-            }
-            // move to right sibling
-            node += 1;
-            key_pos -= 1;
-
-            if ((node << height) >=  set_size) {
-                return;
-            }
-
-            continue;
-        }
-        expand(path_key[key_pos], &path_key[key_pos+1]);
-        node <<= 1;
-        --height;
-        // first go to left child
-        key_pos += 2;
-    }
-}
-
-void tree_eval_all2(generator* gen, __m128i seed, uint32_t* out) {
+void tree_eval_all2(generator* gen, __m128i seed, long long unsigned int* elems) {
     uint32_t max_depth = get_height(gen->set_size); 
-    uint32_t num_layers = max_depth - 2;
+    int num_layers = max_depth - 2;
 
     
-    __m128i* keys = (__m128i*)gen->keys.data();
-    // Out needs to be twice as large as output to be used as workspace.
-    __m128i* tmp =  (__m128i*)gen->tmp.data();
+    __m128i* keys = gen->keys;
+    __m128i* tmp =  gen->tmp;
 
 
     _mm_store_si128(keys, seed);
@@ -116,30 +76,34 @@ void tree_eval_all2(generator* gen, __m128i seed, uint32_t* out) {
         }
     }
 
+    const uint32_t* keys_as_elems = (uint32_t*)gen->keys;
     for (int i = 0; i < gen->set_size; i++) {
         //https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
-        out[i] = gen->keys[i] % gen->univ_size; // ((uint64_t) gen->keys[i] * (uint64_t) gen->univ_size) >> 32; //out[i] % univ_size;
+        elems[i] =  ((uint64_t)keys_as_elems[i] * (uint64_t) gen->univ_size) >> 32; //gen->keys[i] % gen->univ_size; //
     }
 }
 
-
-extern "C" {
-
-void pset_ggm_eval(generator* gen, const uint8_t* seed, uint32_t* out) {
-    tree_eval_all2(gen, toBlock(seed), out);
+void pset_ggm_eval(generator* gen, const uint8_t* seed, long long unsigned* elems) {
+    tree_eval_all2(gen, toBlock(seed), elems);
 }
 
-uint8_t* pset_ggm_punc(generator* gen, const uint8_t* seed, unsigned int pos, unsigned int* out_size) {
+unsigned int pset_buffer_size(const generator* gen) {
     uint32_t height = get_height(gen->set_size); 
+    if (height < 2) {
+        return sizeof(__m128i);
+    }
+    return sizeof(__m128i)*(height-1);
+}
 
-    *out_size = 16*(height-1);
-    __m128i* pset = (__m128i*)malloc(16*(height-1));
+void pset_ggm_punc(generator* gen, const uint8_t* seed, unsigned int pos, uint8_t* pset) {
+    __m128i* pset_keys = (__m128i*)pset;
 
-    __m128i* keys = (__m128i*)gen->keys.data();
-    __m128i* tmp = (__m128i*)gen->tmp.data();
+    __m128i* keys = (__m128i*)gen->keys;
+    __m128i* tmp = (__m128i*)gen->tmp;
     __m128i key = toBlock(seed);
 
     int depth = 0;
+    uint32_t height = get_height(gen->set_size); 
 
     while (height > 2) {
         _mm_store_si128(tmp, key);
@@ -151,17 +115,17 @@ uint8_t* pset_ggm_punc(generator* gen, const uint8_t* seed, unsigned int pos, un
         keys[0] = _mm_xor_si128(keys[0], key);
 
         if ((pos & (1<<(height-1))) != 0) {
-            pset[depth] = keys[0];
+            pset_keys[depth] = keys[0];
             key = keys[1];
         } else {
-            pset[depth] = keys[1];
+            pset_keys[depth] = keys[1];
             key = keys[0];
         }
         depth++;
         height--;
     }
-    pset[depth] = key;
-    uint32_t* last_key = (uint32_t*)&pset[depth];
+    pset_keys[depth] = key;
+    uint32_t* last_key = (uint32_t*)&pset_keys[depth];
     switch (pos & 0b11) {
         case 0:
             last_key[0] = 0;
@@ -176,16 +140,13 @@ uint8_t* pset_ggm_punc(generator* gen, const uint8_t* seed, unsigned int pos, un
             last_key[3] = 0;
             break;
     }
-    
-    return (uint8_t*)pset;
 }
 
-void pset_ggm_eval_punc(generator* gen, const uint8_t* pset, unsigned int pos, uint32_t* out) {
+void pset_ggm_eval_punc(generator* gen, const uint8_t* pset, unsigned int pos, long long unsigned int* elems) {
     uint32_t height = get_height(gen->set_size); 
 
-    __m128i* keys = (__m128i*)gen->keys.data();
-    // Out needs to be twice as large as output to be used as workspace.
-    __m128i* tmp =  (__m128i*)gen->tmp.data();
+    __m128i* keys = gen->keys;
+    __m128i* tmp =  gen->tmp;
 
     const __m128i* pset_keys = (const __m128i*)pset;
     
@@ -210,12 +171,13 @@ void pset_ggm_eval_punc(generator* gen, const uint8_t* pset, unsigned int pos, u
     keys[(pos >> height)] = pset_keys[depth];
     
     size_t out_pos = 0;
+    uint32_t* keys_as_elems = (uint32_t*)keys;
     for (int i = 0; i < gen->set_size; i++) {
-        // if (i == pos) {
-        //     continue;
-        // }
+        if (i == pos) {
+            continue;
+        }
         //https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
-        out[out_pos] = gen->keys[i] % gen->univ_size; //((uint64_t) gen->keys[i] * (uint64_t) gen->univ_size) >> 32; 
+        elems[out_pos] = ((uint64_t)keys_as_elems[i] * (uint64_t) gen->univ_size) >> 32; 
         out_pos++;
     }  
 }

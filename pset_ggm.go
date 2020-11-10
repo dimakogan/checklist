@@ -53,9 +53,7 @@ func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (ggmSet, Set)
 			prg: g.prg,
 		}
 
-		if set := pset.Eval(); set.distinct2(g.exist) {
-			return pset, set
-		}
+		return pset, pset.Eval()
 	}
 }
 

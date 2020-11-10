@@ -30,6 +30,6 @@ compare/fig/__pycache__/
 /stress
 /*.exe
 *.prof
-/prfggm-cpp/main
 *.o
 *.a
+/psetggm/tests/main.exe
