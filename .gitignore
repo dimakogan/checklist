@@ -32,6 +32,7 @@ compare/fig/__pycache__/
 *.prof
 *.o
 *.a
-/psetggm/tests/main.exe
-/psetggm/tests/distinct
+*.exe
+/psetggm/tests/test_pset
+/psetggm/tests/test_distinct
 /psetggm/tests/test_xor

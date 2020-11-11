@@ -3,21 +3,22 @@ SRC_DIR := ..
 LIB := libpsetggm.a
 HEADERS := $(addprefix $(SRC_DIR)/, pset_ggm.h)
 SRC := $(addprefix $(SRC_DIR)/, pset_ggm.cpp Defines.cpp AES.cpp xor.cpp)
+TESTS := test_pset test_distinct test_xor
 
 OBJ := $(addsuffix .o,$(basename $(SRC)))
 
-FLAGS := -msse2 -msse -march=native -maes -Ofast
+FLAGS := -msse2 -msse -march=native -maes -Ofast -I..
 
-all: $(LIB) main
+all: $(LIB) $(TESTS)
 
-main: $(HEADERS) $(SRC) main.cpp
-	g++ $(FLAGS) -I.. -o main main.cpp $(SRC)
+test_pset: test_pset.cpp $(LIB)
+	g++ $(FLAGS) -o $@ $^
 
-distinct: $(HEADERS) $(SRC) distinct.cpp
-	g++ $(FLAGS) -I.. -o distinct distinct.cpp $(SRC)
+test_distinct: test_distinct.cpp $(LIB)
+	g++ $(FLAGS) -o $@ $^
 
-test_xor: $(HEADERS) $(SRC) test_xor.cpp
-	g++ $(FLAGS) -I.. -o test_xor test_xor.cpp $(SRC)
+test_xor: test_xor.cpp $(LIB)
+	g++ $(FLAGS) -o $@ $^
 
 
 %.o: %.cpp $(HEADERS)
@@ -28,4 +29,4 @@ $(LIB): $(OBJ)
 	ar rcs $@ $(OBJ)
 
 clean: 
-	rm main $(LIB)
+	rm -f main $(LIB) $(TESTS)
