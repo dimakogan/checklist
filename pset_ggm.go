@@ -10,7 +10,7 @@ import (
 )
 
 type ggmSet struct {
-	key      []byte
+	key      [16]byte
 	setSize  int
 	univSize int
 	height   int
@@ -20,27 +20,32 @@ type ggmSet struct {
 type ggmSetGenerator struct {
 	keyGen io.Reader
 	prg    cipher.Block
+
+	exist []bool
 }
 
-func NewGGMSetGenerator(randReader io.Reader) SetGenerator {
+func NewGGMSetGenerator(randReader io.Reader) ggmSetGenerator {
 	prg, err := aes.NewCipher(zeroBlock)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create AES cipher: %s", err))
 	}
 
-	return &ggmSetGenerator{prg: prg, keyGen: randReader}
+	return ggmSetGenerator{prg: prg, keyGen: randReader}
 }
 
-func (g *ggmSetGenerator) SetGen(univSize int, setSize int) PuncturableSet {
+func (g *ggmSetGenerator) SetGen(univSize int, setSize int) ggmSet {
 	pset, _ := g.SetGenAndEval(univSize, setSize)
 	return pset
 }
 
-func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableSet, Set) {
-	key := make([]byte, 16)
+func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (ggmSet, Set) {
+	var key [16]byte
+	if len(g.exist) != univSize {
+		g.exist = make([]bool, univSize)
+	}
 	height := int(math.Ceil(math.Log2(float64(setSize))))
 	for {
-		if _, err := io.ReadFull(g.keyGen, key); err != nil {
+		if _, err := io.ReadFull(g.keyGen, key[:]); err != nil {
 			panic(err)
 		}
 
@@ -48,9 +53,7 @@ func (g *ggmSetGenerator) SetGenAndEval(univSize int, setSize int) (PuncturableS
 			prg: g.prg,
 		}
 
-		if set := pset.Eval(); set.distinct() {
-			return &pset, set
-		}
+		return pset, pset.Eval()
 	}
 }
 
@@ -61,7 +64,7 @@ func (set *ggmSet) Eval() Set {
 
 func (set *ggmSet) Eval_prealloc(elems Set) Set {
 	preallocKey := make([]byte, 16*(set.height+1))
-	copy(preallocKey[0:16], set.key)
+	copy(preallocKey[0:16], set.key[:])
 	treeEvalAll(set.prg, preallocKey, set.height, set.univSize, elems)
 	return elems[0:set.setSize]
 }
@@ -84,7 +87,7 @@ func (set *ggmSet) findPos(idx int) int {
 }
 
 func (set *ggmSet) ElemAt(pos int) int {
-	return treeEval(set.prg, set.key, set.height, set.univSize, pos)
+	return treeEval(set.prg, set.key[:], set.height, set.univSize, pos)
 }
 
 func treeEval(prg cipher.Block, key []byte, height int, univSize int, pos int) int {
@@ -159,13 +162,13 @@ func treeEvalAll(prg cipher.Block, pathKey []byte, height int, univSize int, out
 	// treeEvalAll(prg, remainingKey, height-1, univSize, out[1<<(height-1):])
 }
 
-func (set *ggmSet) Punc(idx int) SuccinctSet {
+func (set *ggmSet) Punc(idx int) *puncturedGGMSet {
 	hole := set.findPos(idx)
 	if hole < 0 {
 		panic(fmt.Sprintf("Puncturing at non-existing element: %d", idx))
 	}
 	keys := make([][]byte, 0)
-	key := set.key
+	key := set.key[:]
 	pos := hole
 	for height := set.height; height > 0; height-- {
 		pathKey := make([]byte, 16)

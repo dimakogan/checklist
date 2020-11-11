@@ -30,3 +30,9 @@ compare/fig/__pycache__/
 /stress
 /*.exe
 *.prof
+*.o
+*.a
+*.exe
+/psetggm/tests/test_pset
+/psetggm/tests/test_distinct
+/psetggm/tests/test_xor

@@ -65,3 +65,21 @@ func SerializedSizeOf(e interface{}) (int, error) {
 	}
 	return buf.Len(), nil
 }
+
+// Disgusting hack since testing.Benchmark hides all logs and failures
+type errorPrinter struct {
+}
+
+func (ep errorPrinter) Log(args ...interface{}) {
+	fmt.Println(args...)
+}
+
+func (ep errorPrinter) FailNow() {
+	panic("Assertion failed")
+}
+
+func (ep errorPrinter) Fail() {
+	panic("Assertion failed")
+}
+
+var ep errorPrinter

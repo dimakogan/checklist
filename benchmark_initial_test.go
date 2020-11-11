@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"testing"
 	"time"
@@ -15,26 +16,22 @@ import (
 	"gotest.tools/assert"
 )
 
-// Disgusting hack since testing.Benchmark hides all logs and failures
-type errorPrinter struct {
-}
-
-func (ep errorPrinter) Log(args ...interface{}) {
-	fmt.Println(args...)
-}
-
-func (ep errorPrinter) FailNow() {
-	panic("Assertion failed")
-}
-
-func (ep errorPrinter) Fail() {
-	panic("Assertion failed")
-}
-
-var ep errorPrinter
+var cpuprof = flag.String("cpuprof", "", "write cpu profile to `file`")
 
 func TestMain(m *testing.M) {
 	flag.Parse()
+	if *cpuprof != "" {
+		f, err := os.Create(*cpuprof)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
 	fmt.Printf("%10s%22s%22s%15s%15s%22s%22s%15s\n",
 		"numRows", "OfflineServerTime[us]", "OfflineClientTime[us]", "OfflineBytes", "ClientBytes",

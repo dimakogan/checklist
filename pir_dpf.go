@@ -60,6 +60,11 @@ func (s *pirDPFServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
+func (s *pirDPFServer) NumRows(none int, out *int) error {
+	*out = s.numRows
+	return nil
+}
+
 func (s *pirDPFServer) GetRow(idx int, row *RowIndexVal) error {
 	if idx < 0 || idx >= s.numRows {
 		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)

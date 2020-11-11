@@ -1,0 +1,32 @@
+
+SRC_DIR := ..
+LIB := libpsetggm.a
+HEADERS := $(addprefix $(SRC_DIR)/, pset_ggm.h)
+SRC := $(addprefix $(SRC_DIR)/, pset_ggm.cpp Defines.cpp AES.cpp xor.cpp)
+TESTS := test_pset test_distinct test_xor
+
+OBJ := $(addsuffix .o,$(basename $(SRC)))
+
+FLAGS := -msse2 -msse -march=native -maes -Ofast -I..
+
+all: $(LIB) $(TESTS)
+
+test_pset: test_pset.cpp $(LIB)
+	g++ $(FLAGS) -o $@ $^
+
+test_distinct: test_distinct.cpp $(LIB)
+	g++ $(FLAGS) -o $@ $^
+
+test_xor: test_xor.cpp $(LIB)
+	g++ $(FLAGS) -o $@ $^
+
+
+%.o: %.cpp $(HEADERS)
+	g++ $(FLAGS) -c $< -o $@
+
+$(LIB): $(OBJ)
+	echo $(FLAGS)
+	ar rcs $@ $(OBJ)
+
+clean: 
+	rm -f main $(LIB) $(TESTS)

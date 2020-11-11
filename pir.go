@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/dimakogan/boosted-pir/psetggm"
 	"github.com/dimakogan/dpf-go/dpf"
 )
 
@@ -60,7 +61,7 @@ type HintResp struct {
 
 //QueryReq is a PIR query from a client to a server.
 type QueryReq struct {
-	PuncturedSet SuccinctSet
+	PuncturedSet PuncturedSet
 	ExtraElem    int
 
 	// For PirMatrix
@@ -106,6 +107,7 @@ type PirServer interface {
 
 	// For testing
 	GetRow(idx int, row *RowIndexVal) error
+	NumRows(none int, out *int) error
 }
 
 type PirClient interface {
@@ -133,8 +135,6 @@ func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer
 		return NewPirServerMatrix(db)
 	case Punc:
 		return NewPirServerPunc(randSrc, db)
-	case Perm:
-		return NewPirPermServer(db)
 	case DPF:
 		return NewPIRDPFServer(db)
 	}
@@ -147,8 +147,6 @@ func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
 		return NewPirClientMatrix(randSrc)
 	case Punc:
 		return NewPirClientPunc(randSrc)
-	case Perm:
-		return NewPirPermClient(randSrc)
 	case DPF:
 		return NewPIRDPFClient(randSrc)
 	}
@@ -205,14 +203,8 @@ func flattenDb(data []Row) []byte {
 	return flatDb
 }
 
-func xorRowsFlatSlice(flatDb []byte, rowLen int, rows Set, out []byte) {
-	nRows := len(flatDb) / rowLen
-	for _, row := range rows {
-		if row >= nRows {
-			continue
-		}
-		xorInto(out, flatDb[rowLen*row:rowLen*(row+1)])
-	}
+func xorRowsFlatSlice(flatDb []byte, rowLen int, indices Set, out []byte) {
+	psetggm.XorRows(flatDb, rowLen, len(flatDb)/rowLen, indices, out)
 }
 
 func numRowsToUnivSizeBits(nRows int) int {
