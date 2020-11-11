@@ -53,23 +53,8 @@ func xorInto(a []byte, b []byte) {
 	// }
 }
 
-func (s *pirServerPunc) xorRowsFlatSlice(out []byte, rows Set) int {
-	bytes := 0
-	//	setS := setToSlice(set)
-	for _, row := range rows {
-		if row >= s.nRows {
-			continue
-		}
-		end := s.rowLen*row + len(out)
-		if end > len(s.flatDb) {
-			end = len(s.flatDb)
-		}
-		effLen := end - s.rowLen*row
-		//fmt.Printf("start: %d, end: %d, effLen: %d, len(s.flatDb): %d", s.rowLen*row, end, effLen, len(s.flatDb))
-		xorInto(out[0:effLen], s.flatDb[s.rowLen*row:end])
-		bytes += effLen
-	}
-	return bytes
+func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
+	xorRowsFlatSlice(s.flatDb, s.rowLen, indices, out)
 }
 
 func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
@@ -94,12 +79,13 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	hints := make([]Row, nHints)
+	hintBuf := make([]byte, s.rowLen*nHints)
 	setGen := NewSetGenerator(key, 0, s.nRows, setSize)
 	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
 		setGen.Gen(&pset)
-		hints[i] = make(Row, s.rowLen)
-		xorRowsFlatSlice(s.flatDb, s.rowLen, pset.elems, hints[i])
+		hints[i] = Row(hintBuf[s.rowLen*i : s.rowLen*(i+1)])
+		s.xorRowsFlatSlice(hints[i], pset.elems)
 	}
 	resp.Hints = hints
 	resp.NumRows = s.nRows

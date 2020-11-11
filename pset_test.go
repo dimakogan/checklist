@@ -220,6 +220,23 @@ func BenchmarkGGMEvalC(b *testing.B) {
 	}
 }
 
+func BenchmarkDistinct(b *testing.B) {
+	for _, config := range testConfigs() {
+		univSize := config.NumRows
+		setSize := int(math.Sqrt(float64(univSize)))
+
+		gen := NewSetGenerator(MasterKey(), 0, univSize, setSize)
+		var set PuncturableSet
+		gen.gen(&set)
+		b.Run(config.String(), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				gen.distinct2(set.elems)
+			}
+		})
+	}
+
+}
+
 // func TestGGMEvalVsC(t *testing.T) {
 // 	univSize := config.NumRows
 // 	setSize := 10

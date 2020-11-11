@@ -33,3 +33,5 @@ compare/fig/__pycache__/
 *.o
 *.a
 /psetggm/tests/main.exe
+/psetggm/tests/distinct
+/psetggm/tests/test_xor

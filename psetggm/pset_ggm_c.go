@@ -3,6 +3,7 @@ package psetggm
 /*
 #cgo CXXFLAGS: -msse2 -msse -march=native -maes -Ofast
 #include "pset_ggm.h"
+#include "xor.h"
 */
 import "C"
 import (
@@ -36,4 +37,8 @@ func (gen *GGMSetGeneratorC) Punc(seed []byte, pos int) []byte {
 
 func (gen *GGMSetGeneratorC) EvalPunctured(pset []byte, hole int, elems []int) {
 	C.pset_ggm_eval_punc(gen.cgen, (*C.uchar)(&pset[0]), C.uint(hole), (*C.ulonglong)(unsafe.Pointer(&elems[0])))
+}
+
+func XorRows(db []byte, rowLen int, numRows int, elems []int, out []byte) {
+	C.xor_rows((*C.uchar)(&db[0]), C.uint(rowLen), C.uint(numRows), (*C.ulonglong)(unsafe.Pointer(&elems[0])), C.uint(len(elems)), (*C.uchar)(&out[0]))
 }

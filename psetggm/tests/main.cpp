@@ -46,27 +46,6 @@ int main(int argc, char** argv) {
     // std::cout<< std::endl;
 
     
-    std::vector<uint32_t> present(univ_size);
-    bool distinct = true;
-
-    uint32_t present_mark = 0;
-    start = high_resolution_clock::now(); 
-    for (int j=0; j < 1000; ++j) {
-        present_mark++;
-        for (int i =0; i < set_size; ++i) {
-            uint32_t elem = out[i];
-            uint32_t* ptr = &present[elem];
-            if (*ptr == present_mark) {
-                distinct = false;
-            } else {
-                *ptr = present_mark;
-            }
-        }
-    }
-    stop = high_resolution_clock::now(); 
-    std::cout  << "Distinct: " << distinct << ", time: "<<  duration_cast<microseconds>(stop - start).count()/1000 << std::endl;
-
-
     unsigned int pset_size = pset_buffer_size(gen);
     std::vector<uint8_t> pset(pset_size);
 

@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/dimakogan/boosted-pir/psetggm"
 	"github.com/dimakogan/dpf-go/dpf"
 )
 
@@ -202,14 +203,8 @@ func flattenDb(data []Row) []byte {
 	return flatDb
 }
 
-func xorRowsFlatSlice(flatDb []byte, rowLen int, rows Set, out []byte) {
-	nRows := len(flatDb) / rowLen
-	for _, row := range rows {
-		if row >= nRows {
-			continue
-		}
-		xorInto(out, flatDb[rowLen*row:rowLen*(row+1)])
-	}
+func xorRowsFlatSlice(flatDb []byte, rowLen int, indices Set, out []byte) {
+	psetggm.XorRows(flatDb, rowLen, len(flatDb)/rowLen, indices, out)
 }
 
 func numRowsToUnivSizeBits(nRows int) int {

@@ -34,10 +34,13 @@ func TestPunc(t *testing.T) {
 	driver, err := ServerDriver()
 	assert.NilError(t, err)
 
+	presetRow := make(Row, 32)
+	RandSource().Read(presetRow)
+
 	assert.NilError(t, driver.Configure(TestConfig{
-		NumRows:    10000,
-		RowLen:     4,
-		PresetRows: []RowIndexVal{{7, 0x7, Row{'C', 'o', 'o', 'l'}}},
+		NumRows:    100000,
+		RowLen:     32,
+		PresetRows: []RowIndexVal{{7, 0x7, presetRow}},
 		PirType:    Punc,
 		Updatable:  false,
 	}, nil))
@@ -57,7 +60,7 @@ func TestPunc(t *testing.T) {
 	// }
 	val, err := client.Read(0x7)
 	assert.NilError(t, err)
-	assert.DeepEqual(t, val, Row("Cool"))
+	assert.DeepEqual(t, val, presetRow)
 }
 
 func TestMatrix(t *testing.T) {
