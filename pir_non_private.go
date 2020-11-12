@@ -46,8 +46,12 @@ func (s *pirServerNonPrivate) NumRows(none int, out *int) error {
 }
 
 func (s *pirServerNonPrivate) GetRow(idx int, row *RowIndexVal) error {
-	if idx < 0 || idx >= s.numRows {
+	if idx < -1 || idx >= s.numRows {
 		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)
+	}
+	if idx == -1 {
+		// return random row
+		idx = RandSource().Int() % s.numRows
 	}
 	row.Value = s.db[idx]
 	row.Index = idx

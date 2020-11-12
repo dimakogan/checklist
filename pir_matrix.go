@@ -97,6 +97,10 @@ func (s *pirMatrix) GetRow(idx int, row *RowIndexVal) error {
 	if idx < 0 || idx >= s.numRows {
 		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)
 	}
+	if idx == -1 {
+		// return random row
+		idx = RandSource().Int() % s.numRows
+	}
 	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
 	row.Index = idx
 	row.Key = uint32(idx)

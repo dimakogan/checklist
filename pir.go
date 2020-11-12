@@ -31,19 +31,11 @@ type HintReq struct {
 	RandSeed int64
 
 	// For PirUpdatable
-	LatestKeyTimestamp int
-}
-
-type TimedRow struct {
-	Timestamp        int
-	Key              uint32
-	Delete           bool
-	DeletedTimestamp int
-	data             Row
+	LatestKeyTimestamp int32
 }
 
 type KeyUpdates struct {
-	InitialTimestamp int
+	InitialTimestamp int32
 	Keys             []uint32
 	//Bit vector
 	IsDeletion []byte
@@ -60,7 +52,7 @@ type HintResp struct {
 	IsMatrix  bool
 
 	// For updatable PIR
-	EndTimestamp        int
+	EndTimestamp        int32
 	KeyUpdates          KeyUpdates
 	ShouldDeleteHistory bool
 
@@ -82,7 +74,7 @@ type QueryReq struct {
 	DPFkey dpf.DPFkey
 
 	// For PirUpdatable
-	LatestKeyTimestamp int
+	LatestKeyTimestamp int32
 
 	// Debug & testing.
 	Index int

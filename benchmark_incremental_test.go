@@ -17,15 +17,15 @@ import (
 	"gotest.tools/assert"
 )
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
+var cpuprof = flag.String("cpuprof", "", "write cpu profile to `file`")
 
 func TestMain(m *testing.M) {
 	var numBatches int
 	flag.IntVar(&numBatches, "numBatches", 0, "number of update batches (default: ~sqrt(numRows))")
 
 	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
+	if *cpuprof != "" {
+		f, err := os.Create(*cpuprof)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}

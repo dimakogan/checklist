@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
 )
 
 type serverLayer struct {
@@ -18,9 +17,18 @@ type serverLayer struct {
 	pirType PirType
 }
 
+type timedRow struct {
+	Key              uint32
+	Delete           bool
+	DeletedTimestamp int32
+	data             Row
+}
+
 type pirServerUpdatable struct {
-	timedRows []TimedRow
-	keyToPos  map[uint32]int
+	initialTimestamp int32
+	defragTimestamp  int32
+	timedRows        []timedRow
+	keyToPos         map[uint32]uint32
 
 	layers   []serverLayer
 	maxSizes []int
@@ -28,8 +36,7 @@ type pirServerUpdatable struct {
 
 	randSource *rand.Rand
 
-	curTimestamp    int
-	defragTimestamp int
+	curTimestamp int32
 
 	defragRatio int
 }
@@ -53,7 +60,7 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	return maxSize
 }
 
-func rowsToRawDb(rows []TimedRow) []Row {
+func rowsToRawDb(rows []timedRow) []Row {
 	db := make([]Row, 0, len(rows))
 	for _, timedRow := range rows {
 		if timedRow.Delete || timedRow.DeletedTimestamp > 0 {
@@ -64,21 +71,22 @@ func rowsToRawDb(rows []TimedRow) []Row {
 	return db
 }
 
-func (s *pirServerUpdatable) processUpdates(timedRows []TimedRow) {
+func (s *pirServerUpdatable) processUpdates(timedRows []timedRow) {
 	prevLen := len(s.timedRows)
+	timestamp := s.initialTimestamp + int32(len(s.timedRows))
 	s.timedRows = append(s.timedRows, timedRows...)
 	for i, row := range timedRows {
 		if pos, ok := s.keyToPos[row.Key]; ok {
-			s.timedRows[pos].DeletedTimestamp = row.Timestamp
+			s.timedRows[pos].DeletedTimestamp = timestamp + int32(i)
 			delete(s.keyToPos, row.Key)
 		}
 		if !row.Delete {
-			s.keyToPos[row.Key] = prevLen + i
+			s.keyToPos[row.Key] = uint32(prevLen + i)
 		}
 	}
 }
 
-func processDeletes(timedRows []TimedRow) (adds, deletes []TimedRow) {
+func processDeletes(timedRows []timedRow) (adds, deletes []timedRow) {
 	isDeleted := make([]bool, len(timedRows))
 	keyToPos := make(map[uint32]int, len(timedRows))
 	for i, row := range timedRows {
@@ -106,7 +114,7 @@ func processDeletes(timedRows []TimedRow) (adds, deletes []TimedRow) {
 			length++
 		}
 	}
-	processedRows := make([]TimedRow, 0, length)
+	processedRows := make([]timedRow, 0, length)
 	for i, row := range timedRows {
 		if !isDeleted[i] {
 			processedRows = append(processedRows, row)
@@ -142,14 +150,9 @@ func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatab
 		curTimestamp: 0,
 		defragRatio:  4,
 		pirType:      pirType,
-		keyToPos:     make(map[uint32]int),
+		keyToPos:     make(map[uint32]uint32),
 	}
 	return &s
-}
-
-func (s *pirServerUpdatable) tick() int {
-	s.curTimestamp++
-	return s.curTimestamp
 }
 
 func (s *pirServerUpdatable) NumRows(none int, out *int) error {
@@ -163,20 +166,34 @@ func (s *pirServerUpdatable) NumRows(none int, out *int) error {
 	return nil
 }
 
-func (s *pirServerUpdatable) GetRow(idx int, row *RowIndexVal) error {
-	keys, rows := s.elements(idx, idx+1)
-	if keys == nil {
-		return fmt.Errorf("Index %d out of bounds", idx)
-	}
-	if len(keys) != 1 || len(rows) != 1 {
-		panic(fmt.Sprintf("Invalid returned slice length: %d, %d", len(keys), len(rows)))
+func (s *pirServerUpdatable) GetRow(idx int, out *RowIndexVal) error {
+	if idx == -1 {
+		// return random row
+		for {
+			key := s.timedRows[RandSource().Int()%len(s.timedRows)].Key
+			if pos, ok := s.keyToPos[key]; ok {
+				out.Key = key
+				out.Value = s.timedRows[pos].data
+				return nil
+			}
+		}
 	}
 
-	row.Key = keys[0]
-	row.Value = rows[0]
-	row.Index = idx
+	pos := 0
+	for _, row := range s.timedRows {
+		if row.Delete || row.DeletedTimestamp > 0 {
+			continue
+		}
 
-	return nil
+		if pos == idx {
+			out.Key = row.Key
+			out.Value = row.data
+			out.Index = idx
+			return nil
+		}
+		pos++
+	}
+	return fmt.Errorf("Index %d out of bounds", idx)
 }
 
 func (s *pirServerUpdatable) elements(start, end int) (keys []uint32, rows []Row) {
@@ -220,23 +237,23 @@ func (s *pirServerUpdatable) SomeKeys(num int) []uint32 {
 }
 
 func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
-	timedRows := make([]TimedRow, len(keys))
+	timedRows := make([]timedRow, len(keys))
 	for i := range keys {
-		timedRows[i] = TimedRow{Timestamp: s.tick(), Key: keys[i], data: rows[i]}
+		timedRows[i] = timedRow{Key: keys[i], data: rows[i]}
 	}
 
 	s.updateLayers(timedRows)
 }
 
 func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
-	timedRows := make([]TimedRow, len(keys))
+	timedRows := make([]timedRow, len(keys))
 	for i := range keys {
-		timedRows[i] = TimedRow{Timestamp: s.tick(), Key: keys[i], Delete: true}
+		timedRows[i] = timedRow{Key: keys[i], Delete: true}
 	}
 	s.updateLayers(timedRows)
 }
 
-func (s *pirServerUpdatable) updateLayers(timedRows []TimedRow) {
+func (s *pirServerUpdatable) updateLayers(timedRows []timedRow) {
 	s.processUpdates(timedRows)
 	numNewRows := len(timedRows)
 	var i int
@@ -278,20 +295,21 @@ func (s *pirServerUpdatable) defrag(numRowsToFree int) {
 	endDefrag := 0
 	for i, row := range s.timedRows {
 		if !row.Delete && row.DeletedTimestamp <= 0 {
-			s.keyToPos[row.Key] -= freed
+			s.keyToPos[row.Key] -= uint32(freed)
 		} else if freed < numRowsToFree {
 			freed++
 			endDefrag = i
 		}
 	}
-	s.defragTimestamp = s.timedRows[endDefrag].Timestamp
+	s.defragTimestamp = s.initialTimestamp + int32(endDefrag)
+	s.initialTimestamp += int32(freed)
+
 	// Push forward all defragged rows
 	pos := endDefrag
 	newTs := s.defragTimestamp
 	for i := endDefrag; i >= 0; i-- {
 		if !s.timedRows[i].Delete && s.timedRows[i].DeletedTimestamp <= 0 {
 			s.timedRows[pos] = s.timedRows[i]
-			s.timedRows[pos].Timestamp = newTs
 			newTs--
 			pos--
 		}
@@ -317,25 +335,25 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	layerEnd := 0
 	for l, layer := range s.layers {
 		layerEnd += layer.numTimedRows
-		if layer.pir != nil && s.timedRows[layerEnd-1].Timestamp > req.LatestKeyTimestamp {
+		if layer.pir != nil && (s.initialTimestamp+int32(layerEnd)-1) > req.LatestKeyTimestamp {
 			layer.pir.Hint(
 				HintReq{RandSeed: int64(clientSrc.Uint64())},
 				&resp.BatchResps[l])
 			resp.BatchResps[l].PirType = layer.pirType
 		}
-		resp.BatchResps[l].EndTimestamp = s.timedRows[layerEnd-1].Timestamp
+		resp.BatchResps[l].EndTimestamp = s.initialTimestamp + int32(layerEnd)
 	}
 
 	return nil
 }
 
-func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int) KeyUpdates {
+func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int32) KeyUpdates {
 	earliestNewKey := len(s.timedRows)
 	for {
 		if earliestNewKey == 0 {
 			break
 		}
-		if s.timedRows[earliestNewKey-1].Timestamp <= latestTimestamp {
+		if s.initialTimestamp+int32(earliestNewKey)-1 <= latestTimestamp {
 			break
 		}
 		earliestNewKey--
@@ -353,7 +371,7 @@ func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int) KeyUpdates {
 		}
 	}
 	return KeyUpdates{
-		InitialTimestamp: s.timedRows[earliestNewKey].Timestamp,
+		InitialTimestamp: s.initialTimestamp + int32(earliestNewKey),
 		Keys:             keys,
 		IsDeletion:       isDeletion}
 
@@ -378,7 +396,7 @@ func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
 }
 
 type clientLayer struct {
-	endTimestamp int
+	endTimestamp int32
 	pir          pirClientImpl
 }
 
@@ -387,11 +405,12 @@ type rowLayerPosition struct {
 }
 
 type pirClientUpdatable struct {
-	randSource *rand.Rand
-	timedKeys  []TimedRow
-	positions  map[uint32]rowLayerPosition
-	layers     []clientLayer
-	servers    [2]PirServer
+	randSource       *rand.Rand
+	initialTimestamp int32
+	timedKeys        []timedRow
+	positions        map[uint32]rowLayerPosition
+	layers           []clientLayer
+	servers          [2]PirServer
 }
 
 func NewPirClientUpdatable(source *rand.Rand, servers [2]PirServer) *pirClientUpdatable {
@@ -413,17 +432,17 @@ func (c *pirClientUpdatable) Update() error {
 	}
 
 	if hintResp.ShouldDeleteHistory {
-		c.timedKeys = []TimedRow{}
+		c.timedKeys = []timedRow{}
+		c.initialTimestamp = hintResp.KeyUpdates.InitialTimestamp
 		c.positions = make(map[uint32]rowLayerPosition)
 	}
-	newKeys := make([]TimedRow, len(c.timedKeys)+len(hintResp.KeyUpdates.Keys))
+	newKeys := make([]timedRow, len(c.timedKeys)+len(hintResp.KeyUpdates.Keys))
 	copy(newKeys, c.timedKeys)
 	for i := range hintResp.KeyUpdates.Keys {
 		isDelete := (hintResp.KeyUpdates.IsDeletion[i/8] & (1 << (i % 8))) != 0
-		newKeys[len(c.timedKeys)+i] = TimedRow{
-			Timestamp: hintResp.KeyUpdates.InitialTimestamp + i,
-			Key:       hintResp.KeyUpdates.Keys[i],
-			Delete:    isDelete,
+		newKeys[len(c.timedKeys)+i] = timedRow{
+			Key:    hintResp.KeyUpdates.Keys[i],
+			Delete: isDelete,
 		}
 	}
 	c.timedKeys = newKeys
@@ -485,22 +504,22 @@ func (c *pirClientUpdatable) initLayers(resp HintResp) error {
 	return nil
 }
 
-func (c *pirClientUpdatable) recomputePositionMap(latestKeyTimestamp int) {
-	layerEnd := 0
+func (c *pirClientUpdatable) recomputePositionMap(latestKeyTimestamp int32) {
+	var layerEnd int32
 	for l := range c.layers {
 		layerStart := layerEnd
-		layerEnd = sort.Search(len(c.timedKeys), func(i int) bool {
-			return c.layers[l].endTimestamp < c.timedKeys[i].Timestamp
-		})
+		layerEnd = c.layers[l].endTimestamp - c.initialTimestamp
+
 		// If a layer has not changed relative to previous update, no need to recompute.
-		if c.layers[l].endTimestamp < latestKeyTimestamp {
+		if c.layers[l].endTimestamp-1 <= latestKeyTimestamp {
 			continue
 		}
 		processedKeys, deletedRows := processDeletes(c.timedKeys[layerStart:layerEnd])
 		// The first (oldest) layer can always be defragmented on the client end
 		if l == 0 {
 			c.timedKeys = append(processedKeys, c.timedKeys[layerEnd:]...)
-			layerEnd = len(processedKeys)
+			c.initialTimestamp += (layerEnd - int32(len(processedKeys)))
+			layerEnd = int32(len(processedKeys))
 		}
 
 		for _, row := range deletedRows {
@@ -513,11 +532,11 @@ func (c *pirClientUpdatable) recomputePositionMap(latestKeyTimestamp int) {
 	}
 }
 
-func (c *pirClientUpdatable) latestKeyTimestamp() int {
+func (c *pirClientUpdatable) latestKeyTimestamp() int32 {
 	if len(c.timedKeys) <= 0 {
 		return -1
 	}
-	return c.timedKeys[len(c.timedKeys)-1].Timestamp
+	return c.initialTimestamp + int32(len(c.timedKeys)-1)
 }
 
 func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
