@@ -103,6 +103,16 @@ func TestMain(m *testing.M) {
 				clientReadTime += time.Since(start)
 				assert.NilError(ep, err)
 				assert.DeepEqual(ep, row, rowIV.Value)
+
+				if i == b.N-2 {
+					runtime.GC()
+					if memProf, err := os.Create("mem.prof"); err != nil {
+						panic(err)
+					} else {
+						pprof.WriteHeapProfile(memProf)
+						memProf.Close()
+					}
+				}
 			}
 			var serverAnswerTime time.Duration
 			assert.NilError(ep, driver.GetAnswerTimer(0, &serverAnswerTime))

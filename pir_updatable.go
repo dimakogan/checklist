@@ -312,7 +312,7 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	clientSrc := rand.New(rand.NewSource(req.RandSeed))
 	resp.BatchResps = make([]HintResp, len(s.layers))
 	resp.ShouldDeleteHistory = (req.LatestKeyTimestamp < s.defragTimestamp)
-	resp.TimedKeys = s.returnDiffKeys(req.LatestKeyTimestamp)
+	resp.KeyUpdates = s.returnDiffKeys(req.LatestKeyTimestamp)
 
 	layerEnd := 0
 	for l, layer := range s.layers {
@@ -329,10 +329,7 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	return nil
 }
 
-func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int) []TimedRow {
-	if latestTimestamp < s.defragTimestamp {
-		return s.timedRows
-	}
+func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int) KeyUpdates {
 	earliestNewKey := len(s.timedRows)
 	for {
 		if earliestNewKey == 0 {
@@ -343,12 +340,23 @@ func (s pirServerUpdatable) returnDiffKeys(latestTimestamp int) []TimedRow {
 		}
 		earliestNewKey--
 	}
-	diffKeys := make([]TimedRow, len(s.timedRows)-earliestNewKey)
-	for j := 0; j < len(diffKeys); j++ {
-		diffKeys[j] = s.timedRows[earliestNewKey+j]
-		diffKeys[j].data = nil
+	if earliestNewKey == len(s.timedRows) {
+		return KeyUpdates{}
 	}
-	return diffKeys
+
+	keys := make([]uint32, len(s.timedRows)-earliestNewKey)
+	isDeletion := make([]uint8, (len(keys)-1)/8+1)
+	for j := range keys {
+		keys[j] = s.timedRows[earliestNewKey+j].Key
+		if s.timedRows[earliestNewKey+j].Delete {
+			isDeletion[j/8] |= (1 << (j % 8))
+		}
+	}
+	return KeyUpdates{
+		InitialTimestamp: s.timedRows[earliestNewKey].Timestamp,
+		Keys:             keys,
+		IsDeletion:       isDeletion}
+
 }
 
 func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
@@ -408,7 +416,17 @@ func (c *pirClientUpdatable) Update() error {
 		c.timedKeys = []TimedRow{}
 		c.positions = make(map[uint32]rowLayerPosition)
 	}
-	c.timedKeys = append(c.timedKeys, hintResp.TimedKeys...)
+	newKeys := make([]TimedRow, len(c.timedKeys)+len(hintResp.KeyUpdates.Keys))
+	copy(newKeys, c.timedKeys)
+	for i := range hintResp.KeyUpdates.Keys {
+		isDelete := (hintResp.KeyUpdates.IsDeletion[i/8] & (1 << (i % 8))) != 0
+		newKeys[len(c.timedKeys)+i] = TimedRow{
+			Timestamp: hintResp.KeyUpdates.InitialTimestamp + i,
+			Key:       hintResp.KeyUpdates.Keys[i],
+			Delete:    isDelete,
+		}
+	}
+	c.timedKeys = newKeys
 
 	if err := c.initLayers(hintResp); err != nil {
 		return err

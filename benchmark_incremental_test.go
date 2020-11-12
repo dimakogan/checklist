@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"strings"
 	"testing"
@@ -88,6 +89,16 @@ func TestMain(m *testing.M) {
 
 			if *progress {
 				fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numBatches)
+			}
+
+			if i == numBatches-2 {
+				runtime.GC()
+				if memProf, err := os.Create("mem.prof"); err != nil {
+					panic(err)
+				} else {
+					pprof.WriteHeapProfile(memProf)
+					memProf.Close()
+				}
 			}
 		}
 		var serverHintTime, serverAnswerTime time.Duration

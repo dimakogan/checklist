@@ -20,6 +20,7 @@ const (
 	Punc
 	Perm
 	DPF
+	NonPrivate
 )
 
 // One database row.
@@ -41,6 +42,13 @@ type TimedRow struct {
 	data             Row
 }
 
+type KeyUpdates struct {
+	InitialTimestamp int
+	Keys             []uint32
+	//Bit vector
+	IsDeletion []byte
+}
+
 //HintResp is a response to a hint request.
 type HintResp struct {
 	PirType   PirType
@@ -53,7 +61,7 @@ type HintResp struct {
 
 	// For updatable PIR
 	EndTimestamp        int
-	TimedKeys           []TimedRow
+	KeyUpdates          KeyUpdates
 	ShouldDeleteHistory bool
 
 	BatchResps []HintResp
@@ -137,6 +145,8 @@ func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer
 		return NewPirServerPunc(randSrc, db)
 	case DPF:
 		return NewPIRDPFServer(db)
+	case NonPrivate:
+		return NewPirServerNonPrivate(db)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }
@@ -149,6 +159,8 @@ func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
 		return NewPirClientPunc(randSrc)
 	case DPF:
 		return NewPIRDPFClient(randSrc)
+	case NonPrivate:
+		return NewPirClientNonPrivate()
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }

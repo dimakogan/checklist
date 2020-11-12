@@ -1,13 +1,16 @@
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <pset_ggm.h>
 #include <unordered_set>
 #include <vector>
 
+#include "flat_hash_map.hpp"
+
 using namespace std::chrono;
 
-uint32_t univ_size = 1024 * 1024;
-uint32_t set_size = 1000;
+uint32_t univ_size = 2 * 1024 * 1024;
+uint32_t set_size = 2000;
 std::vector<uint32_t> present(univ_size);
 uint32_t present_mark = 0;
 
@@ -26,7 +29,7 @@ bool distinct_lin_space(int univ_size, const long long unsigned int *elems, unsi
     return ok;
 }
 
-std::unordered_set<long long unsigned int> present_hash;
+ska::flat_hash_set<long long unsigned int> present_hash;
 
 bool distinct_hash(int univ_size, const long long unsigned int *elems, unsigned int num_elems)
 {
@@ -45,6 +48,14 @@ bool distinct_hash(int univ_size, const long long unsigned int *elems, unsigned 
         }
     }
     return ok;
+}
+
+std::vector<long long unsigned int> elems_copy;
+
+bool distinct_custom(int univ_size, const std::vector<long long unsigned int>& elems)
+{   
+
+    return true;
 }
 
 int main(int argc, char **argv)
@@ -78,6 +89,18 @@ int main(int argc, char **argv)
     }
     stop = high_resolution_clock::now();
     std::cout << "Distinct hash: " << ok << ", time: " << duration_cast<nanoseconds>(stop - start).count() / 1000 << "ns" << std::endl;
+
+
+    elems_copy.reserve(elems.size());
+
+    start = high_resolution_clock::now();
+    ok = true;
+    for (int j = 0; j < 1000; ++j)
+    {
+        ok = distinct_custom(univ_size, elems);
+    }
+    stop = high_resolution_clock::now();
+    std::cout << "Distinct sort: " << ok << ", time: " << duration_cast<nanoseconds>(stop - start).count() / 1000 << "ns" << std::endl;
 
     return 0;
 }
