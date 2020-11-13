@@ -108,12 +108,13 @@ func (s pirServerPunc) NumRows(none int, out *int) error {
 }
 
 func (s pirServerPunc) GetRow(idx int, row *RowIndexVal) error {
-	if idx < 0 || idx >= s.nRows {
-		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
-	}
 	if idx == -1 {
 		// return random row
 		idx = RandSource().Int() % s.nRows
+	}
+
+	if idx < 0 || idx >= s.nRows {
+		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
 	}
 
 	row.Index = idx
