@@ -42,3 +42,7 @@ func (gen *GGMSetGeneratorC) EvalPunctured(pset []byte, hole int, elems []int) {
 func XorRows(db []byte, rowLen int, numRows int, elems []int, out []byte) {
 	C.xor_rows((*C.uchar)(&db[0]), C.uint(rowLen), C.uint(numRows), (*C.ulonglong)(unsafe.Pointer(&elems[0])), C.uint(len(elems)), (*C.uchar)(&out[0]))
 }
+
+func (gen *GGMSetGeneratorC) Distinct(elems []int) bool {
+	return (C.distinct(gen.cgen, (*C.ulonglong)(unsafe.Pointer(&elems[0])), C.uint(len(elems))) != 0)
+}

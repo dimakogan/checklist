@@ -18,6 +18,8 @@ unsigned int pset_buffer_size(const generator* gen);
 void pset_ggm_punc(generator* gen, const uint8_t* seed, unsigned int pos, uint8_t* pset);
 void pset_ggm_eval_punc(generator* gen, const uint8_t* pset, unsigned int pos, long long unsigned int* elems);
 
+int distinct(generator* gen, const long long unsigned int* elems, unsigned int num_elems);
+
 #ifdef __cplusplus
 }
 #endif

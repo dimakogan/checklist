@@ -182,4 +182,53 @@ void pset_ggm_eval_punc(generator* gen, const uint8_t* pset, unsigned int pos, l
     }  
 }
 
+inline unsigned int fasthash(unsigned int elem, unsigned int range) {    
+    return elem & (range-1); 
 }
+
+inline int round_to_power_of_2(unsigned int v) {
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+}
+
+int distinct(generator* gen, const long long unsigned int* elems, unsigned int num_elems)
+{   
+    uint32_t* table = (uint32_t*)gen->tmp;
+    int table_size = round_to_power_of_2(num_elems*4);
+
+    for (int i = 0; i < table_size; i++) {
+        table[i] = 0;
+    }
+    const uint32_t* end = table + table_size;
+
+    for (int i = 0; i < num_elems; i++) {
+        auto e = elems[i];
+        unsigned int h = fasthash(e, table_size);
+        uint32_t* ptr = table + h;
+
+        for (;;) {
+            const auto val = *ptr;
+            if (val == 0) {
+                *ptr = e;
+                break;
+            }
+            if (val == e) {
+                return false;
+            }
+            if (++ptr >= end) {
+                ptr = table;
+            } 
+        }
+    }
+    return true;
+}
+
+
+
+} // extern "C"

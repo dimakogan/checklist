@@ -7,7 +7,7 @@ TESTS := test_pset test_distinct test_xor
 
 OBJ := $(addsuffix .o,$(basename $(SRC)))
 
-FLAGS := -msse2 -msse -march=native -maes -Ofast -I..
+FLAGS := -msse2 -msse -march=native -maes -Ofast -I.. -g
 
 all: $(LIB) $(TESTS)
 
@@ -25,8 +25,7 @@ test_xor: test_xor.cpp $(LIB)
 	g++ $(FLAGS) -c $< -o $@
 
 $(LIB): $(OBJ)
-	echo $(FLAGS)
 	ar rcs $@ $(OBJ)
 
 clean: 
-	rm -f main $(LIB) $(TESTS)
+	rm -f main $(LIB) $(TESTS) $(OBJ)

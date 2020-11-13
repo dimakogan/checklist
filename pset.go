@@ -23,6 +23,7 @@ type BaseGenerator interface {
 	Eval(seed []byte, elems []int)
 	Punc(seed []byte, pos int) []byte
 	EvalPunctured(pset []byte, hole int, elems []int)
+	Distinct(elems []int) bool
 }
 
 type PuncturableSet struct {
@@ -44,9 +45,6 @@ type SetGenerator struct {
 	num               uint32
 	idGen             cipher.Block
 	univSize, setSize int
-
-	exists       []uint8
-	existsMarker uint8
 }
 
 func NewSetGenerator(masterKey []byte, startId uint32, univSize int, setSize int) SetGenerator {
@@ -56,13 +54,11 @@ func NewSetGenerator(masterKey []byte, startId uint32, univSize int, setSize int
 	}
 
 	return SetGenerator{
-		baseGen:      psetggm.NewGGMSetGeneratorC(univSize, setSize),
-		num:          startId,
-		idGen:        aes,
-		univSize:     univSize,
-		setSize:      setSize,
-		exists:       make([]uint8, univSize),
-		existsMarker: 0,
+		baseGen:  psetggm.NewGGMSetGeneratorC(univSize, setSize),
+		num:      startId,
+		idGen:    aes,
+		univSize: univSize,
+		setSize:  setSize,
 	}
 }
 
@@ -116,7 +112,7 @@ func (gen *SetGenerator) gen(pset *PuncturableSet) {
 		gen.idGen.Encrypt(pset.seed[:], block[:])
 		gen.baseGen.Eval(pset.seed[:], pset.elems)
 
-		if gen.distinct2(pset.elems) {
+		if gen.baseGen.Distinct(pset.elems) {
 			return
 		}
 	}
@@ -180,33 +176,4 @@ func MathMod(x int, mod int) int {
 	}
 
 	return out
-}
-
-func (set Set) distinct() bool {
-	elemsSet := make(map[int]bool, len(set))
-	for i := 0; i < len(set); i++ {
-		elem := set[i]
-		if _, ok := elemsSet[elem]; ok {
-			return false
-		}
-		elemsSet[elem] = true
-	}
-	return true
-}
-
-func (gen *SetGenerator) distinct2(elems []int) bool {
-	gen.existsMarker++
-	if gen.existsMarker == 0 {
-		for i := range gen.exists {
-			gen.exists[i] = 0
-		}
-		gen.existsMarker++
-	}
-	for _, e := range elems {
-		if gen.exists[e] == gen.existsMarker {
-			return false
-		}
-		gen.exists[e] = gen.existsMarker
-	}
-	return true
 }

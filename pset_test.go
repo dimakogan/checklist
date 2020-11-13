@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/dimakogan/boosted-pir/psetggm"
 	"gotest.tools/assert"
 )
 
@@ -210,27 +211,28 @@ func BenchmarkGGMEvalC(b *testing.B) {
 		univSize := config.NumRows
 		setSize := int(math.Sqrt(float64(univSize)))
 
-		gen := NewSetGenerator(MasterKey(), 0, univSize, setSize)
-		var set PuncturableSet
+		gen := psetggm.NewGGMSetGeneratorC(univSize, setSize)
+		set := make([]int, setSize)
+		seed := make([]byte, 16)
 		b.Run(config.String(), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				gen.Gen(&set)
+				seed[0] = (byte)(i % 256)
+				gen.Eval(seed, set)
 			}
 		})
 	}
 }
 
-func BenchmarkDistinct(b *testing.B) {
+func BenchmarkGen(b *testing.B) {
 	for _, config := range testConfigs() {
 		univSize := config.NumRows
 		setSize := int(math.Sqrt(float64(univSize)))
 
 		gen := NewSetGenerator(MasterKey(), 0, univSize, setSize)
 		var set PuncturableSet
-		gen.gen(&set)
 		b.Run(config.String(), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				gen.distinct2(set.elems)
+				gen.gen(&set)
 			}
 		})
 	}
