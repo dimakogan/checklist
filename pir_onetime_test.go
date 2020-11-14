@@ -10,7 +10,7 @@ import (
 
 func BenchmarkHintOneTime(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		db := MakeDB(randSource, config.NumRows, config.RowLen)
 		client := newPirClientOneTime(randSource, config.NumRows, config.RowLen)
 		server := NewPirServerOneTime(randSource, db, config.RowLen)

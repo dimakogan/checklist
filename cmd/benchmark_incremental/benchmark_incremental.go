@@ -1,6 +1,4 @@
-// +build BenchmarkIncremental
-
-package boosted
+package main
 
 import (
 	"flag"
@@ -11,19 +9,25 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strings"
-	"testing"
 	"time"
+
+	. "github.com/dimakogan/boosted-pir"
 
 	"gotest.tools/assert"
 )
 
 var cpuprof = flag.String("cpuprof", "", "write cpu profile to `file`")
+var progress = flag.Bool("progress", true, "Show benchmarks progress")
 
-func TestMain(m *testing.M) {
+func main() {
+	var ep ErrorPrinter
 	var numBatches int
 	flag.IntVar(&numBatches, "numBatches", 0, "number of update batches (default: ~sqrt(numRows))")
 
 	flag.Parse()
+
+	InitTestFlags()
+
 	if *cpuprof != "" {
 		f, err := os.Create(*cpuprof)
 		if err != nil {
@@ -42,7 +46,7 @@ func TestMain(m *testing.M) {
 		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytes",
 		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")
 
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		driver, err := ServerDriver()
 		if err != nil {
 			log.Fatalf("Failed to create driver: %s\n", err)

@@ -412,7 +412,6 @@ func TestPIRServerOverRPC(t *testing.T) {
 		Updatable:  true,
 	}, nil))
 
-	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
 	client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 
 	err = client.Init()

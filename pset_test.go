@@ -194,7 +194,7 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 // Preallocate keys for treeEvalAll:
 // BenchmarkGGMEval-4   	    5881	    203453 ns/op	   53334 B/op	      14 allocs/op
 func BenchmarkPuncSetGen(b *testing.B) {
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		univSize := config.NumRows
 		setSize := int(math.Sqrt(float64(univSize)))
 		gen := NewGGMSetGenerator(RandSource())
@@ -207,7 +207,7 @@ func BenchmarkPuncSetGen(b *testing.B) {
 }
 
 func BenchmarkGGMEvalC(b *testing.B) {
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		univSize := config.NumRows
 		setSize := int(math.Sqrt(float64(univSize)))
 
@@ -224,7 +224,7 @@ func BenchmarkGGMEvalC(b *testing.B) {
 }
 
 func BenchmarkGen(b *testing.B) {
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		univSize := config.NumRows
 		setSize := int(math.Sqrt(float64(univSize)))
 

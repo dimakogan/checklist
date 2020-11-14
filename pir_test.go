@@ -2,11 +2,16 @@ package boosted
 
 import (
 	"math/rand"
+	"os"
 	"testing"
 
 	"gotest.tools/assert"
 )
 
+func TestMain(m *testing.M) {
+	InitTestFlags()
+	os.Exit(m.Run())
+}
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(RandSource(), 256, 100)
 
@@ -45,7 +50,6 @@ func TestPunc(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
 	client := NewPIRClient(NewPirClientPunc(RandSource()), RandSource(), [2]PirServer{driver, driver})
 
 	err = client.Init()
@@ -75,7 +79,6 @@ func TestMatrix(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
 	client := NewPIRClient(NewPirClientMatrix(RandSource()), RandSource(), [2]PirServer{driver, driver})
 
 	err = client.Init()
@@ -98,7 +101,6 @@ func TestDPF(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	//client, err := NewPirClientErasure(RandSource(), 1000, DEFAULT_CHUNK_SIZE, [2]PirServer{proxy, proxy})
 	client := NewPIRClient(NewPIRDPFClient(RandSource()), RandSource(), [2]PirServer{driver, driver})
 
 	err = client.Init()
@@ -143,8 +145,6 @@ func randStringBytes(r *rand.Rand, n int) string {
 // Save results to avoid compiler optimizations.
 var hint *HintResp
 var resp *QueryResp
-
-var chunkSizes = []int{DEFAULT_CHUNK_SIZE}
 
 func BenchmarkNothingRandom(b *testing.B) {
 	config := TestConfig{NumRows: 1024 * 1024, RowLen: 1024}

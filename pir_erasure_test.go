@@ -9,6 +9,8 @@ import (
 	"gotest.tools/assert"
 )
 
+var chunkSizes = []int{DEFAULT_CHUNK_SIZE}
+
 func TestPIRPuncErasure(t *testing.T) {
 	db := MakeDB(RandSource(), 256, 100)
 
@@ -67,7 +69,7 @@ func runPirErasure(b *testing.B, config TestConfig, chunkSize int) {
 }
 
 func BenchmarkPirErasure(b *testing.B) {
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		for _, cs := range chunkSizes {
 			runPirErasure(b, config, cs)
 		}
@@ -76,7 +78,7 @@ func BenchmarkPirErasure(b *testing.B) {
 
 func BenchmarkPirErasureClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		db := MakeDB(randSource, config.NumRows, config.RowLen)
 		server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
 		assert.NilError(b, err)

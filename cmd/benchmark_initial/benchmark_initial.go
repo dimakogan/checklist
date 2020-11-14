@@ -1,6 +1,4 @@
-// +build BenchmarkInitial
-
-package boosted
+package main
 
 import (
 	"flag"
@@ -13,13 +11,17 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/dimakogan/boosted-pir"
 	"gotest.tools/assert"
 )
 
 var cpuprof = flag.String("cpuprof", "", "write cpu profile to `file`")
 
-func TestMain(m *testing.M) {
-	flag.Parse()
+func main() {
+	InitTestFlags()
+
+	var ep ErrorPrinter
+
 	if *cpuprof != "" {
 		f, err := os.Create(*cpuprof)
 		if err != nil {
@@ -37,7 +39,7 @@ func TestMain(m *testing.M) {
 		"numRows", "OfflineServerTime[us]", "OfflineClientTime[us]", "OfflineBytes", "ClientBytes",
 		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")
 
-	for _, config := range testConfigs() {
+	for _, config := range TestConfigs() {
 		driver, err := ServerDriver()
 		if err != nil {
 			log.Fatalf("Failed to create driver: %s\n", err)
