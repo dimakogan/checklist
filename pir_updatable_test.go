@@ -365,7 +365,39 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 	client := NewPirClientUpdatable(RandSource(), servers)
 	assert.NilError(t, client.Init())
 
-	assert.Check(t, len(leftServer.timedRows) <= len(db)*4)
+	assert.Check(t, len(leftServer.ops) <= len(db)*4)
+	assert.Check(t, len(client.ops) <= len(db)*4)
+}
+
+func TestPIRUpdatableDefragBetweenUpdates(t *testing.T) {
+	db := MakeDB(RandSource(), 20, 100)
+	keys := MakeKeys(RandSource(), len(db))
+
+	numDeletesAndAdds := len(db) * 10
+
+	leftServer := NewPirServerUpdatable(RandSource(), Punc)
+	rightServer := NewPirServerUpdatable(RandSource(), Punc)
+
+	servers := [2]PirServer{leftServer, rightServer}
+
+	leftServer.AddRows(keys, db)
+	rightServer.AddRows(keys, db)
+
+	client := NewPirClientUpdatable(RandSource(), servers)
+	assert.NilError(t, client.Init())
+
+	for i := 0; i < numDeletesAndAdds; i++ {
+		leftServer.DeleteRows(keys[0:1])
+		rightServer.DeleteRows(keys[0:1])
+
+		assert.NilError(t, client.Update())
+
+		leftServer.AddRows(keys[0:1], db[0:1])
+		rightServer.AddRows(keys[0:1], db[0:1])
+	}
+
+	assert.Check(t, len(leftServer.ops) <= len(db)*4)
+	assert.Check(t, len(client.ops) <= len(db)*4)
 }
 
 func TestPIRServerOverRPC(t *testing.T) {
@@ -376,6 +408,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 		NumRows:    1000,
 		RowLen:     4,
 		PresetRows: []RowIndexVal{{7, 0x1234, Row{'C', 'o', 'o', 'l'}}},
+		PirType:    Punc,
 		Updatable:  true,
 	}, nil))
 

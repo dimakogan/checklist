@@ -8,6 +8,8 @@ github.com/cespare/prettybench v0.0.0-20150116022406-03b8cfe5406c h1:p8i+qCbr/dN
 github.com/cespare/prettybench v0.0.0-20150116022406-03b8cfe5406c/go.mod h1:Xe6ZsFhtM8HrDku0pxJ3/Lr51rwykrzgFwpmTzleatY=
 github.com/dimakogan/dpf-go v0.0.0-20201030215639-5e20cc1f5916 h1:BhTur28HvkCYwKMb4FdSGpGObk/ZAiCf802D3VeXXls=
 github.com/dimakogan/dpf-go v0.0.0-20201030215639-5e20cc1f5916/go.mod h1:KALvsjE9PCLd5JV+CQcQPJhErtb4oGL+FKK8xY2mcV8=
+github.com/dimakogan/dpf-go v0.0.0-20201114031700-ca9e532cdd7f h1:b74QsaT3YCaJr4J8MJZJkvT33TgehVURCHD2ttL8phE=
+github.com/dimakogan/dpf-go v0.0.0-20201114031700-ca9e532cdd7f/go.mod h1:KALvsjE9PCLd5JV+CQcQPJhErtb4oGL+FKK8xY2mcV8=
 github.com/dkales/dpf-go v0.0.0-20181017150600-fc650363d7a5 h1:oa/2wVnDnqLEuPzFM/xPD+wvjjQUKWr66suFSv1Alxg=
 github.com/dkales/dpf-go v0.0.0-20181017150600-fc650363d7a5/go.mod h1:bJsjBOQryj5q4qZUmT4LMmounHvRp40nQNWscFEo8sI=
 github.com/dkales/dpf-go v0.0.0-20190408155159-5f283f60e435 h1:9S4m+q+75IY1K03Sob89boBpRNVQrxsE2WjWRwGANd4=

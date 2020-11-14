@@ -16,7 +16,8 @@ var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")
 type PirType int
 
 const (
-	Matrix PirType = iota
+	None PirType = iota
+	Matrix
 	Punc
 	Perm
 	DPF
@@ -31,7 +32,7 @@ type HintReq struct {
 	RandSeed int64
 
 	// For PirUpdatable
-	LatestKeyTimestamp int32
+	NextTimestamp int32
 }
 
 type KeyUpdates struct {
@@ -52,8 +53,8 @@ type HintResp struct {
 	IsMatrix  bool
 
 	// For updatable PIR
-	EndTimestamp        int32
 	KeyUpdates          KeyUpdates
+	DefragTimestamp     int
 	ShouldDeleteHistory bool
 
 	BatchResps []HintResp
