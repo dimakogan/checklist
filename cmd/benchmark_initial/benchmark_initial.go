@@ -15,15 +15,15 @@ import (
 	"gotest.tools/assert"
 )
 
-var cpuprof = flag.String("cpuprof", "", "write cpu profile to `file`")
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 
 func main() {
 	InitTestFlags()
 
 	var ep ErrorPrinter
 
-	if *cpuprof != "" {
-		f, err := os.Create(*cpuprof)
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
