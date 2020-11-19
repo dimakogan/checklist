@@ -4,7 +4,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
@@ -32,12 +31,11 @@ const (
 	firefoxQueryRequestKey = "$req"
 
   // in seconds
-  minimiumWaitDuration = 3
+  minimiumWaitDuration = 60*60
 )
 
 type proxyState struct {
 	cfg        safebrowsing.Config
-	localIndex *LocalIndex
 }
 
 func unmarshalFetch(req *http.Request) (*FetchThreatListUpdatesRequest, error) {
@@ -113,24 +111,6 @@ func newThreatMatch(tt ThreatType, bytesIn []byte) *ThreatMatch {
 
 }
 
-/*
-func handleUpdate(w http.ResponseWriter, req *http.Request) {
-	req.URL.Scheme = "https"
-	req.Host = safebrowsing.DefaultServerURL
-	req.URL.Host = req.Host
-	resp, err := http.DefaultTransport.RoundTrip(req)
-	if err != nil {
-		log.Printf("error: %v", err.Error())
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer resp.Body.Close()
-	copyHeader(w.Header(), resp.Header)
-	w.WriteHeader(resp.StatusCode)
-	log.Printf("header: %v", resp.Header)
-	io.Copy(w, resp.Body)
-}*/
-
 func hashesToBigString(hashes []PartialHash) []byte {
   out := make([]byte, len(hashes) * PartialHashLen)
   for i,v := range hashes {
@@ -139,14 +119,7 @@ func hashesToBigString(hashes []PartialHash) []byte {
   return out
 }
 
-func computeSum(hashes []byte) []byte {
-	hash := sha256.New()
-	hash.Write([]byte(hashes))
-  return hash.Sum(nil)
-}
-
 func handleFetch(state *proxyState, w http.ResponseWriter, req *http.Request) {
-  /*
 	upReq := new(FetchThreatListUpdatesRequest)
 	upReq, err := unmarshalFetch(req)
 	if err != nil {
@@ -154,32 +127,39 @@ func handleFetch(state *proxyState, w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-  nLists := len(upReq.ListUpdateRequests)
-  */
-
-  hashes := hashesToBigString(getPartialHashes())
-
 	resp := new(FetchThreatListUpdatesResponse)
-	resp.ListUpdateResponses = make([]*FetchThreatListUpdatesResponse_ListUpdateResponse, 1)
   resp.MinimumWaitDuration = new(duration.Duration)
   resp.MinimumWaitDuration.Seconds = minimiumWaitDuration
 
-  listUp := new(FetchThreatListUpdatesResponse_ListUpdateResponse)
-  listUp.ThreatType = ThreatType_MALWARE
-  listUp.ThreatEntryType = ThreatEntryType_URL
-  listUp.PlatformType = PlatformType_ALL_PLATFORMS
-  listUp.ResponseType = FetchThreatListUpdatesResponse_ListUpdateResponse_FULL_UPDATE
-  listUp.Additions = make([]*ThreatEntrySet, 1)
-  listUp.Additions[0] = new(ThreatEntrySet)
-  listUp.Additions[0].RawHashes = new(RawHashes)
-  listUp.Additions[0].RawHashes.PrefixSize = PartialHashLen
-  listUp.Additions[0].RawHashes.RawHashes = hashes
-  listUp.NewClientState = []byte("c3RhdGUgaXMgbm8gc3RhdGU=")
+  nLists := len(upReq.ListUpdateRequests)
+	resp.ListUpdateResponses = make([]*FetchThreatListUpdatesResponse_ListUpdateResponse, nLists)
 
-  listUp.Checksum = new(Checksum)
-  listUp.Checksum.Sha256 = computeSum(listUp.Additions[0].RawHashes.RawHashes)
+  for i, v := range upReq.ListUpdateRequests {
+    listUp := new(FetchThreatListUpdatesResponse_ListUpdateResponse)
+    listUp.ThreatType = v.ThreatType
+    listUp.ThreatEntryType = v.ThreatEntryType
+    listUp.PlatformType = v.PlatformType
+    listUp.ResponseType = FetchThreatListUpdatesResponse_ListUpdateResponse_FULL_UPDATE
+    listUp.Additions = make([]*ThreatEntrySet, 1)
+    listUp.Additions[0] = new(ThreatEntrySet)
+    listUp.Additions[0].CompressionType = CompressionType_RICE
+    listUp.Additions[0].RiceHashes = riceEncodedHashes()
+    listUp.Additions[0].RawHashes = new(RawHashes)
+    listUp.Additions[0].RawHashes.PrefixSize = 0
+    listUp.Additions[0].RawHashes.RawHashes = make([]byte, 0)
 
-  resp.ListUpdateResponses[0] = listUp
+    listUp.Removals = make([]*ThreatEntrySet, 0)
+
+    // Just a garbage string.
+    listUp.NewClientState = []byte("c3RhdGUgaXMgbm8gc3RhdGU=")
+
+    // Use empty checksum since apparently Firefox doesn't inspect it
+    // if the checksum is empty.
+    listUp.Checksum = new(Checksum)
+    listUp.Checksum.Sha256 = make([]byte, 0)
+
+    resp.ListUpdateResponses[i] = listUp
+  }
 
 	marshal(w, resp)
 }
@@ -204,17 +184,14 @@ func handleFind(state *proxyState, w http.ResponseWriter, req *http.Request) {
 	resp := new(FindFullHashesResponse)
 	resp.Matches = make([]*ThreatMatch, nThreats)
 	for i, e := range entries {
-		idx, _ := state.localIndex.GetIndex(hashPrefix(e.Hash))
-		h := queryForHash(idx)
-		log.Printf("Hash[%v] = %x [index %v]", i, e.Hash, idx)
+		h := queryForHash(e.Hash)
+		log.Printf("Hash[%v] = %x", i, e.Hash)
 		resp.Matches[i] = newThreatMatch(hashReq.ThreatInfo.ThreatTypes[0], h)
 		log.Printf("Returning hash: %x", h)
 	}
 
 	marshal(w, resp)
 }
-
-
 
 func handleHTTP(state *proxyState, w http.ResponseWriter, req *http.Request) {
 	log.Printf("%v", req.Host)
@@ -266,18 +243,7 @@ func main() {
 	dbFile.Close()
 	defer os.Remove(dbFile.Name())
 
-	state := proxyState{
-		cfg:        getConfig(dbFile.Name()),
-		localIndex: NewLocalIndex(dbFile.Name())}
-	defer state.localIndex.Close()
-
-	sb, err := safebrowsing.NewSafeBrowser(state.cfg)
-
-	if err != nil {
-		log.Fatalf("Cannot create SafeBrowser: %v", err)
-	}
-
-	defer sb.Close()
+	state := proxyState{ cfg: getConfig(dbFile.Name()) }
 
 	server := &http.Server{
 		Addr: ":8888",

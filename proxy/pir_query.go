@@ -1,28 +1,41 @@
 package main
 
 import (
-	"crypto/sha256"
+  "crypto/sha256"
+  "log"
 )
 
-//const evilHost = "testsafebrowsing.appspot.com/s/phishing.html"
-const evilHost = "https://testsafebrowsing.appspot.com/apiv4/IOS/MALWARE/URL/"
+var evilURLs = []string {
+  "testsafebrowsing.appspot.com/s/phishing.html",
+  //"testsafebrowsing.appspot.com/s/unwanted.html",
+}
 
 const PartialHashLen = 4
 type PartialHash = []byte
 
-func evilHash() []byte {
+func computeHash(url []byte) []byte {
 	hash := sha256.New()
-	hash.Write([]byte(evilHost))
+	hash.Write(url)
   return hash.Sum(nil)
 }
 
-func getPartialHashes() []PartialHash {
-  return []PartialHash{ evilHash()[0:PartialHashLen] }
+
+// This function queries the PIR client for the
+// list of 4-byte partial hashes.
+func fetchPartialHashes() []PartialHash {
+  out := make([]PartialHash, len(evilURLs))
+  for i,v := range(evilURLs) {
+    out[i] = computeHash([]byte(v))[0:PartialHashLen]
+  }
+
+  return out
 }
 
 // This is the function that will make the PIR query.
-// It takes as input an index `idx` and outputs the
+// It takes as input a hash prefix and outputs the
 // full SHA256 hash of the URL corresponding to that index.
-func queryForHash(idx int) []byte {
-	return evilHash()
+func queryForHash(hashIn []byte) []byte {
+  log.Printf("Looking for hash = %v", hashIn)
+	return computeHash([]byte(evilURLs[0]))
 }
+
