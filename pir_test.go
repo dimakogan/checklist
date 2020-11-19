@@ -67,6 +67,39 @@ func TestPunc(t *testing.T) {
 	assert.DeepEqual(t, val, presetRow)
 }
 
+func TestPuncWithBlock(t *testing.T) {
+	*nRowsPerBlock = 10
+	driver, err := ServerDriver()
+	assert.NilError(t, err)
+
+	presetRow := make(Row, 32)
+	RandSource().Read(presetRow)
+
+	assert.NilError(t, driver.Configure(TestConfig{
+		NumRows:    100000,
+		RowLen:     32,
+		PresetRows: []RowIndexVal{{7, 0x7, presetRow}},
+		PirType:    Punc,
+		Updatable:  false,
+	}, nil))
+
+	client := NewPIRClient(NewPirClientPunc(RandSource()), RandSource(), [2]PirServer{driver, driver})
+
+	err = client.Init()
+	assert.NilError(t, err)
+
+	// runtime.GC()
+	// if memProf, err := os.Create("mem.prof"); err != nil {
+	// 	panic(err)
+	// } else {
+	// 	pprof.WriteHeapProfile(memProf)
+	// 	memProf.Close()
+	// }
+	val, err := client.Read(0x7)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, presetRow)
+}
+
 func TestMatrix(t *testing.T) {
 	driver, err := ServerDriver()
 	assert.NilError(t, err)

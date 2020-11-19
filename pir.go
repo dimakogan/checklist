@@ -44,13 +44,14 @@ type KeyUpdates struct {
 
 //HintResp is a response to a hint request.
 type HintResp struct {
-	PirType   PirType
-	NumRows   int
-	RowLen    int
-	SetSize   int
-	SetGenKey []byte
-	Hints     []Row
-	IsMatrix  bool
+	PirType         PirType
+	NumRows         int
+	RowLen          int
+	NumRowsPerBlock int
+	SetSize         int
+	SetGenKey       []byte
+	Hints           []Row
+	IsMatrix        bool
 
 	// For updatable PIR
 	KeyUpdates          KeyUpdates
@@ -190,12 +191,16 @@ func (c pirClient) Read(i int) (Row, error) {
 }
 
 func flattenDb(data []Row) []byte {
+	return flattenDbWithExtraBytes(data, 0)
+}
+
+func flattenDbWithExtraBytes(data []Row, nExtraBytes int) []byte {
 	if len(data) < 1 {
 		return []byte{}
 	}
 
 	rowLen := len(data[0])
-	flatDb := make([]byte, rowLen*len(data))
+	flatDb := make([]byte, rowLen*len(data)+nExtraBytes)
 
 	for i, v := range data {
 		if len(v) != rowLen {
@@ -209,7 +214,10 @@ func flattenDb(data []Row) []byte {
 }
 
 func xorRowsFlatSlice(flatDb []byte, rowLen int, indices Set, out []byte) {
-	psetggm.XorRows(flatDb, rowLen, len(flatDb)/rowLen, indices, out)
+	for i := range indices {
+		indices[i] *= rowLen
+	}
+	psetggm.XorBlocks(flatDb, indices, out)
 }
 
 func numRowsToUnivSizeBits(nRows int) int {
