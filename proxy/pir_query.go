@@ -6,8 +6,13 @@ import (
 )
 
 var evilURLs = []string {
+  // We put a bunch of bogus URLs here to make sure
+  // that the delta values are all at most 31 bits long.
+  "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+
+  // Here are the real URLs
   "testsafebrowsing.appspot.com/s/phishing.html",
-  //"testsafebrowsing.appspot.com/s/unwanted.html",
+  "testsafebrowsing.appspot.com/s/unwanted.html",
 }
 
 const PartialHashLen = 4
