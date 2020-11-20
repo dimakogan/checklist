@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"os"
+	"path"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -20,6 +20,9 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 var progress = flag.Bool("progress", true, "Show benchmarks progress")
 
 func main() {
+	NumLayerActivations = make(map[int]int)
+	NumLayerHintBytes = make(map[int]int)
+
 	var ep ErrorPrinter
 	var numBatches int
 	flag.IntVar(&numBatches, "numBatches", 0, "number of update batches (default: ~sqrt(numRows))")
@@ -38,7 +41,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
+	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	fmt.Printf("%10s%22s%22s%15s%22s%22s%15s\n",
 		"numRows",
 		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytes",
@@ -65,7 +68,7 @@ func main() {
 		driver.ResetMetrics(0, &none)
 		var clientUpdateTime, clientReadTime time.Duration
 
-		changeBatchSize := int(math.Round(math.Sqrt(float64(config.NumRows)))) + 1
+		changeBatchSize := 100000
 		if numBatches == 0 {
 			numBatches = config.NumRows / changeBatchSize
 		}
@@ -119,4 +122,6 @@ func main() {
 			(clientReadTime-serverAnswerTime).Microseconds()/int64(numBatches),
 			answerBytes/numBatches)
 	}
+	fmt.Printf("NumLayerActivations: %v\n", NumLayerActivations)
+	fmt.Printf("NumLayerHintBytes: %v\n", NumLayerHintBytes)
 }

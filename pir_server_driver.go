@@ -13,8 +13,12 @@ type PirServerDriver interface {
 	PirServer
 
 	Configure(config TestConfig, none *int) error
+
 	AddRows(numRows int, none *int) error
 	DeleteRows(numRows int, none *int) error
+	GetRow(idx int, row *RowIndexVal) error
+	NumRows(none int, out *int) error
+
 	StartCpuProfile(int, *int) error
 	StopCpuProfile(none int, out *string) error
 	ResetMetrics(none int, none2 *int) error
@@ -142,6 +146,17 @@ func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
 	}
 	keys := driver.PirDB.SomeKeys(numRows)
 	driver.PirDB.DeleteRows(keys)
+	return nil
+}
+
+func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
+	var err error
+	*row, err = driver.PirDB.GetRow(idx)
+	return err
+}
+
+func (driver *pirServerDriver) NumRows(none int, out *int) error {
+	*out = driver.PirDB.NumRows()
 	return nil
 }
 

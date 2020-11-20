@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -34,7 +35,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fmt.Printf("# go test -tags=BenchmarkInitial %s\n", strings.Join(os.Args[1:], " "))
+	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	fmt.Printf("%10s%22s%22s%15s%15s%22s%22s%15s\n",
 		"numRows", "OfflineServerTime[us]", "OfflineClientTime[us]", "OfflineBytes", "ClientBytes",
 		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")

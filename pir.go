@@ -98,6 +98,9 @@ type QueryResp struct {
 }
 
 type PirDB interface {
+	GetRow(idx int) (RowIndexVal, error)
+	NumRows() int
+
 	AddRows(keys []uint32, vals []Row)
 	DeleteRows(keys []uint32)
 	SomeKeys(num int) []uint32
@@ -106,10 +109,6 @@ type PirDB interface {
 type PirServer interface {
 	Hint(req HintReq, resp *HintResp) error
 	Answer(q QueryReq, resp *QueryResp) error
-
-	// For testing
-	GetRow(idx int, row *RowIndexVal) error
-	NumRows(none int, out *int) error
 }
 
 type PirClient interface {

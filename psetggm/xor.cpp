@@ -12,22 +12,21 @@ extern "C"
         unsigned int block_len, uint8_t* out)
     {
         memset(out, 0, block_len);
-        for (int b = 0; b < (block_len / 32); b++)
+        for (int i = 0; i < num_elems; i++)
         {
-            __m256i out256 = _mm256_setzero_si256();
-            for (int i = 0; i < num_elems; i++)
+            if (elems[i] > (db_len-block_len))
             {
-                if (elems[i] > db_len)
-                {
-                    continue;
-                }
-                __m256i *block = (__m256i *)(db + elems[i]);
-                __m256i elem = _mm256_load_si256(block + b);
-                out256 = _mm256_xor_si256(out256, elem);
+                continue;
             }
-            _mm256_storeu_si256((__m256i *)out + b,  out256);
+            __m256i *block = (__m256i *)(db + elems[i]);
+            for (int b = 0; b < (block_len / 32); b++)
+            {
+                __m256i out256 = _mm256_loadu_si256((__m256i *)out + b);
+                __m256i elem = _mm256_loadu_si256(block + b);
+                out256 = _mm256_xor_si256(out256, elem);
+                _mm256_storeu_si256((__m256i *)out + b,  out256);
+            }
         }
-
         if ((block_len % 32) == 0)
             return;
 

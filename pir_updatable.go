@@ -2,8 +2,9 @@ package boosted
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
+
+	"github.com/elliotchance/orderedmap"
 )
 
 type serverLayer struct {
@@ -27,6 +28,7 @@ type pirServerUpdatable struct {
 	initialTimestamp int
 	defragTimestamp  int
 	ops              []dbOp
+	kv               *orderedmap.OrderedMap
 
 	layers   []serverLayer
 	maxSizes []int
@@ -40,7 +42,7 @@ type pirServerUpdatable struct {
 }
 
 func smallestLayerSize(nRows int) int {
-	return int(math.Round(math.Sqrt(float64(nRows))))
+	return 50 * (*SecParam) * (*SecParam)
 }
 
 func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
@@ -53,7 +55,7 @@ func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
 	maxSize := []int{nRows}
 	smallest := smallestLayerSize(nRows)
 	for maxSize[len(maxSize)-1] > smallest {
-		maxSize = append(maxSize, maxSize[len(maxSize)-1]/4)
+		maxSize = append(maxSize, maxSize[len(maxSize)-1]/2)
 	}
 	return maxSize
 }
@@ -76,8 +78,18 @@ func (s *pirServerUpdatable) initLayers(nRows int) {
 		return
 	}
 
+	if NumLayerActivations == nil {
+		NumLayerActivations = make(map[int]int)
+		NumLayerHintBytes = make(map[int]int)
+	}
 	for i := range s.layers {
 		s.layers[i].pirType = s.pirType
+		if _, ok := NumLayerActivations[i]; !ok {
+			NumLayerActivations[i] = 0
+		}
+		if _, ok := NumLayerHintBytes[i]; !ok {
+			NumLayerHintBytes[i] = 0
+		}
 	}
 
 	// Even when using PirPunc, the smallest layer always uses matrix
@@ -92,58 +104,42 @@ func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatab
 		curTimestamp: 0,
 		defragRatio:  4,
 		pirType:      pirType,
+		kv:           orderedmap.NewOrderedMap(),
 	}
 	s.initLayers(0)
 	return &s
 }
 
-func (s *pirServerUpdatable) NumRows(none int, out *int) error {
-	*out = s.numRows()
-	return nil
+func (s *pirServerUpdatable) NumRows() int {
+	return s.kv.Len()
 }
 
-func (s *pirServerUpdatable) numRows() int {
-	n := 0
-	for _, l := range s.layers {
-		n += l.numRows
-	}
-	return n
-}
-
-func (s *pirServerUpdatable) GetRow(idx int, out *RowIndexVal) error {
+func (s *pirServerUpdatable) GetRow(idx int) (out RowIndexVal, err error) {
 	if idx == -1 {
 		// return random row
-		idx = RandSource().Int() % len(s.ops)
+		idx = RandSource().Int() % s.kv.Len()
 	}
 
-	pos := 0
-	for _, op := range s.ops {
-		if op.Delete {
-			continue
-		}
-
+	for e, pos := s.kv.Front(), 0; e != nil; e, pos = e.Next(), pos+1 {
 		if pos == idx {
-			out.Key = op.Key
-			out.Value = op.data
+			out.Key = uint32(e.Key.(uint32))
+			out.Value = Row(e.Value.(Row))
 			out.Index = idx
-			return nil
+			return out, nil
 		}
-		pos++
 	}
-	return fmt.Errorf("Index %d out of bounds", idx)
+	return RowIndexVal{}, fmt.Errorf("Index %d out of bounds", idx)
 }
 
 func (s *pirServerUpdatable) SomeKeys(num int) []uint32 {
-	keys := make([]uint32, 0, num)
-	for _, op := range s.ops {
-		if op.Delete {
-			continue
+	keys := make([]uint32, num)
+	for e, pos := s.kv.Front(), 0; e != nil; e, pos = e.Next(), pos+1 {
+		if pos == num {
+			break
 		}
-		keys = append(keys, op.Key)
-		if len(keys) == num {
-			return keys
-		}
+		keys[pos] = uint32(e.Key.(uint32))
 	}
+
 	return keys
 }
 
@@ -151,6 +147,7 @@ func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
 	ops := make([]dbOp, len(keys))
 	for i := range keys {
 		ops[i] = dbOp{Key: keys[i], data: rows[i]}
+		s.kv.Set(keys[i], rows[i])
 	}
 
 	s.ops = append(s.ops, ops...)
@@ -201,6 +198,7 @@ func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
 	ops := make([]dbOp, len(keys))
 	for i := range keys {
 		ops[i] = dbOp{Key: keys[i], Delete: true}
+		s.kv.Delete(keys[i])
 	}
 	s.ops = append(s.ops, ops...)
 	s.layers[len(s.layers)-1].numOps += len(ops)
@@ -246,6 +244,9 @@ func (layer *serverLayer) init(randSrc *rand.Rand, db []Row) {
 	layer.pir = NewPirServerByType(layer.pirType, randSrc, db)
 }
 
+var NumLayerActivations map[int]int
+var NumLayerHintBytes map[int]int
+
 func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	clientSrc := rand.New(rand.NewSource(req.RandSeed))
 	resp.BatchResps = make([]HintResp, len(s.layers))
@@ -264,6 +265,8 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 				HintReq{RandSeed: int64(clientSrc.Uint64())},
 				&resp.BatchResps[l])
 			resp.BatchResps[l].PirType = layer.pirType
+			NumLayerActivations[l]++
+			NumLayerHintBytes[l] += len(resp.BatchResps[l].Hints) * resp.BatchResps[l].NumRowsPerBlock * resp.BatchResps[l].RowLen
 		}
 		resp.BatchResps[l].NumRows = layer.numRows
 	}
