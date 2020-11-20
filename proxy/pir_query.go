@@ -1,6 +1,7 @@
 package main
 
 import (
+  "bytes"
   "crypto/sha256"
   "log"
 )
@@ -24,7 +25,6 @@ func computeHash(url []byte) []byte {
   return hash.Sum(nil)
 }
 
-
 // This function queries the PIR client for the
 // list of 4-byte partial hashes.
 func fetchPartialHashes() []PartialHash {
@@ -41,6 +41,14 @@ func fetchPartialHashes() []PartialHash {
 // full SHA256 hash of the URL corresponding to that index.
 func queryForHash(hashIn []byte) []byte {
   log.Printf("Looking for hash = %v", hashIn)
-	return computeHash([]byte(evilURLs[0]))
+
+  for _, v := range evilURLs {
+    h := computeHash([]byte(v))
+    if bytes.Equal(h[0:PartialHashLen], hashIn) {
+      return h
+    }
+  }
+
+  return []byte{}
 }
 
