@@ -13,9 +13,9 @@ int main()
         db[idx2*row_len + i] = 'X' ^ (uint8_t)i;
     }
 
-    long long unsigned int elems[] = {idx1, idx2};
+    long long unsigned int elems[] = {idx1*row_len, idx2*row_len};
     uint8_t out[row_len+3];
-    xor_rows(db, row_len, 7, elems, 2, out+1);
+    xor_rows(db, sizeof(db), elems, 2, row_len, out+1);
 
     for (int i = 0; i < row_len; i++)
     {

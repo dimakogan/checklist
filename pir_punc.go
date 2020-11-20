@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -15,13 +16,18 @@ import (
 	"github.com/lukechampine/fastxor"
 )
 
+var nRowsPerBlock *int = flag.Int("numRowsPerBlock", 1, "Num DB Rows in each block")
+
 type pirClientPunc struct {
-	nRows   int
+	nRows  int
+	rowLen int
+
 	setSize int
 
 	sets []SetKey
 
-	hints []Row
+	nRowsPerBlock int
+	hints         []Row
 
 	randSource         *rand.Rand
 	origSetGen, setGen SetGenerator
@@ -34,6 +40,8 @@ type pirServerPunc struct {
 	rowLen int
 
 	numHintsMultiplier int
+	nRowsPerBlock      int
+	blockLen           int
 
 	flatDb []byte
 }
@@ -60,18 +68,27 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
 func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
 	s := pirServerPunc{
 		nRows:              len(data),
-		flatDb:             flattenDb(data),
 		numHintsMultiplier: int(float64(*SecParam) * math.Log(2)),
+		nRowsPerBlock:      *nRowsPerBlock,
 	}
+
 	if len(data) > 0 {
 		s.rowLen = len(data[0])
 	}
+
+	s.blockLen = s.rowLen * (s.nRowsPerBlock)
+
+	s.flatDb = flattenDbWithExtraBytes(data, s.blockLen)
+
+	// Make flat DB look cyclical
+	copy(s.flatDb[s.nRows*s.rowLen:], s.flatDb[0:s.blockLen])
+
 	return s
 }
 
 func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	setSize := int(math.Round(math.Pow(float64(s.nRows), 0.5)))
-	nHints := int(math.Round(math.Pow(float64(s.nRows), 0.5))) * s.numHintsMultiplier
+	nHints := s.numHintsMultiplier * s.nRows / (setSize * s.nRowsPerBlock)
 
 	key := make([]byte, 16)
 	if _, err := io.ReadFull(rand.New(rand.NewSource(req.RandSeed)), key); err != nil {
@@ -79,16 +96,18 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	hints := make([]Row, nHints)
-	hintBuf := make([]byte, s.rowLen*nHints)
+	hintBuf := make([]byte, s.blockLen*nHints)
 	setGen := NewSetGenerator(key, 0, s.nRows, setSize)
 	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
 		setGen.Gen(&pset)
-		hints[i] = Row(hintBuf[s.rowLen*i : s.rowLen*(i+1)])
+		hints[i] = Row(hintBuf[s.blockLen*i : s.blockLen*(i+1)])
 		s.xorRowsFlatSlice(hints[i], pset.elems)
 	}
 	resp.Hints = hints
 	resp.NumRows = s.nRows
+	resp.NumRowsPerBlock = s.nRowsPerBlock
+	resp.RowLen = s.rowLen
 	resp.SetSize = setSize
 	resp.SetGenKey = key
 	return nil
@@ -127,9 +146,9 @@ func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 	if q.BatchReqs != nil {
 		return s.answerBatch(q.BatchReqs, &resp.BatchResps)
 	}
-	resp.Answer = make(Row, s.rowLen)
+	resp.Answer = make(Row, s.blockLen)
 	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
-	resp.ExtraElem = s.dbElem(q.ExtraElem)
+	resp.ExtraElem = s.flatDb[s.rowLen*q.ExtraElem : s.rowLen*q.ExtraElem+s.blockLen]
 
 	// Debug
 	resp.Val = s.dbElem(q.Index)
@@ -157,6 +176,8 @@ func NewPirClientPunc(source *rand.Rand) *pirClientPunc {
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.nRows = resp.NumRows
+	c.nRowsPerBlock = resp.NumRowsPerBlock
+	c.rowLen = resp.RowLen
 	c.setSize = resp.SetSize
 	c.hints = resp.Hints
 	c.origSetGen = NewSetGenerator(resp.SetGenKey, 0, c.nRows, c.setSize)
@@ -204,20 +225,25 @@ func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
 	}
 }
 
-func (c *pirClientPunc) findIndex(i int) int {
+func (c *pirClientPunc) findIndex(i int) (setIdx, posInBlock int) {
 	if i >= c.nRows {
-		return -1
+		return -1, -1
 	}
-	if c.idxToSetIdx[i] >= 0 {
-		return int(c.idxToSetIdx[i])
+
+	for posInBlock = 0; posInBlock < c.nRowsPerBlock; posInBlock++ {
+		if setIdx := c.idxToSetIdx[MathMod(i-posInBlock, c.nRows)]; setIdx >= 0 {
+			return int(setIdx), posInBlock
+		}
 	}
 	// If set pointer of i is invalid, use this opportunity to upgrade other invalid pointers while doing linear scan
 	for j := range c.sets {
 		pset := c.eval(j)
 
 		for _, v := range pset.elems {
-			if v == i {
-				return j
+			for posInBlock = 0; posInBlock < c.nRowsPerBlock; posInBlock++ {
+				if v+posInBlock == i {
+					return j, posInBlock
+				}
 			}
 			if v < c.nRows && c.idxToSetIdx[v] < 0 {
 				// upgrade invalid pointer to valid one
@@ -225,13 +251,13 @@ func (c *pirClientPunc) findIndex(i int) int {
 			}
 		}
 	}
-	return -1
+	return -1, -1
 }
 
 type puncQueryCtx struct {
-	i        int
-	randCase int
-	setIdx   int
+	posInBlock int
+	randCase   int
+	setIdx     int
 }
 
 func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
@@ -239,10 +265,13 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
 
-	ctx := puncQueryCtx{i: i}
-	if ctx.setIdx = c.findIndex(i); ctx.setIdx < 0 {
+	var ctx puncQueryCtx
+
+	if ctx.setIdx, ctx.posInBlock = c.findIndex(i); ctx.setIdx < 0 {
 		return nil, nil
 	}
+	origI := i
+	i = MathMod(i-ctx.posInBlock, c.nRows)
 
 	pset := c.eval(ctx.setIdx)
 
@@ -274,8 +303,8 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 	}
 
 	return []QueryReq{
-			QueryReq{PuncturedSet: puncSetL, ExtraElem: extraL, Index: i /* Debug */},
-			QueryReq{PuncturedSet: puncSetR, ExtraElem: extraR, Index: i /* Debug */}},
+			{PuncturedSet: puncSetL, ExtraElem: extraL, Index: origI /* Debug */},
+			{PuncturedSet: puncSetR, ExtraElem: extraR, Index: origI /* Debug */}},
 		func(resp []QueryResp) (Row, error) {
 			return c.reconstruct(ctx, resp)
 		}
@@ -341,7 +370,7 @@ func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []QueryResp) (Row, er
 		xorInto(out, resp[Right].Answer)
 		xorInto(out, resp[Left].ExtraElem)
 	}
-	return out, nil
+	return out[ctx.posInBlock*c.rowLen : (ctx.posInBlock+1)*c.rowLen], nil
 }
 
 func (c *pirClientPunc) NumCovered() int {
