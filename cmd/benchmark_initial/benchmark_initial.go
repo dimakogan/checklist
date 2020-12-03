@@ -55,9 +55,9 @@ func main() {
 		}
 
 		result := testing.Benchmark(func(b *testing.B) {
-			assert.NilError(ep, driver.ResetMetrics(0, nil))
+			assert.NilError(ep, driver.ResetMetrics(0, &none))
 			var clientInitTime time.Duration
-			var clientBytes uint64
+			var clientBytes int
 			for i := 0; i < b.N; i++ {
 				var m1, m2 runtime.MemStats
 				runtime.GC()
@@ -74,7 +74,7 @@ func main() {
 				clientInitTime += time.Since(start)
 				runtime.GC()
 				runtime.ReadMemStats(&m2)
-				clientBytes += m2.Alloc - m1.Alloc
+				clientBytes += int(m2.Alloc) - int(m1.Alloc)
 			}
 
 			var serverHintTime time.Duration
@@ -95,7 +95,7 @@ func main() {
 			int(result.Extra["client-bytes/op"]))
 
 		result = testing.Benchmark(func(b *testing.B) {
-			assert.NilError(ep, driver.ResetMetrics(0, nil))
+			assert.NilError(ep, driver.ResetMetrics(0, &none))
 			var clientReadTime time.Duration
 			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal

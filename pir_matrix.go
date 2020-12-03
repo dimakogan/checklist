@@ -30,7 +30,7 @@ func getHeightWidth(nRows int, rowLen int) (int, int) {
 	return width, height
 }
 
-func NewPirServerMatrix(data []Row) PirServer {
+func NewPirServerMatrix(data []Row) PirDB {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}

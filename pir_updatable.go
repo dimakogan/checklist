@@ -110,11 +110,12 @@ func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatab
 	return &s
 }
 
-func (s *pirServerUpdatable) NumRows() int {
-	return s.kv.Len()
+func (s *pirServerUpdatable) NumRows(none int, out *int) error {
+	*out = s.kv.Len()
+	return nil
 }
 
-func (s *pirServerUpdatable) GetRow(idx int) (out RowIndexVal, err error) {
+func (s *pirServerUpdatable) GetRow(idx int, out *RowIndexVal) error {
 	if idx == -1 {
 		// return random row
 		idx = RandSource().Int() % s.kv.Len()
@@ -125,10 +126,10 @@ func (s *pirServerUpdatable) GetRow(idx int) (out RowIndexVal, err error) {
 			out.Key = uint32(e.Key.(uint32))
 			out.Value = Row(e.Value.(Row))
 			out.Index = idx
-			return out, nil
+			return nil
 		}
 	}
-	return RowIndexVal{}, fmt.Errorf("Index %d out of bounds", idx)
+	return fmt.Errorf("Index %d out of bounds", idx)
 }
 
 func (s *pirServerUpdatable) SomeKeys(num int) []uint32 {

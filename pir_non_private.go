@@ -15,7 +15,7 @@ type pirServerNonPrivate struct {
 	db      []Row
 }
 
-func NewPirServerNonPrivate(data []Row) PirServer {
+func NewPirServerNonPrivate(data []Row) PirDB {
 	if len(data) < 1 {
 		panic("Database must contain at least one row")
 	}

@@ -97,18 +97,23 @@ type QueryResp struct {
 	Val Row
 }
 
+type PirServer interface {
+	Hint(req HintReq, resp *HintResp) error
+	Answer(q QueryReq, resp *QueryResp) error
+}
+
 type PirDB interface {
-	GetRow(idx int) (RowIndexVal, error)
-	NumRows() int
+	PirServer
+	GetRow(idx int, row *RowIndexVal) error
+	NumRows(none int, out *int) error
+}
+
+type PirUpdatableDB interface {
+	PirDB
 
 	AddRows(keys []uint32, vals []Row)
 	DeleteRows(keys []uint32)
 	SomeKeys(num int) []uint32
-}
-
-type PirServer interface {
-	Hint(req HintReq, resp *HintResp) error
-	Answer(q QueryReq, resp *QueryResp) error
 }
 
 type PirClient interface {
@@ -130,7 +135,7 @@ type pirClient struct {
 	randSource *rand.Rand
 }
 
-func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirServer {
+func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirDB {
 	switch pirType {
 	case Matrix:
 		return NewPirServerMatrix(db)

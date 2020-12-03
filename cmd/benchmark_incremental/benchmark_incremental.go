@@ -44,7 +44,7 @@ func main() {
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	fmt.Printf("%10s%22s%22s%15s%22s%22s%15s\n",
 		"numRows",
-		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytes",
+		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytesPerChange",
 		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")
 
 	for _, config := range TestConfigs() {
@@ -117,7 +117,7 @@ func main() {
 			config.NumRows,
 			serverHintTime.Microseconds()/int64(numBatches),
 			(clientUpdateTime-serverHintTime).Microseconds()/int64(numBatches),
-			hintBytes/numBatches,
+			hintBytes/(numBatches*changeBatchSize*2),
 			serverAnswerTime.Microseconds()/int64(numBatches),
 			(clientReadTime-serverAnswerTime).Microseconds()/int64(numBatches),
 			answerBytes/numBatches)

@@ -66,7 +66,7 @@ func (p *PirRpcProxy) NumRows(none int, out *int) error {
 }
 
 func (p *PirRpcProxy) GetRow(idx int, row *RowIndexVal) error {
-	return p.remote.Call("PirServerDriver.RawRead", idx, row)
+	return p.remote.Call("PirServerDriver.GetRow", idx, row)
 }
 
 func (p *PirRpcProxy) GetHintTimer(none int, out *time.Duration) error {
