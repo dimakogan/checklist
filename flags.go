@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"net/rpc"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -26,7 +27,7 @@ func InitTestFlags() {
 
 	flag.Parse()
 
-	fmt.Printf("TestConfig: %v\n", TestConfigs())
+	fmt.Fprintf(os.Stderr, "# TestConfig: %v\n", TestConfigs())
 }
 
 func TestConfigs() []TestConfig {

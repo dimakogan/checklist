@@ -1,11 +1,10 @@
-# go test -tags=BenchmarkInitial -test.timeout=16h40m0s -numRows=100000,200000,400000,800000,1600000,2000000,3000000,5000000 -updatable=false -pirType=DPF
+# benchmark_initial -numRows=100000,200000,400000,800000,1600000,2000000,3000000,5000000 -updatable=false -pirType=DPF
    numRows OfflineServerTime[us] OfflineClientTime[us]   OfflineBytes    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-    100000                     0                    44            436             21                  2583                    74           1180
-    200000                     0                    42            436             14                  5087                    85           1216
-    400000                     0                    44            436             15                 10931                   104           1252
-    800000                     0                    50            436             22                 22645                   116           1292
-   1600000                     0                    50            436             21                 44666                   121           1328
-   2000000                     0                    48            436              8                 57444                   125           1328
-   3000000                     0                    41            436             19                 77391                   118           1364
-   5000000                     0                    43            436             14                133493                   145           1400
-ok  	github.com/dimakogan/boosted-pir	24.664s
+    100000                     0                    85            440             19                  4115                   161           1348
+    200000                     0                   107            441             19                  8062                   180           1384
+    400000                     0                    87            441              9                 15878                   178           1422
+    800000                     0                    97            440             20                 32222                   179           1460
+   1600000                     0                    93            440             20                 62427                   171           1496
+   2000000                     0                    93            440             19                 81621                   199           1496
+   3000000                     0                    88            441              5                159702                   202           1532
+   5000000                     0                    89            440             18                198766                   185           1568

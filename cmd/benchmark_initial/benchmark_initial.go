@@ -99,7 +99,7 @@ func main() {
 			var clientReadTime time.Duration
 			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal
-				assert.NilError(ep, driver.GetRow(-1 /* random row */, &rowIV))
+				assert.NilError(ep, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
 
 				start := time.Now()
 				row, err := client.Read(int(rowIV.Key))

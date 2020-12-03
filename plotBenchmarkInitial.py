@@ -22,8 +22,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name):
 
     for file_num, filename in enumerate(file_to_cols):
         pretty_name = os.path.splitext(os.path.basename(filename))[0]
-        results = np.genfromtxt(filename, names=True, skip_header=1, skip_footer=1, 
-            usecols=file_to_cols[filename])
+        results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
 
         for idx, col_name in enumerate(results.dtype.names[1:]):
             plt.plot(results[results.dtype.names[0]],results[col_name], 
@@ -49,11 +48,14 @@ parser.add_argument('-o',
 args = parser.parse_args()
 
 
-
 names = args.input_files
 no_offline_names = args.no_offline
 if no_offline_names == None:
-    no_offline_names = {}
+    no_offline_names = []
+
+if len(names)+len(no_offline_names) == 0:
+    parser.print_help()
+    exit(1) 
 
 plot({**{name : [0, 5, 1] for name in names}, 
     **{name : [0, 5] for name in no_offline_names}}, 
