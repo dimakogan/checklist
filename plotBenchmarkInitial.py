@@ -18,7 +18,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name):
     ax.tick_params('x', pad=0.5)
 
     linestyles = ["solid", "dashed", "dotted"]
-    colors=["red", "blue", "green"]
+    colors=["red", "blue", "green", "purple"]
 
     for file_num, filename in enumerate(file_to_cols):
         pretty_name = os.path.splitext(os.path.basename(filename))[0]
@@ -60,7 +60,7 @@ if len(names)+len(no_offline_names) == 0:
 plot({**{name : [0, 5, 1] for name in names}, 
     **{name : [0, 5] for name in no_offline_names}}, 
     ["", " (Offline)"], 
-    ["linear", "linear"],
+    ["linear", "log"],
     ["Num Rows", 'Server Running time (µs)'], 
     args.out_basename+"_server.pdf")
 

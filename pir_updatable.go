@@ -42,7 +42,7 @@ type pirServerUpdatable struct {
 }
 
 func smallestLayerSize(nRows int) int {
-	return 50 * (*SecParam) * (*SecParam)
+	return 10 * (*SecParam) * (*SecParam)
 }
 
 func (s pirServerUpdatable) layersMaxSize(nRows int) []int {
