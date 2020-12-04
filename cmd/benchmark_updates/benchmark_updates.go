@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -24,8 +23,10 @@ func main() {
 	NumLayerHintBytes = make(map[int]int)
 
 	var ep ErrorPrinter
-	var numBatchesFlag int
-	flag.IntVar(&numBatchesFlag, "numBatches", 0, "number of update batches (default: ~sqrt(numRows))")
+	var updateSize int
+	var numUpdates int
+	flag.IntVar(&updateSize, "updateSize", 1000, "number of rows in each update batch (default: 1000)")
+	flag.IntVar(&numUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 
 	InitTestFlags()
 
@@ -42,9 +43,9 @@ func main() {
 	}
 
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
-	fmt.Printf("%10s%22s%22s%22s%15s%22s%22s%15s\n",
-		"numRows",
-		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytesPerChange", "ClientBytes",
+	fmt.Printf("%15s%22s%22s%22s%15s%22s%22s%15s\n",
+		"NumUpdates",
+		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytes", "ClientBytes",
 		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")
 
 	for _, config := range TestConfigs() {
@@ -59,30 +60,24 @@ func main() {
 		if err := driver.Configure(config, &none); err != nil {
 			log.Fatalf("Failed to configure driver: %s\n", err)
 		}
+		driver.ResetMetrics(0, &none)
 
 		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
 
-		err = client.Init()
-		assert.NilError(ep, err)
-
-		driver.ResetMetrics(0, &none)
 		var clientUpdateTime, clientReadTime time.Duration
 
-		changeBatchSize := 100000
-		var numBatches int
-		if numBatchesFlag == 0 {
-			numBatches = (config.NumRows-1)/changeBatchSize + 1
-		} else {
-			numBatches = numBatchesFlag
+		if numUpdates == 0 {
+			numUpdates = (config.NumRows-1)/updateSize + 1
 		}
+		for i := 0; i < numUpdates; i++ {
+			assert.NilError(ep, driver.AddRows(updateSize/2, &none))
+			assert.NilError(ep, driver.DeleteRows(updateSize/2, &none))
 
-		for i := 0; i < numBatches; i++ {
-			assert.NilError(ep, driver.AddRows(changeBatchSize, &none))
-			assert.NilError(ep, driver.DeleteRows(changeBatchSize, &none))
+			driver.ResetMetrics(0, &none)
 
 			start := time.Now()
 			client.Update()
-			clientUpdateTime += time.Since(start)
+			clientUpdateTime = time.Since(start)
 
 			var rowIV RowIndexVal
 			var numRows int
@@ -91,39 +86,31 @@ func main() {
 
 			start = time.Now()
 			row, err := client.Read(int(rowIV.Key))
-			clientReadTime += time.Since(start)
+			clientReadTime = time.Since(start)
 			assert.NilError(ep, err)
 			assert.DeepEqual(ep, row, rowIV.Value)
 
-			if *progress {
-				fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numBatches)
-			}
+			var serverHintTime, serverAnswerTime time.Duration
+			var hintBytes, answerBytes int
+			assert.NilError(ep, driver.GetHintTimer(0, &serverHintTime))
+			assert.NilError(ep, driver.GetAnswerTimer(0, &serverAnswerTime))
+			assert.NilError(ep, driver.GetAnswerBytes(0, &answerBytes))
+			assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
 
-			if i == numBatches-2 {
-				runtime.GC()
-				if memProf, err := os.Create("mem.prof"); err != nil {
-					panic(err)
-				} else {
-					pprof.WriteHeapProfile(memProf)
-					memProf.Close()
-				}
+			fmt.Printf("%15d%22d%22d%22d%15d%22d%22d%15d\n",
+				i*updateSize,
+				serverHintTime.Microseconds(),
+				(clientUpdateTime - serverHintTime).Microseconds(),
+				hintBytes,
+				0,
+				serverAnswerTime.Microseconds(),
+				(clientReadTime - serverAnswerTime).Microseconds(),
+				answerBytes)
+
+			if *progress {
+				fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numUpdates)
 			}
 		}
-		var serverHintTime, serverAnswerTime time.Duration
-		var hintBytes, answerBytes int
-		assert.NilError(ep, driver.GetHintTimer(0, &serverHintTime))
-		assert.NilError(ep, driver.GetAnswerTimer(0, &serverAnswerTime))
-		assert.NilError(ep, driver.GetAnswerBytes(0, &answerBytes))
-		assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
-
-		fmt.Printf("%10d%22d%22d%22d%22d%22d%15d\n",
-			config.NumRows,
-			serverHintTime.Microseconds()/int64(numBatches),
-			(clientUpdateTime-serverHintTime).Microseconds()/int64(numBatches),
-			hintBytes/(numBatches*changeBatchSize*2),
-			serverAnswerTime.Microseconds()/int64(numBatches),
-			(clientReadTime-serverAnswerTime).Microseconds()/int64(numBatches),
-			answerBytes/numBatches)
 	}
 	fmt.Fprintf(os.Stderr, "# NumLayerActivations: %v\n", NumLayerActivations)
 	fmt.Fprintf(os.Stderr, "# NumLayerHintBytes: %v\n", NumLayerHintBytes)

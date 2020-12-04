@@ -1,3 +1,0 @@
-# go test -tags=BenchmarkInitial -test.timeout=16h40m0s -numRows=100000,200000 -pirType=Punc
-   numRows  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-    100000                   327                  1363           2966

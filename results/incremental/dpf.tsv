@@ -1,0 +1,11 @@
+# benchmark_incremental -numRows=400000,800000,1600000,2000000,3000000,5000000,7000000 -pirType=DPF -numRowsPerBlock=1
+   numRows  UpdateServerTime[us]  UpdateClientTime[us] UpdateBytesPerChange ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
+    400000                  1090                190718              5            0                 34271                   662           1476
+    800000                  2646                137058              5            0                 34008                   180           1513
+   1600000                   871                181239              5            0                 65235                   168           1549
+   2000000                   874                233903              5            0                 87158                   171           1558
+   3000000                  1069                264902              5            0                116574                   154           1581
+   5000000                   863                316681              5            0                191421                   162           1607
+   7000000                   904                519835              5            0                257168                   160           1625
+# NumLayerActivations: map[0:205]
+# NumLayerHintBytes: map[0:0]
