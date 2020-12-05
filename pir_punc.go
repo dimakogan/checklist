@@ -13,6 +13,7 @@ import (
 
 	//	"sort"
 
+	"github.com/dimakogan/boosted-pir/psetggm"
 	"github.com/lukechampine/fastxor"
 )
 
@@ -147,7 +148,9 @@ func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 		return s.answerBatch(q.BatchReqs, &resp.BatchResps)
 	}
 	resp.Answer = make(Row, s.blockLen)
-	s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
+	//s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
+	psetggm.FastAnswer(q.PuncturedSet.Keys, q.PuncturedSet.Hole, q.PuncturedSet.UnivSize, q.PuncturedSet.SetSize, int(q.PuncturedSet.Shift),
+		s.flatDb, s.rowLen, resp.Answer)
 	resp.ExtraElem = s.flatDb[s.rowLen*q.ExtraElem : s.rowLen*q.ExtraElem+s.blockLen]
 
 	// Debug

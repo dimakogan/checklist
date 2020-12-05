@@ -94,7 +94,7 @@ func (s *pirServerUpdatable) initLayers(nRows int) {
 
 	// Even when using PirPunc, the smallest layer always uses matrix
 	if s.pirType == Punc {
-		s.layers[len(s.layers)-1].pirType = DPF
+		s.layers[len(s.layers)-1].pirType = Matrix
 	}
 }
 

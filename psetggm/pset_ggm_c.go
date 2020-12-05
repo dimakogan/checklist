@@ -4,6 +4,7 @@ package psetggm
 #cgo CXXFLAGS: -msse2 -msse -march=native -maes -Ofast
 #include "pset_ggm.h"
 #include "xor.h"
+#include "answer.h"
 */
 import "C"
 import (
@@ -45,4 +46,9 @@ func XorBlocks(db []byte, offsets []int, out []byte) {
 
 func (gen *GGMSetGeneratorC) Distinct(elems []int) bool {
 	return (C.distinct(gen.cgen, (*C.ulonglong)(unsafe.Pointer(&elems[0])), C.uint(len(elems))) != 0)
+}
+
+func FastAnswer(pset []byte, hole, univSize, setSize, shift int, db []byte, rowLen int, out []byte) {
+	C.answer((*C.uchar)(&pset[0]), C.uint(hole), C.uint(univSize), C.uint(setSize), C.uint(shift),
+		(*C.uchar)(&db[0]), C.uint(len(db)), C.uint(rowLen), C.uint(len(out)), (*C.uchar)(&out[0]))
 }
