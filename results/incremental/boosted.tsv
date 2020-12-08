@@ -1,11 +1,9 @@
-# benchmark_incremental -numRows=400000,800000,1600000,2000000,3000000,5000000,7000000 -pirType=Punc -numRowsPerBlock=1
-#   numRows  UpdateServerTime[us]  UpdateClientTime[us] UpdateBytesPerChange ClientBytes OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-    400000                523547                413675             10            0                 818                   256           1820
-    800000                681464                521837             11            0                 960                   204           2046
-   1600000                767965                649775             11            0                 814                   211           2307
-   2000000                760653                755990             10            0                1524                   236           2463
-   3000000                852676                840206             11            0                1251                   287           2570
-   5000000                929269               1247143             10            0                2043                   377           2785
-   7000000               1070189               2654369             10            0                1988                   387           3098
-# NumLayerActivations: map[0:14 1:10 2:17 3:28 4:44 5:48 6:44 7:0]
-# NumLayerHintBytes: map[0:68956128 1:23133984 2:32718336 3:41239328 4:43113248 5:28978528 6:2673408 7:0]
+# benchmark_incremental -numRows=400000,800000,1600000,2000000,3000000,5000000,7000000 -pirType=Punc
+   numRows  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
+    400000                563255                451363                    10                   166                   247           3489
+    800000                676841                632590                    11                   195                   239           3715
+   1600000                777622                779729                    11                   240                   284           3976
+   2000000                749111                885017                    10                   354                   338           5799
+   3000000                833232               1084003                    11                   296                   344           4128
+   5000000                924106               1285506                    10                   473                   422           6121
+   7000000               1012741               1382011                    10                   529                   445           6148
