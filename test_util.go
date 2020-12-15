@@ -44,6 +44,8 @@ type TestConfig struct {
 	PirType   PirType
 	Updatable bool
 
+	UpdateSize int
+
 	PresetRows []RowIndexVal
 }
 

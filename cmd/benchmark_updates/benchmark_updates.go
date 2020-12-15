@@ -23,9 +23,7 @@ func main() {
 	NumLayerHintBytes = make(map[int]int)
 
 	var ep ErrorPrinter
-	var updateSize int
 	var numUpdates int
-	flag.IntVar(&updateSize, "updateSize", 1000, "number of rows in each update batch (default: 1000)")
 	flag.IntVar(&numUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 
 	InitTestFlags()
@@ -67,11 +65,11 @@ func main() {
 		var clientUpdateTime, clientReadTime time.Duration
 
 		if numUpdates == 0 {
-			numUpdates = (config.NumRows-1)/updateSize + 1
+			numUpdates = (config.NumRows-1)/config.UpdateSize + 1
 		}
 		for i := 0; i < numUpdates; i++ {
-			assert.NilError(ep, driver.AddRows(updateSize/2, &none))
-			assert.NilError(ep, driver.DeleteRows(updateSize/2, &none))
+			assert.NilError(ep, driver.AddRows(config.UpdateSize/2, &none))
+			assert.NilError(ep, driver.DeleteRows(config.UpdateSize/2, &none))
 
 			driver.ResetMetrics(0, &none)
 
@@ -98,7 +96,7 @@ func main() {
 			assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
 
 			fmt.Printf("%15d%22d%22d%22d%15d%22d%22d%15d\n",
-				i*updateSize,
+				i*config.UpdateSize,
 				serverHintTime.Microseconds(),
 				(clientUpdateTime - serverHintTime).Microseconds(),
 				hintBytes,

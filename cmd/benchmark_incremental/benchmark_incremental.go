@@ -18,14 +18,13 @@ import (
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 var progress = flag.Bool("progress", true, "Show benchmarks progress")
+var numUpdates = flag.Int("numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 
 func main() {
 	NumLayerActivations = make(map[int]int)
 	NumLayerHintBytes = make(map[int]int)
 
 	var ep ErrorPrinter
-	var numBatchesFlag int
-	flag.IntVar(&numBatchesFlag, "numBatches", 0, "number of update batches (default: ~sqrt(numRows))")
 
 	InitTestFlags()
 
@@ -42,8 +41,9 @@ func main() {
 	}
 
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
-	fmt.Printf("%10s%22s%22s%22s%15s%22s%22s%15s\n",
+	fmt.Printf("%10s%12s%22s%22s%22s%15s%22s%22s%15s\n",
 		"numRows",
+		"updateSize",
 		"UpdateServerTime[us]", "UpdateClientTime[us]", "UpdateBytesPerChange", "ClientBytes",
 		"OnlineServerTime[us]", "OnlineClientTime[us]", "OnlineBytes")
 
@@ -68,17 +68,16 @@ func main() {
 		driver.ResetMetrics(0, &none)
 		var clientUpdateTime, clientReadTime time.Duration
 
-		changeBatchSize := 100000
 		var numBatches int
-		if numBatchesFlag == 0 {
-			numBatches = (config.NumRows-1)/changeBatchSize + 1
+		if *numUpdates == 0 {
+			numBatches = (config.NumRows-1)/(config.UpdateSize) + 1
 		} else {
-			numBatches = numBatchesFlag
+			numBatches = *numUpdates
 		}
 
 		for i := 0; i < numBatches; i++ {
-			assert.NilError(ep, driver.AddRows(changeBatchSize, &none))
-			assert.NilError(ep, driver.DeleteRows(changeBatchSize, &none))
+			assert.NilError(ep, driver.AddRows(config.UpdateSize/2, &none))
+			assert.NilError(ep, driver.DeleteRows(config.UpdateSize/2, &none))
 
 			start := time.Now()
 			client.Update()
@@ -116,11 +115,13 @@ func main() {
 		assert.NilError(ep, driver.GetAnswerBytes(0, &answerBytes))
 		assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
 
-		fmt.Printf("%10d%22d%22d%22d%22d%22d%15d\n",
+		fmt.Printf("%10d%12d%22d%22d%22d%15d%22d%22d%15d\n",
 			config.NumRows,
+			config.UpdateSize,
 			serverHintTime.Microseconds()/int64(numBatches),
 			(clientUpdateTime-serverHintTime).Microseconds()/int64(numBatches),
-			hintBytes/(numBatches*changeBatchSize*2),
+			hintBytes/(numBatches*config.UpdateSize),
+			0,
 			serverAnswerTime.Microseconds()/int64(numBatches),
 			(clientReadTime-serverAnswerTime).Microseconds()/int64(numBatches),
 			answerBytes/numBatches)

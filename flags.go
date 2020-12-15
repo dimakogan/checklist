@@ -16,6 +16,7 @@ var rowLen string
 var pirType string
 var updatable bool
 var serverAddr string
+var updateSize string
 
 func InitTestFlags() {
 	flag.StringVar(&numRows, "numRows", "10000", "Num DB Rows (comma-separated list)")
@@ -24,6 +25,7 @@ func InitTestFlags() {
 		fmt.Sprintf("Updatable PIR type: [%s] (comma-separated list)", strings.Join(PirTypeStrings(), "|")))
 	flag.BoolVar(&updatable, "updatable", true, "Test Updatable PIR")
 	flag.StringVar(&serverAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
+	flag.StringVar(&updateSize, "updateSize", "1000", "number of rows in each update batch (default: 1000)")
 
 	flag.Parse()
 
@@ -35,6 +37,7 @@ func TestConfigs() []TestConfig {
 	numRowsStr := strings.Split(numRows, ",")
 	dbRowLenStr := strings.Split(rowLen, ",")
 	pirTypeStrs := strings.Split(pirType, ",")
+	updateSizeStrs := strings.Split(updateSize, ",")
 
 	for _, nStr := range numRowsStr {
 		n, err := strconv.Atoi(nStr)
@@ -56,7 +59,14 @@ func TestConfigs() []TestConfig {
 				if pirType == Perm {
 					config.NumRows = 1 << int(math.Ceil(math.Log2(float64(config.NumRows))))
 				}
-				configs = append(configs, config)
+				for _, updateSizeStr := range updateSizeStrs {
+					updateSize, err := strconv.Atoi(updateSizeStr)
+					if err != nil {
+						log.Fatalf("Bad updateSize: %s\n", updateSizeStr)
+					}
+					config.UpdateSize = updateSize
+					configs = append(configs, config)
+				}
 			}
 		}
 
