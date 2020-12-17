@@ -17,7 +17,6 @@ import (
 	"github.com/paulbellamy/ratecounter"
 
 	"log"
-	"net/rpc"
 )
 
 // Number of different records to read to avoid caching effects.
@@ -36,7 +35,12 @@ func main() {
 	flag.Parse()
 
 	fmt.Printf("Connecting to %s...", *serverAddr)
-	remote, err := rpc.DialHTTP("tcp", *serverAddr)
+	proxyLeft, err := b.NewPirRpcProxy(*serverAddr)
+	if err != nil {
+		log.Fatal("Connection error: ", err)
+	}
+
+	proxyRight, err := b.NewPirRpcProxy(*serverAddr)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -61,8 +65,6 @@ func main() {
 			Value: value})
 	}
 
-	proxyLeft := b.NewPirRpcProxy(remote)
-	proxyRight := b.NewPirRpcProxy(remote)
 	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
 	err = proxyLeft.Configure(config, &none)
 	if err != nil {
@@ -102,7 +104,7 @@ func main() {
 	proxyRight.ShouldRecord = true
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := rand.Intn(NumDifferentReads)
-		readVal, err := client.Read(int(config.PresetRows[idx].Key))
+		readVal, err := client.Read(config.PresetRows[idx].Key)
 		if err != nil {
 			log.Fatalf("Failed to read index %d: %s", i, err)
 		}

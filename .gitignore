@@ -36,3 +36,5 @@ compare/fig/__pycache__/
 /psetggm/tests/test_pset
 /psetggm/tests/test_distinct
 /psetggm/tests/test_xor
+/sbproxy
+/sbserver

@@ -9,7 +9,7 @@ import (
 )
 
 type pirDPFClient struct {
-	numRows, rowLen int
+	nRows, rowLen int
 
 	randSource *rand.Rand
 }
@@ -85,13 +85,13 @@ func NewPIRDPFClient(source *rand.Rand) *pirDPFClient {
 
 func (c *pirDPFClient) initHint(resp *HintResp) error {
 	c.rowLen = resp.RowLen
-	c.numRows = resp.NumRows
+	c.nRows = resp.NumRows
 	return nil
 }
 
 func (c *pirDPFClient) query(idx int) ([]QueryReq, ReconstructFunc) {
 	queries := make([]QueryReq, 2)
-	numBits := uint64(math.Ceil(math.Log2(float64(c.numRows))))
+	numBits := uint64(math.Ceil(math.Log2(float64(c.nRows))))
 	queries[Left].DPFkey, queries[Right].DPFkey = dpf.Gen(uint64(idx), numBits)
 
 	return queries, c.reconstruct

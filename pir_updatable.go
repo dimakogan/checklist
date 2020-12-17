@@ -2,6 +2,7 @@ package boosted
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 
 	"github.com/elliotchance/orderedmap"
@@ -338,7 +339,17 @@ func NewPirClientUpdatable(source *rand.Rand, servers [2]PirServer) *pirClientUp
 }
 
 func (c *pirClientUpdatable) Init() error {
-	return c.Update()
+	err := c.Update()
+	log.Printf("%v\n", c.keyToPos)
+	return err
+}
+
+func (c *pirClientUpdatable) Keys() []uint32 {
+	keys := make([]uint32, 0, len(c.keyToPos))
+	for k := range c.keyToPos {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 func (c *pirClientUpdatable) Update() error {
@@ -385,10 +396,10 @@ func (c *pirClientUpdatable) Update() error {
 	return nil
 }
 
-func (c pirClientUpdatable) Read(i int) (Row, error) {
-	queryReq, reconstructFunc := c.query(i)
+func (c pirClientUpdatable) Read(key uint32) (Row, error) {
+	queryReq, reconstructFunc := c.query(int(key))
 	if reconstructFunc == nil {
-		return nil, fmt.Errorf("Failed to query: %d", i)
+		return nil, fmt.Errorf("Failed to query: %x", key)
 	}
 	responses := make([]QueryResp, 2)
 	err := c.servers[Left].Answer(queryReq[Left], &responses[Left])

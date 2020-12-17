@@ -12,12 +12,12 @@ func testRead(t *testing.T, keys []uint32, db []Row, servers [2]PirServer) {
 	assert.NilError(t, client.Init())
 	readIndex := 2
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 
 	// Test refreshing by reading the same item again
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -58,13 +58,13 @@ func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
 	assert.NilError(t, client.Init())
 	readIndex := 2
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 
 	readIndex = len(db) - 100
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -94,13 +94,13 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 	// Read something from the beginning
 	readIndex := 2
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 
 	readIndex = len(db) - 100
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -130,13 +130,13 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 	// Read something from the beginning
 	readIndex := 2
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 
 	readIndex = len(db) - 100
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -173,13 +173,13 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 		// Read something from the beginning
 		readIndex := 2
 		key := keys[readIndex]
-		val, err := client.Read(int(key))
+		val, err := client.Read(key)
 		assert.NilError(t, err)
 		assert.DeepEqual(t, val, db[readIndex])
 
 		readIndex = initialSize + (s+1)*delta - 100
 		key = keys[readIndex]
-		val, err = client.Read(int(key))
+		val, err = client.Read(key)
 		assert.NilError(t, err)
 		assert.DeepEqual(t, val, db[readIndex])
 	}
@@ -211,12 +211,12 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	// Check that reading a deleted element fails
 	readIndex := deletedPrefix - 1
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.ErrorContains(t, err, "")
 
 	readIndex = deletedPrefix + 100
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -249,12 +249,12 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 
 	readIndex := 100
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.ErrorContains(t, err, "")
 
 	readIndex = 101
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 }
@@ -297,26 +297,26 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	// deleted element from the original elements
 	readIndex := 2
 	key := keys[readIndex]
-	val, err := client.Read(int(key))
+	val, err := client.Read(key)
 	assert.ErrorContains(t, err, "")
 
 	// deleted element from the added elements
 	readIndex = initialSize + 2
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.ErrorContains(t, err, "")
 
 	// original non-deleted element
 	readIndex = 3
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 
 	// added non-deleted element
 	readIndex = initialSize + 3
 	key = keys[readIndex]
-	val, err = client.Read(int(key))
+	val, err = client.Read(key)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, db[readIndex])
 

@@ -121,6 +121,12 @@ type PirClient interface {
 	Read(i int) (Row, error)
 }
 
+type PirUpdatableClient interface {
+	Init() error
+	Read(key uint32) (Row, error)
+	Keys() []uint32
+}
+
 type ReconstructFunc func(resp []QueryResp) (Row, error)
 
 type pirClientImpl interface {

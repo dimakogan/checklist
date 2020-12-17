@@ -83,7 +83,7 @@ func main() {
 			assert.NilError(ep, driver.GetRow(rand.Intn(numRows), &rowIV))
 
 			start = time.Now()
-			row, err := client.Read(int(rowIV.Key))
+			row, err := client.Read(rowIV.Key)
 			clientReadTime = time.Since(start)
 			assert.NilError(ep, err)
 			assert.DeepEqual(ep, row, rowIV.Value)

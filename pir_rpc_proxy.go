@@ -16,11 +16,15 @@ type PirRpcProxy struct {
 	QueryResps   []QueryResp
 }
 
-func NewPirRpcProxy(remote *rpc.Client) *PirRpcProxy {
+func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
+	remote, err := rpc.DialHTTP("tcp", serverAddr)
+	if err != nil {
+		return nil, err
+	}
 	registerExtraTypes()
 	return &PirRpcProxy{
 		remote: remote,
-	}
+	}, nil
 }
 
 func (p *PirRpcProxy) Hint(req HintReq, resp *HintResp) error {

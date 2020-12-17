@@ -48,7 +48,8 @@ func main() {
 
 		rand := RandSource()
 
-		var client PirClient
+		var clientStatic PirClient
+		var clientUpdatable PirUpdatableClient
 		var none int
 		if err := driver.Configure(config, &none); err != nil {
 			log.Fatalf("Failed to configure driver: %s\n", err)
@@ -62,14 +63,16 @@ func main() {
 				var m1, m2 runtime.MemStats
 				runtime.GC()
 				runtime.ReadMemStats(&m1)
-				if config.Updatable {
-					client = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
-				} else {
-					client = NewPIRClient(NewPirClientByType(config.PirType, rand), rand,
-						[2]PirServer{driver, driver})
-				}
 				start := time.Now()
-				err = client.Init()
+				if config.Updatable {
+					clientUpdatable = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+					err = clientUpdatable.Init()
+				} else {
+					clientStatic = NewPIRClient(NewPirClientByType(config.PirType, rand), rand,
+						[2]PirServer{driver, driver})
+					err = clientStatic.Init()
+
+				}
 				assert.NilError(ep, err)
 				clientInitTime += time.Since(start)
 				runtime.GC()
@@ -99,10 +102,16 @@ func main() {
 			var clientReadTime time.Duration
 			for i := 0; i < b.N; i++ {
 				var rowIV RowIndexVal
+				var row Row
+
 				assert.NilError(ep, driver.GetRow(rand.Intn(config.NumRows), &rowIV))
 
 				start := time.Now()
-				row, err := client.Read(int(rowIV.Key))
+				if clientStatic != nil {
+					row, err = clientStatic.Read(rowIV.Index)
+				} else {
+					row, err = clientUpdatable.Read(rowIV.Key)
+				}
 				clientReadTime += time.Since(start)
 				assert.NilError(ep, err)
 				assert.DeepEqual(ep, row, rowIV.Value)

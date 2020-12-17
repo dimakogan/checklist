@@ -8,7 +8,6 @@ import (
 	b "github.com/dimakogan/boosted-pir"
 
 	"log"
-	"net/rpc"
 )
 
 func main() {
@@ -22,14 +21,15 @@ func main() {
 		panic(fmt.Sprintf("Invalid INDEX-TO-READ: %s", args[1]))
 	}
 
-	// Create a TCP connection to localhost on port 12345
-	remote, err := rpc.DialHTTP("tcp", "localhost:12345")
+	proxyLeft, err := b.NewPirRpcProxy("localhost:12345")
+	if err != nil {
+		log.Fatal("Connection error: ", err)
+	}
+	proxyRight, err := b.NewPirRpcProxy("localhost:12345")
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
 
-	proxyLeft := b.NewPirRpcProxy(remote)
-	proxyRight := b.NewPirRpcProxy(remote)
 	client := b.NewPIRClient(
 		b.NewPirClientPunc(b.RandSource()),
 		b.RandSource(),

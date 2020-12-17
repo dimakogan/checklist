@@ -7,6 +7,7 @@ import (
 )
 
 type pirClientMatrix struct {
+	nRows  int
 	height int
 	width  int
 	rowLen int
@@ -15,11 +16,11 @@ type pirClientMatrix struct {
 }
 
 type pirMatrix struct {
-	numRows int
-	height  int
-	width   int
-	rowLen  int
-	flatDb  []byte
+	nRows  int
+	height int
+	width  int
+	rowLen int
+	flatDb []byte
 }
 
 func getHeightWidth(nRows int, rowLen int) (int, int) {
@@ -48,11 +49,11 @@ func NewPirServerMatrix(data []Row) PirDB {
 
 	width, height := getHeightWidth(len(data), rowLen)
 	return &pirMatrix{
-		numRows: len(data),
-		rowLen:  rowLen,
-		flatDb:  flatDb,
-		height:  height,
-		width:   width,
+		nRows:  len(data),
+		rowLen: rowLen,
+		flatDb: flatDb,
+		height: height,
+		width:  width,
 	}
 }
 
@@ -77,7 +78,7 @@ func (s pirMatrix) matVecProduct(bitVector []bool) []byte {
 
 func (s pirMatrix) Hint(req HintReq, resp *HintResp) error {
 	*resp = HintResp{
-		NumRows: s.numRows,
+		NumRows: s.nRows,
 		RowLen:  s.rowLen,
 	}
 	return nil
@@ -89,17 +90,17 @@ func (s *pirMatrix) Answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (s *pirMatrix) NumRows(none int, out *int) error {
-	*out = s.numRows
+	*out = s.nRows
 	return nil
 }
 
 func (s *pirMatrix) GetRow(idx int, row *RowIndexVal) error {
-	if idx < 0 || idx >= s.numRows {
-		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)
+	if idx < 0 || idx >= s.nRows {
+		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
 	}
 	if idx == -1 {
 		// return random row
-		idx = RandSource().Int() % s.numRows
+		idx = RandSource().Int() % s.nRows
 	}
 	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
 	row.Index = idx
@@ -112,6 +113,7 @@ func NewPirClientMatrix(source *rand.Rand) *pirClientMatrix {
 }
 
 func (c *pirClientMatrix) initHint(resp *HintResp) error {
+	c.nRows = resp.NumRows
 	c.rowLen = resp.RowLen
 	c.width, c.height = getHeightWidth(resp.NumRows, c.rowLen)
 	return nil

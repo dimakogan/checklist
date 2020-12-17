@@ -5,14 +5,14 @@ import (
 )
 
 type pirClientNonPrivate struct {
-	numRows int
-	rowLen  int
+	nRows  int
+	rowLen int
 }
 
 type pirServerNonPrivate struct {
-	numRows int
-	rowLen  int
-	db      []Row
+	nRows  int
+	rowLen int
+	db     []Row
 }
 
 func NewPirServerNonPrivate(data []Row) PirDB {
@@ -21,15 +21,15 @@ func NewPirServerNonPrivate(data []Row) PirDB {
 	}
 
 	return &pirServerNonPrivate{
-		numRows: len(data),
-		rowLen:  len(data[0]),
-		db:      data,
+		nRows:  len(data),
+		rowLen: len(data[0]),
+		db:     data,
 	}
 }
 
 func (s pirServerNonPrivate) Hint(req HintReq, resp *HintResp) error {
 	*resp = HintResp{
-		NumRows: s.numRows,
+		NumRows: s.nRows,
 		RowLen:  s.rowLen,
 	}
 	return nil
@@ -41,17 +41,17 @@ func (s *pirServerNonPrivate) Answer(q QueryReq, resp *QueryResp) error {
 }
 
 func (s *pirServerNonPrivate) NumRows(none int, out *int) error {
-	*out = s.numRows
+	*out = s.nRows
 	return nil
 }
 
 func (s *pirServerNonPrivate) GetRow(idx int, row *RowIndexVal) error {
-	if idx < -1 || idx >= s.numRows {
-		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)
+	if idx < -1 || idx >= s.nRows {
+		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
 	}
 	if idx == -1 {
 		// return random row
-		idx = RandSource().Int() % s.numRows
+		idx = RandSource().Int() % s.nRows
 	}
 	row.Value = s.db[idx]
 	row.Index = idx
@@ -65,7 +65,7 @@ func NewPirClientNonPrivate() *pirClientNonPrivate {
 
 func (c *pirClientNonPrivate) initHint(resp *HintResp) error {
 	c.rowLen = resp.RowLen
-	c.numRows = resp.NumRows
+	c.nRows = resp.NumRows
 	return nil
 }
 

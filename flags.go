@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/rpc"
 	"os"
 	"strconv"
 	"strings"
@@ -77,12 +76,7 @@ func TestConfigs() []TestConfig {
 
 func ServerDriver() (PirServerDriver, error) {
 	if serverAddr != "" {
-		// Create a TCP connection to localhost on port 1234
-		remote, err := rpc.DialHTTP("tcp", serverAddr)
-		if err != nil {
-			return nil, err
-		}
-		return NewPirRpcProxy(remote), nil
+		return NewPirRpcProxy(serverAddr)
 	} else {
 		return NewPirServerDriver()
 	}
