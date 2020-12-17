@@ -76,7 +76,7 @@ func unmarshalFind(req *http.Request) (*FindFullHashesRequest, int, error) {
 
 func formatThreatEntrySet(e *ThreatEntrySet) string {
 	var logStr string
-	if e.CompressionType == CompressionType_RAW.Enum() {
+	if e.CompressionType == CompressionType_RAW {
 		if e.GetRawHashes() != nil {
 			decodedRawHashes, err := base64.StdEncoding.DecodeString(string(e.GetRawHashes().GetRawHashes()))
 			if err != nil {

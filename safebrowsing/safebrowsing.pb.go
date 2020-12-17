@@ -16,9 +16,7 @@ It has these top-level messages:
 	FetchThreatListUpdatesResponse
 	FindFullHashesRequest
 	FindFullHashesResponse
-	ThreatHit
 	ClientInfo
-	ChromeClientInfo
 	Checksum
 	ThreatEntry
 	ThreatEntrySet
@@ -28,13 +26,13 @@ It has these top-level messages:
 	ThreatEntryMetadata
 	ThreatListDescriptor
 	ListThreatListsResponse
-	Duration
 */
 package safebrowsing
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import google_protobuf "github.com/golang/protobuf/ptypes/duration"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -119,21 +117,8 @@ var ThreatType_value = map[string]int32{
 	"HIGH_CONFIDENCE_ALLOWLIST":       16,
 }
 
-func (x ThreatType) Enum() *ThreatType {
-	p := new(ThreatType)
-	*p = x
-	return p
-}
 func (x ThreatType) String() string {
 	return proto.EnumName(ThreatType_name, int32(x))
-}
-func (x *ThreatType) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(ThreatType_value, data, "ThreatType")
-	if err != nil {
-		return err
-	}
-	*x = ThreatType(value)
-	return nil
 }
 func (ThreatType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
@@ -144,63 +129,48 @@ const (
 	// Unknown platform.
 	PlatformType_PLATFORM_TYPE_UNSPECIFIED PlatformType = 0
 	// Threat posed to Windows.
-	PlatformType_WINDOWS_PLATFORM PlatformType = 1
+	PlatformType_WINDOWS PlatformType = 1
 	// Threat posed to Linux.
-	PlatformType_LINUX_PLATFORM PlatformType = 2
+	PlatformType_LINUX PlatformType = 2
 	// Threat posed to Android.
-	// This cannot be ANDROID because that symbol is defined for android builds
-	// here: build/config/android/BUILD.gn line21.
-	PlatformType_ANDROID_PLATFORM PlatformType = 3
+	PlatformType_ANDROID PlatformType = 3
 	// Threat posed to OSX.
-	PlatformType_OSX_PLATFORM PlatformType = 4
+	PlatformType_OSX PlatformType = 4
 	// Threat posed to iOS.
-	PlatformType_IOS_PLATFORM PlatformType = 5
+	PlatformType_IOS PlatformType = 5
 	// Threat posed to at least one of the defined platforms.
 	PlatformType_ANY_PLATFORM PlatformType = 6
 	// Threat posed to all defined platforms.
 	PlatformType_ALL_PLATFORMS PlatformType = 7
 	// Threat posed to Chrome.
-	PlatformType_CHROME_PLATFORM PlatformType = 8
+	PlatformType_CHROME PlatformType = 8
 )
 
 var PlatformType_name = map[int32]string{
 	0: "PLATFORM_TYPE_UNSPECIFIED",
-	1: "WINDOWS_PLATFORM",
-	2: "LINUX_PLATFORM",
-	3: "ANDROID_PLATFORM",
-	4: "OSX_PLATFORM",
-	5: "IOS_PLATFORM",
+	1: "WINDOWS",
+	2: "LINUX",
+	3: "ANDROID",
+	4: "OSX",
+	5: "IOS",
 	6: "ANY_PLATFORM",
 	7: "ALL_PLATFORMS",
-	8: "CHROME_PLATFORM",
+	8: "CHROME",
 }
 var PlatformType_value = map[string]int32{
 	"PLATFORM_TYPE_UNSPECIFIED": 0,
-	"WINDOWS_PLATFORM":          1,
-	"LINUX_PLATFORM":            2,
-	"ANDROID_PLATFORM":          3,
-	"OSX_PLATFORM":              4,
-	"IOS_PLATFORM":              5,
+	"WINDOWS":                   1,
+	"LINUX":                     2,
+	"ANDROID":                   3,
+	"OSX":                       4,
+	"IOS":                       5,
 	"ANY_PLATFORM":              6,
 	"ALL_PLATFORMS":             7,
-	"CHROME_PLATFORM":           8,
+	"CHROME":                    8,
 }
 
-func (x PlatformType) Enum() *PlatformType {
-	p := new(PlatformType)
-	*p = x
-	return p
-}
 func (x PlatformType) String() string {
 	return proto.EnumName(PlatformType_name, int32(x))
-}
-func (x *PlatformType) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(PlatformType_value, data, "PlatformType")
-	if err != nil {
-		return err
-	}
-	*x = PlatformType(value)
-	return nil
 }
 func (PlatformType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
@@ -227,21 +197,8 @@ var CompressionType_value = map[string]int32{
 	"RICE": 2,
 }
 
-func (x CompressionType) Enum() *CompressionType {
-	p := new(CompressionType)
-	*p = x
-	return p
-}
 func (x CompressionType) String() string {
 	return proto.EnumName(CompressionType_name, int32(x))
-}
-func (x *CompressionType) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(CompressionType_value, data, "CompressionType")
-	if err != nil {
-		return err
-	}
-	*x = CompressionType(value)
-	return nil
 }
 func (CompressionType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
@@ -285,21 +242,8 @@ var ThreatEntryType_value = map[string]int32{
 	"CERT":             6,
 }
 
-func (x ThreatEntryType) Enum() *ThreatEntryType {
-	p := new(ThreatEntryType)
-	*p = x
-	return p
-}
 func (x ThreatEntryType) String() string {
 	return proto.EnumName(ThreatEntryType_name, int32(x))
-}
-func (x *ThreatEntryType) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(ThreatEntryType_value, data, "ThreatEntryType")
-	if err != nil {
-		return err
-	}
-	*x = ThreatEntryType(value)
-	return nil
 }
 func (ThreatEntryType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
@@ -328,132 +272,24 @@ var FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType_value = map[s
 	"FULL_UPDATE":               2,
 }
 
-func (x FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType) Enum() *FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType {
-	p := new(FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType)
-	*p = x
-	return p
-}
 func (x FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType) String() string {
 	return proto.EnumName(FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType_name, int32(x))
-}
-func (x *FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType_value, data, "FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType")
-	if err != nil {
-		return err
-	}
-	*x = FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType(value)
-	return nil
 }
 func (FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor0, []int{5, 0, 0}
 }
 
-// Types of resources reported by the client as part of a single hit.
-type ThreatHit_ThreatSourceType int32
-
-const (
-	// Unknown.
-	ThreatHit_THREAT_SOURCE_TYPE_UNSPECIFIED ThreatHit_ThreatSourceType = 0
-	// The URL that matched the threat list (for which GetFullHash returned a
-	// valid hash).
-	ThreatHit_MATCHING_URL ThreatHit_ThreatSourceType = 1
-	// The final top-level URL of the tab that the client was browsing when the
-	// match occurred.
-	ThreatHit_TAB_URL ThreatHit_ThreatSourceType = 2
-	// A redirect URL that was fetched before hitting the final TAB_URL.
-	ThreatHit_TAB_REDIRECT ThreatHit_ThreatSourceType = 3
-)
-
-var ThreatHit_ThreatSourceType_name = map[int32]string{
-	0: "THREAT_SOURCE_TYPE_UNSPECIFIED",
-	1: "MATCHING_URL",
-	2: "TAB_URL",
-	3: "TAB_REDIRECT",
-}
-var ThreatHit_ThreatSourceType_value = map[string]int32{
-	"THREAT_SOURCE_TYPE_UNSPECIFIED": 0,
-	"MATCHING_URL":                   1,
-	"TAB_URL":                        2,
-	"TAB_REDIRECT":                   3,
-}
-
-func (x ThreatHit_ThreatSourceType) Enum() *ThreatHit_ThreatSourceType {
-	p := new(ThreatHit_ThreatSourceType)
-	*p = x
-	return p
-}
-func (x ThreatHit_ThreatSourceType) String() string {
-	return proto.EnumName(ThreatHit_ThreatSourceType_name, int32(x))
-}
-func (x *ThreatHit_ThreatSourceType) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(ThreatHit_ThreatSourceType_value, data, "ThreatHit_ThreatSourceType")
-	if err != nil {
-		return err
-	}
-	*x = ThreatHit_ThreatSourceType(value)
-	return nil
-}
-func (ThreatHit_ThreatSourceType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{8, 0}
-}
-
-// Safe Browsing reporting populations in Chrome.
-type ChromeClientInfo_SafeBrowsingReportingPopulation int32
-
-const (
-	// Unspecified reporting verbosity.
-	ChromeClientInfo_UNSPECIFIED ChromeClientInfo_SafeBrowsingReportingPopulation = 0
-	// Client is opted out of reporting.
-	ChromeClientInfo_OPT_OUT ChromeClientInfo_SafeBrowsingReportingPopulation = 1
-	// Legacy extended reporting population.
-	ChromeClientInfo_EXTENDED ChromeClientInfo_SafeBrowsingReportingPopulation = 2
-	// Scout reporting population.
-	ChromeClientInfo_SCOUT ChromeClientInfo_SafeBrowsingReportingPopulation = 3
-)
-
-var ChromeClientInfo_SafeBrowsingReportingPopulation_name = map[int32]string{
-	0: "UNSPECIFIED",
-	1: "OPT_OUT",
-	2: "EXTENDED",
-	3: "SCOUT",
-}
-var ChromeClientInfo_SafeBrowsingReportingPopulation_value = map[string]int32{
-	"UNSPECIFIED": 0,
-	"OPT_OUT":     1,
-	"EXTENDED":    2,
-	"SCOUT":       3,
-}
-
-func (x ChromeClientInfo_SafeBrowsingReportingPopulation) Enum() *ChromeClientInfo_SafeBrowsingReportingPopulation {
-	p := new(ChromeClientInfo_SafeBrowsingReportingPopulation)
-	*p = x
-	return p
-}
-func (x ChromeClientInfo_SafeBrowsingReportingPopulation) String() string {
-	return proto.EnumName(ChromeClientInfo_SafeBrowsingReportingPopulation_name, int32(x))
-}
-func (x *ChromeClientInfo_SafeBrowsingReportingPopulation) UnmarshalJSON(data []byte) error {
-	value, err := proto.UnmarshalJSONEnum(ChromeClientInfo_SafeBrowsingReportingPopulation_value, data, "ChromeClientInfo_SafeBrowsingReportingPopulation")
-	if err != nil {
-		return err
-	}
-	*x = ChromeClientInfo_SafeBrowsingReportingPopulation(value)
-	return nil
-}
-func (ChromeClientInfo_SafeBrowsingReportingPopulation) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{10, 0}
-}
-
+// The information regarding one or more threats that a client submits when
+// checking for matches in threat lists.
 type ThreatInfo struct {
 	// The threat types to be checked.
-	ThreatTypes []ThreatType `protobuf:"varint,1,rep,name=threat_types,json=threatTypes,enum=safebrowsing.ThreatType" json:"threat_types,omitempty"`
+	ThreatTypes []ThreatType `protobuf:"varint,1,rep,packed,name=threat_types,json=threatTypes,enum=safebrowsing.ThreatType" json:"threat_types,omitempty"`
 	// The platform types to be checked.
-	PlatformTypes []PlatformType `protobuf:"varint,2,rep,name=platform_types,json=platformTypes,enum=safebrowsing.PlatformType" json:"platform_types,omitempty"`
+	PlatformTypes []PlatformType `protobuf:"varint,2,rep,packed,name=platform_types,json=platformTypes,enum=safebrowsing.PlatformType" json:"platform_types,omitempty"`
 	// The entry types to be checked.
-	ThreatEntryTypes []ThreatEntryType `protobuf:"varint,4,rep,name=threat_entry_types,json=threatEntryTypes,enum=safebrowsing.ThreatEntryType" json:"threat_entry_types,omitempty"`
+	ThreatEntryTypes []ThreatEntryType `protobuf:"varint,4,rep,packed,name=threat_entry_types,json=threatEntryTypes,enum=safebrowsing.ThreatEntryType" json:"threat_entry_types,omitempty"`
 	// The threat entries to be checked.
-	ThreatEntries    []*ThreatEntry `protobuf:"bytes,3,rep,name=threat_entries,json=threatEntries" json:"threat_entries,omitempty"`
-	XXX_unrecognized []byte         `json:"-"`
+	ThreatEntries []*ThreatEntry `protobuf:"bytes,3,rep,name=threat_entries,json=threatEntries" json:"threat_entries,omitempty"`
 }
 
 func (m *ThreatInfo) Reset()                    { *m = ThreatInfo{} }
@@ -492,19 +328,18 @@ func (m *ThreatInfo) GetThreatEntries() []*ThreatEntry {
 // A match when checking a threat entry in the Safe Browsing threat lists.
 type ThreatMatch struct {
 	// The threat type matching this threat.
-	ThreatType *ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
+	ThreatType ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
 	// The platform type matching this threat.
-	PlatformType *PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
+	PlatformType PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
 	// The threat entry type matching this threat.
-	ThreatEntryType *ThreatEntryType `protobuf:"varint,6,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
+	ThreatEntryType ThreatEntryType `protobuf:"varint,6,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
 	// The threat matching this threat.
 	Threat *ThreatEntry `protobuf:"bytes,3,opt,name=threat" json:"threat,omitempty"`
 	// Optional metadata associated with this threat.
 	ThreatEntryMetadata *ThreatEntryMetadata `protobuf:"bytes,4,opt,name=threat_entry_metadata,json=threatEntryMetadata" json:"threat_entry_metadata,omitempty"`
 	// The cache lifetime for the returned match. Clients must not cache this
 	// response for more than this duration to avoid false positives.
-	CacheDuration    *Duration `protobuf:"bytes,5,opt,name=cache_duration,json=cacheDuration" json:"cache_duration,omitempty"`
-	XXX_unrecognized []byte    `json:"-"`
+	CacheDuration *google_protobuf.Duration `protobuf:"bytes,5,opt,name=cache_duration,json=cacheDuration" json:"cache_duration,omitempty"`
 }
 
 func (m *ThreatMatch) Reset()                    { *m = ThreatMatch{} }
@@ -513,22 +348,22 @@ func (*ThreatMatch) ProtoMessage()               {}
 func (*ThreatMatch) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 func (m *ThreatMatch) GetThreatType() ThreatType {
-	if m != nil && m.ThreatType != nil {
-		return *m.ThreatType
+	if m != nil {
+		return m.ThreatType
 	}
 	return ThreatType_THREAT_TYPE_UNSPECIFIED
 }
 
 func (m *ThreatMatch) GetPlatformType() PlatformType {
-	if m != nil && m.PlatformType != nil {
-		return *m.PlatformType
+	if m != nil {
+		return m.PlatformType
 	}
 	return PlatformType_PLATFORM_TYPE_UNSPECIFIED
 }
 
 func (m *ThreatMatch) GetThreatEntryType() ThreatEntryType {
-	if m != nil && m.ThreatEntryType != nil {
-		return *m.ThreatEntryType
+	if m != nil {
+		return m.ThreatEntryType
 	}
 	return ThreatEntryType_THREAT_ENTRY_TYPE_UNSPECIFIED
 }
@@ -547,7 +382,7 @@ func (m *ThreatMatch) GetThreatEntryMetadata() *ThreatEntryMetadata {
 	return nil
 }
 
-func (m *ThreatMatch) GetCacheDuration() *Duration {
+func (m *ThreatMatch) GetCacheDuration() *google_protobuf.Duration {
 	if m != nil {
 		return m.CacheDuration
 	}
@@ -559,8 +394,7 @@ type FindThreatMatchesRequest struct {
 	// The client metadata.
 	Client *ClientInfo `protobuf:"bytes,1,opt,name=client" json:"client,omitempty"`
 	// The lists and entries to be checked for matches.
-	ThreatInfo       *ThreatInfo `protobuf:"bytes,2,opt,name=threat_info,json=threatInfo" json:"threat_info,omitempty"`
-	XXX_unrecognized []byte      `json:"-"`
+	ThreatInfo *ThreatInfo `protobuf:"bytes,2,opt,name=threat_info,json=threatInfo" json:"threat_info,omitempty"`
 }
 
 func (m *FindThreatMatchesRequest) Reset()                    { *m = FindThreatMatchesRequest{} }
@@ -585,8 +419,7 @@ func (m *FindThreatMatchesRequest) GetThreatInfo() *ThreatInfo {
 // Response type for requests to find threat matches.
 type FindThreatMatchesResponse struct {
 	// The threat list matches.
-	Matches          []*ThreatMatch `protobuf:"bytes,1,rep,name=matches" json:"matches,omitempty"`
-	XXX_unrecognized []byte         `json:"-"`
+	Matches []*ThreatMatch `protobuf:"bytes,1,rep,name=matches" json:"matches,omitempty"`
 }
 
 func (m *FindThreatMatchesResponse) Reset()                    { *m = FindThreatMatchesResponse{} }
@@ -603,14 +436,12 @@ func (m *FindThreatMatchesResponse) GetMatches() []*ThreatMatch {
 
 // Describes a Safe Browsing API update request. Clients can request updates for
 // multiple lists in a single request.
+// NOTE: Field index 2 is unused.
 type FetchThreatListUpdatesRequest struct {
 	// The client metadata.
 	Client *ClientInfo `protobuf:"bytes,1,opt,name=client" json:"client,omitempty"`
 	// The requested threat list updates.
 	ListUpdateRequests []*FetchThreatListUpdatesRequest_ListUpdateRequest `protobuf:"bytes,3,rep,name=list_update_requests,json=listUpdateRequests" json:"list_update_requests,omitempty"`
-	// Chrome-specific client information.
-	ChromeClientInfo *ChromeClientInfo `protobuf:"bytes,4,opt,name=chrome_client_info,json=chromeClientInfo" json:"chrome_client_info,omitempty"`
-	XXX_unrecognized []byte            `json:"-"`
 }
 
 func (m *FetchThreatListUpdatesRequest) Reset()                    { *m = FetchThreatListUpdatesRequest{} }
@@ -632,28 +463,20 @@ func (m *FetchThreatListUpdatesRequest) GetListUpdateRequests() []*FetchThreatLi
 	return nil
 }
 
-func (m *FetchThreatListUpdatesRequest) GetChromeClientInfo() *ChromeClientInfo {
-	if m != nil {
-		return m.ChromeClientInfo
-	}
-	return nil
-}
-
 // A single list update request.
 type FetchThreatListUpdatesRequest_ListUpdateRequest struct {
 	// The type of threat posed by entries present in the list.
-	ThreatType *ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
+	ThreatType ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
 	// The type of platform at risk by entries present in the list.
-	PlatformType *PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
+	PlatformType PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
 	// The types of entries present in the list.
-	ThreatEntryType *ThreatEntryType `protobuf:"varint,5,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
+	ThreatEntryType ThreatEntryType `protobuf:"varint,5,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
 	// The current state of the client for the requested list (the encrypted
 	// ClientState that was sent to the client from the previous update
 	// request).
-	State []byte `protobuf:"bytes,3,opt,name=state" json:"state,omitempty"`
+	State []byte `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
 	// The constraints associated with this request.
-	Constraints      *FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints `protobuf:"bytes,4,opt,name=constraints" json:"constraints,omitempty"`
-	XXX_unrecognized []byte                                                       `json:"-"`
+	Constraints *FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints `protobuf:"bytes,4,opt,name=constraints" json:"constraints,omitempty"`
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest) Reset() {
@@ -668,22 +491,22 @@ func (*FetchThreatListUpdatesRequest_ListUpdateRequest) Descriptor() ([]byte, []
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest) GetThreatType() ThreatType {
-	if m != nil && m.ThreatType != nil {
-		return *m.ThreatType
+	if m != nil {
+		return m.ThreatType
 	}
 	return ThreatType_THREAT_TYPE_UNSPECIFIED
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest) GetPlatformType() PlatformType {
-	if m != nil && m.PlatformType != nil {
-		return *m.PlatformType
+	if m != nil {
+		return m.PlatformType
 	}
 	return PlatformType_PLATFORM_TYPE_UNSPECIFIED
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest) GetThreatEntryType() ThreatEntryType {
-	if m != nil && m.ThreatEntryType != nil {
-		return *m.ThreatEntryType
+	if m != nil {
+		return m.ThreatEntryType
 	}
 	return ThreatEntryType_THREAT_ENTRY_TYPE_UNSPECIFIED
 }
@@ -707,18 +530,17 @@ type FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints struct {
 	// The maximum size in number of entries. The update will not contain more
 	// entries than this value.  This should be a power of 2 between 2**10 and
 	// 2**20.  If zero, no update size limit is set.
-	MaxUpdateEntries *int32 `protobuf:"varint,1,opt,name=max_update_entries,json=maxUpdateEntries" json:"max_update_entries,omitempty"`
-	// Sets the maxmimum number of entries that the client is willing to have
+	MaxUpdateEntries int32 `protobuf:"varint,1,opt,name=max_update_entries,json=maxUpdateEntries" json:"max_update_entries,omitempty"`
+	// Sets the maximum number of entries that the client is willing to have
 	// in the local database. This should be a power of 2 between 2**10 and
 	// 2**20. If zero, no database size limit is set.
-	MaxDatabaseEntries *int32 `protobuf:"varint,2,opt,name=max_database_entries,json=maxDatabaseEntries" json:"max_database_entries,omitempty"`
+	MaxDatabaseEntries int32 `protobuf:"varint,2,opt,name=max_database_entries,json=maxDatabaseEntries" json:"max_database_entries,omitempty"`
 	// Requests the list for a specific geographic location. If not set the
 	// server may pick that value based on the user's IP address. Expects ISO
 	// 3166-1 alpha-2 format.
-	Region *string `protobuf:"bytes,3,opt,name=region" json:"region,omitempty"`
+	Region string `protobuf:"bytes,3,opt,name=region" json:"region,omitempty"`
 	// The compression types supported by the client.
-	SupportedCompressions []CompressionType `protobuf:"varint,4,rep,name=supported_compressions,json=supportedCompressions,enum=safebrowsing.CompressionType" json:"supported_compressions,omitempty"`
-	XXX_unrecognized      []byte            `json:"-"`
+	SupportedCompressions []CompressionType `protobuf:"varint,4,rep,packed,name=supported_compressions,json=supportedCompressions,enum=safebrowsing.CompressionType" json:"supported_compressions,omitempty"`
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints) Reset() {
@@ -733,22 +555,22 @@ func (*FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints) Descriptor()
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints) GetMaxUpdateEntries() int32 {
-	if m != nil && m.MaxUpdateEntries != nil {
-		return *m.MaxUpdateEntries
+	if m != nil {
+		return m.MaxUpdateEntries
 	}
 	return 0
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints) GetMaxDatabaseEntries() int32 {
-	if m != nil && m.MaxDatabaseEntries != nil {
-		return *m.MaxDatabaseEntries
+	if m != nil {
+		return m.MaxDatabaseEntries
 	}
 	return 0
 }
 
 func (m *FetchThreatListUpdatesRequest_ListUpdateRequest_Constraints) GetRegion() string {
-	if m != nil && m.Region != nil {
-		return *m.Region
+	if m != nil {
+		return m.Region
 	}
 	return ""
 }
@@ -766,8 +588,7 @@ type FetchThreatListUpdatesResponse struct {
 	ListUpdateResponses []*FetchThreatListUpdatesResponse_ListUpdateResponse `protobuf:"bytes,1,rep,name=list_update_responses,json=listUpdateResponses" json:"list_update_responses,omitempty"`
 	// The minimum duration the client must wait before issuing any update
 	// request. If this field is not set clients may update as soon as they want.
-	MinimumWaitDuration *Duration `protobuf:"bytes,2,opt,name=minimum_wait_duration,json=minimumWaitDuration" json:"minimum_wait_duration,omitempty"`
-	XXX_unrecognized    []byte    `json:"-"`
+	MinimumWaitDuration *google_protobuf.Duration `protobuf:"bytes,2,opt,name=minimum_wait_duration,json=minimumWaitDuration" json:"minimum_wait_duration,omitempty"`
 }
 
 func (m *FetchThreatListUpdatesResponse) Reset()                    { *m = FetchThreatListUpdatesResponse{} }
@@ -782,7 +603,7 @@ func (m *FetchThreatListUpdatesResponse) GetListUpdateResponses() []*FetchThreat
 	return nil
 }
 
-func (m *FetchThreatListUpdatesResponse) GetMinimumWaitDuration() *Duration {
+func (m *FetchThreatListUpdatesResponse) GetMinimumWaitDuration() *google_protobuf.Duration {
 	if m != nil {
 		return m.MinimumWaitDuration
 	}
@@ -792,29 +613,28 @@ func (m *FetchThreatListUpdatesResponse) GetMinimumWaitDuration() *Duration {
 // An update to an individual list.
 type FetchThreatListUpdatesResponse_ListUpdateResponse struct {
 	// The threat type for which data is returned.
-	ThreatType *ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
+	ThreatType ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
 	// The format of the threats.
-	ThreatEntryType *ThreatEntryType `protobuf:"varint,2,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
+	ThreatEntryType ThreatEntryType `protobuf:"varint,2,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
 	// The platform type for which data is returned.
-	PlatformType *PlatformType `protobuf:"varint,3,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
+	PlatformType PlatformType `protobuf:"varint,3,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
 	// The type of response. This may indicate that an action is required by the
 	// client when the response is received.
-	ResponseType *FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType `protobuf:"varint,4,opt,name=response_type,json=responseType,enum=safebrowsing.FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType" json:"response_type,omitempty"`
+	ResponseType FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType `protobuf:"varint,4,opt,name=response_type,json=responseType,enum=safebrowsing.FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType" json:"response_type,omitempty"`
 	// A set of entries to add to a local threat type's list. Repeated to allow
 	// for a combination of compressed and raw data to be sent in a single
 	// response.
 	Additions []*ThreatEntrySet `protobuf:"bytes,5,rep,name=additions" json:"additions,omitempty"`
-	// A set of entries to remove from a local threat type's list. In practice,
-	// this field is empty or contains exactly one ThreatEntrySet.
+	// A set of entries to remove from a local threat type's list. Repeated for
+	// the same reason as above.
 	Removals []*ThreatEntrySet `protobuf:"bytes,6,rep,name=removals" json:"removals,omitempty"`
 	// The new client state, in encrypted format. Opaque to clients.
-	NewClientState []byte `protobuf:"bytes,7,opt,name=new_client_state,json=newClientState" json:"new_client_state,omitempty"`
+	NewClientState []byte `protobuf:"bytes,7,opt,name=new_client_state,json=newClientState,proto3" json:"new_client_state,omitempty"`
 	// The expected SHA256 hash of the client state; that is, of the sorted list
 	// of all hashes present in the database after applying the provided update.
 	// If the client state doesn't match the expected state, the client must
 	// disregard this update and retry later.
-	Checksum         *Checksum `protobuf:"bytes,8,opt,name=checksum" json:"checksum,omitempty"`
-	XXX_unrecognized []byte    `json:"-"`
+	Checksum *Checksum `protobuf:"bytes,8,opt,name=checksum" json:"checksum,omitempty"`
 }
 
 func (m *FetchThreatListUpdatesResponse_ListUpdateResponse) Reset() {
@@ -829,29 +649,29 @@ func (*FetchThreatListUpdatesResponse_ListUpdateResponse) Descriptor() ([]byte, 
 }
 
 func (m *FetchThreatListUpdatesResponse_ListUpdateResponse) GetThreatType() ThreatType {
-	if m != nil && m.ThreatType != nil {
-		return *m.ThreatType
+	if m != nil {
+		return m.ThreatType
 	}
 	return ThreatType_THREAT_TYPE_UNSPECIFIED
 }
 
 func (m *FetchThreatListUpdatesResponse_ListUpdateResponse) GetThreatEntryType() ThreatEntryType {
-	if m != nil && m.ThreatEntryType != nil {
-		return *m.ThreatEntryType
+	if m != nil {
+		return m.ThreatEntryType
 	}
 	return ThreatEntryType_THREAT_ENTRY_TYPE_UNSPECIFIED
 }
 
 func (m *FetchThreatListUpdatesResponse_ListUpdateResponse) GetPlatformType() PlatformType {
-	if m != nil && m.PlatformType != nil {
-		return *m.PlatformType
+	if m != nil {
+		return m.PlatformType
 	}
 	return PlatformType_PLATFORM_TYPE_UNSPECIFIED
 }
 
 func (m *FetchThreatListUpdatesResponse_ListUpdateResponse) GetResponseType() FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType {
-	if m != nil && m.ResponseType != nil {
-		return *m.ResponseType
+	if m != nil {
+		return m.ResponseType
 	}
 	return FetchThreatListUpdatesResponse_ListUpdateResponse_RESPONSE_TYPE_UNSPECIFIED
 }
@@ -889,10 +709,9 @@ type FindFullHashesRequest struct {
 	// The client metadata.
 	Client *ClientInfo `protobuf:"bytes,1,opt,name=client" json:"client,omitempty"`
 	// The current client states for each of the client's local threat lists.
-	ClientStates [][]byte `protobuf:"bytes,2,rep,name=client_states,json=clientStates" json:"client_states,omitempty"`
+	ClientStates [][]byte `protobuf:"bytes,2,rep,name=client_states,json=clientStates,proto3" json:"client_states,omitempty"`
 	// The lists and hashes to be checked.
-	ThreatInfo       *ThreatInfo `protobuf:"bytes,3,opt,name=threat_info,json=threatInfo" json:"threat_info,omitempty"`
-	XXX_unrecognized []byte      `json:"-"`
+	ThreatInfo *ThreatInfo `protobuf:"bytes,3,opt,name=threat_info,json=threatInfo" json:"threat_info,omitempty"`
 }
 
 func (m *FindFullHashesRequest) Reset()                    { *m = FindFullHashesRequest{} }
@@ -928,11 +747,10 @@ type FindFullHashesResponse struct {
 	// The minimum duration the client must wait before issuing any find hashes
 	// request. If this field is not set, clients can issue a request as soon as
 	// they want.
-	MinimumWaitDuration *Duration `protobuf:"bytes,2,opt,name=minimum_wait_duration,json=minimumWaitDuration" json:"minimum_wait_duration,omitempty"`
+	MinimumWaitDuration *google_protobuf.Duration `protobuf:"bytes,2,opt,name=minimum_wait_duration,json=minimumWaitDuration" json:"minimum_wait_duration,omitempty"`
 	// For requested entities that did not match the threat list, how long to
 	// cache the response.
-	NegativeCacheDuration *Duration `protobuf:"bytes,3,opt,name=negative_cache_duration,json=negativeCacheDuration" json:"negative_cache_duration,omitempty"`
-	XXX_unrecognized      []byte    `json:"-"`
+	NegativeCacheDuration *google_protobuf.Duration `protobuf:"bytes,3,opt,name=negative_cache_duration,json=negativeCacheDuration" json:"negative_cache_duration,omitempty"`
 }
 
 func (m *FindFullHashesResponse) Reset()                    { *m = FindFullHashesResponse{} }
@@ -947,176 +765,59 @@ func (m *FindFullHashesResponse) GetMatches() []*ThreatMatch {
 	return nil
 }
 
-func (m *FindFullHashesResponse) GetMinimumWaitDuration() *Duration {
+func (m *FindFullHashesResponse) GetMinimumWaitDuration() *google_protobuf.Duration {
 	if m != nil {
 		return m.MinimumWaitDuration
 	}
 	return nil
 }
 
-func (m *FindFullHashesResponse) GetNegativeCacheDuration() *Duration {
+func (m *FindFullHashesResponse) GetNegativeCacheDuration() *google_protobuf.Duration {
 	if m != nil {
 		return m.NegativeCacheDuration
 	}
 	return nil
 }
 
-// A hit comprised of multiple resources; one is the threat list entry that was
-// encountered by the client, while others give context as to how the client
-// arrived at the unsafe entry.
-type ThreatHit struct {
-	// The threat type reported.
-	ThreatType *ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
-	// The platform type reported.
-	PlatformType *PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
-	// The threat entry responsible for the hit. Full hash should be reported for
-	// hash-based hits.
-	Entry *ThreatEntry `protobuf:"bytes,3,opt,name=entry" json:"entry,omitempty"`
-	// The resources related to the threat hit.
-	Resources        []*ThreatHit_ThreatSource `protobuf:"bytes,4,rep,name=resources" json:"resources,omitempty"`
-	XXX_unrecognized []byte                    `json:"-"`
-}
-
-func (m *ThreatHit) Reset()                    { *m = ThreatHit{} }
-func (m *ThreatHit) String() string            { return proto.CompactTextString(m) }
-func (*ThreatHit) ProtoMessage()               {}
-func (*ThreatHit) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
-
-func (m *ThreatHit) GetThreatType() ThreatType {
-	if m != nil && m.ThreatType != nil {
-		return *m.ThreatType
-	}
-	return ThreatType_THREAT_TYPE_UNSPECIFIED
-}
-
-func (m *ThreatHit) GetPlatformType() PlatformType {
-	if m != nil && m.PlatformType != nil {
-		return *m.PlatformType
-	}
-	return PlatformType_PLATFORM_TYPE_UNSPECIFIED
-}
-
-func (m *ThreatHit) GetEntry() *ThreatEntry {
-	if m != nil {
-		return m.Entry
-	}
-	return nil
-}
-
-func (m *ThreatHit) GetResources() []*ThreatHit_ThreatSource {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-// A single resource related to a threat hit.
-type ThreatHit_ThreatSource struct {
-	// The URL of the resource.
-	Url *string `protobuf:"bytes,1,opt,name=url" json:"url,omitempty"`
-	// The type of source reported.
-	Type *ThreatHit_ThreatSourceType `protobuf:"varint,2,opt,name=type,enum=safebrowsing.ThreatHit_ThreatSourceType" json:"type,omitempty"`
-	// The remote IP of the resource in ASCII format. Either IPv4 or IPv6.
-	RemoteIp *string `protobuf:"bytes,3,opt,name=remote_ip,json=remoteIp" json:"remote_ip,omitempty"`
-	// Referrer of the resource. Only set if the referrer is available.
-	Referrer         *string `protobuf:"bytes,4,opt,name=referrer" json:"referrer,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
-}
-
-func (m *ThreatHit_ThreatSource) Reset()                    { *m = ThreatHit_ThreatSource{} }
-func (m *ThreatHit_ThreatSource) String() string            { return proto.CompactTextString(m) }
-func (*ThreatHit_ThreatSource) ProtoMessage()               {}
-func (*ThreatHit_ThreatSource) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8, 0} }
-
-func (m *ThreatHit_ThreatSource) GetUrl() string {
-	if m != nil && m.Url != nil {
-		return *m.Url
-	}
-	return ""
-}
-
-func (m *ThreatHit_ThreatSource) GetType() ThreatHit_ThreatSourceType {
-	if m != nil && m.Type != nil {
-		return *m.Type
-	}
-	return ThreatHit_THREAT_SOURCE_TYPE_UNSPECIFIED
-}
-
-func (m *ThreatHit_ThreatSource) GetRemoteIp() string {
-	if m != nil && m.RemoteIp != nil {
-		return *m.RemoteIp
-	}
-	return ""
-}
-
-func (m *ThreatHit_ThreatSource) GetReferrer() string {
-	if m != nil && m.Referrer != nil {
-		return *m.Referrer
-	}
-	return ""
-}
-
 // The client metadata associated with Safe Browsing API requests.
 type ClientInfo struct {
 	// A client ID that (hopefully) uniquely identifies the client implementation
 	// of the Safe Browsing API.
-	ClientId *string `protobuf:"bytes,1,opt,name=client_id,json=clientId" json:"client_id,omitempty"`
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId" json:"client_id,omitempty"`
 	// The version of the client implementation.
-	ClientVersion    *string `protobuf:"bytes,2,opt,name=client_version,json=clientVersion" json:"client_version,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	ClientVersion string `protobuf:"bytes,2,opt,name=client_version,json=clientVersion" json:"client_version,omitempty"`
 }
 
 func (m *ClientInfo) Reset()                    { *m = ClientInfo{} }
 func (m *ClientInfo) String() string            { return proto.CompactTextString(m) }
 func (*ClientInfo) ProtoMessage()               {}
-func (*ClientInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (*ClientInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 func (m *ClientInfo) GetClientId() string {
-	if m != nil && m.ClientId != nil {
-		return *m.ClientId
+	if m != nil {
+		return m.ClientId
 	}
 	return ""
 }
 
 func (m *ClientInfo) GetClientVersion() string {
-	if m != nil && m.ClientVersion != nil {
-		return *m.ClientVersion
+	if m != nil {
+		return m.ClientVersion
 	}
 	return ""
-}
-
-// The client metadata associated with Safe Browsing API requests specific to
-// users of Chrome.
-type ChromeClientInfo struct {
-	// The reporting population of the user.
-	ReportingPopulation *ChromeClientInfo_SafeBrowsingReportingPopulation `protobuf:"varint,1,opt,name=reporting_population,json=reportingPopulation,enum=safebrowsing.ChromeClientInfo_SafeBrowsingReportingPopulation" json:"reporting_population,omitempty"`
-	XXX_unrecognized    []byte                                            `json:"-"`
-}
-
-func (m *ChromeClientInfo) Reset()                    { *m = ChromeClientInfo{} }
-func (m *ChromeClientInfo) String() string            { return proto.CompactTextString(m) }
-func (*ChromeClientInfo) ProtoMessage()               {}
-func (*ChromeClientInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
-
-func (m *ChromeClientInfo) GetReportingPopulation() ChromeClientInfo_SafeBrowsingReportingPopulation {
-	if m != nil && m.ReportingPopulation != nil {
-		return *m.ReportingPopulation
-	}
-	return ChromeClientInfo_UNSPECIFIED
 }
 
 // The expected state of a client's local database.
 type Checksum struct {
 	// The SHA256 hash of the client state; that is, of the sorted list of all
 	// hashes present in the database.
-	Sha256           []byte `protobuf:"bytes,1,opt,name=sha256" json:"sha256,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	Sha256 []byte `protobuf:"bytes,1,opt,name=sha256,proto3" json:"sha256,omitempty"`
 }
 
 func (m *Checksum) Reset()                    { *m = Checksum{} }
 func (m *Checksum) String() string            { return proto.CompactTextString(m) }
 func (*Checksum) ProtoMessage()               {}
-func (*Checksum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (*Checksum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *Checksum) GetSha256() []byte {
 	if m != nil {
@@ -1128,17 +829,17 @@ func (m *Checksum) GetSha256() []byte {
 // An individual threat; for example, a malicious URL or its hash
 // representation. Only one of these fields should be set.
 type ThreatEntry struct {
-	// A variable-length SHA256 hash with size between 4 and 32 bytes inclusive.
-	Hash []byte `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
+	// A hash prefix, consisting of the most significant 4-32 bytes of a SHA256
+	// hash.
+	Hash []byte `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
 	// A URL.
-	Url              *string `protobuf:"bytes,2,opt,name=url" json:"url,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	Url string `protobuf:"bytes,2,opt,name=url" json:"url,omitempty"`
 }
 
 func (m *ThreatEntry) Reset()                    { *m = ThreatEntry{} }
 func (m *ThreatEntry) String() string            { return proto.CompactTextString(m) }
 func (*ThreatEntry) ProtoMessage()               {}
-func (*ThreatEntry) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (*ThreatEntry) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *ThreatEntry) GetHash() []byte {
 	if m != nil {
@@ -1148,8 +849,8 @@ func (m *ThreatEntry) GetHash() []byte {
 }
 
 func (m *ThreatEntry) GetUrl() string {
-	if m != nil && m.Url != nil {
-		return *m.Url
+	if m != nil {
+		return m.Url
 	}
 	return ""
 }
@@ -1158,8 +859,7 @@ func (m *ThreatEntry) GetUrl() string {
 // database.
 type ThreatEntrySet struct {
 	// The compression type for the entries in this set.
-	CompressionType *CompressionType `protobuf:"varint,1,opt,name=compression_type,json=compressionType,enum=safebrowsing.CompressionType" json:"compression_type,omitempty"`
-	// At most one of the following fields should be set.
+	CompressionType CompressionType `protobuf:"varint,1,opt,name=compression_type,json=compressionType,enum=safebrowsing.CompressionType" json:"compression_type,omitempty"`
 	// The raw SHA256-formatted entries.
 	RawHashes *RawHashes `protobuf:"bytes,2,opt,name=raw_hashes,json=rawHashes" json:"raw_hashes,omitempty"`
 	// The raw removal indices for a local list.
@@ -1168,19 +868,18 @@ type ThreatEntrySet struct {
 	// Golomb-Rice encoding.
 	RiceHashes *RiceDeltaEncoding `protobuf:"bytes,4,opt,name=rice_hashes,json=riceHashes" json:"rice_hashes,omitempty"`
 	// The encoded local, lexicographically-sorted list indices, using a
-	// Golomb-Rice encoding. Used for sending compressed removal indicies.
-	RiceIndices      *RiceDeltaEncoding `protobuf:"bytes,5,opt,name=rice_indices,json=riceIndices" json:"rice_indices,omitempty"`
-	XXX_unrecognized []byte             `json:"-"`
+	// Golomb-Rice encoding. Used for sending compressed removal indices.
+	RiceIndices *RiceDeltaEncoding `protobuf:"bytes,5,opt,name=rice_indices,json=riceIndices" json:"rice_indices,omitempty"`
 }
 
 func (m *ThreatEntrySet) Reset()                    { *m = ThreatEntrySet{} }
 func (m *ThreatEntrySet) String() string            { return proto.CompactTextString(m) }
 func (*ThreatEntrySet) ProtoMessage()               {}
-func (*ThreatEntrySet) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (*ThreatEntrySet) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
 func (m *ThreatEntrySet) GetCompressionType() CompressionType {
-	if m != nil && m.CompressionType != nil {
-		return *m.CompressionType
+	if m != nil {
+		return m.CompressionType
 	}
 	return CompressionType_COMPRESSION_TYPE_UNSPECIFIED
 }
@@ -1213,17 +912,16 @@ func (m *ThreatEntrySet) GetRiceIndices() *RiceDeltaEncoding {
 	return nil
 }
 
-// A set of raw indicies to remove from a local list.
+// A set of raw indices to remove from a local list.
 type RawIndices struct {
-	// The indicies to remove from a lexicographically-sorted local list.
-	Indices          []int32 `protobuf:"varint,1,rep,name=indices" json:"indices,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	// The indices to remove from a lexicographically-sorted local list.
+	Indices []int32 `protobuf:"varint,1,rep,packed,name=indices" json:"indices,omitempty"`
 }
 
 func (m *RawIndices) Reset()                    { *m = RawIndices{} }
 func (m *RawIndices) String() string            { return proto.CompactTextString(m) }
 func (*RawIndices) ProtoMessage()               {}
-func (*RawIndices) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (*RawIndices) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
 func (m *RawIndices) GetIndices() []int32 {
 	if m != nil {
@@ -1242,21 +940,20 @@ func (m *RawIndices) GetIndices() []int32 {
 type RawHashes struct {
 	// The number of bytes for each prefix encoded below.  This field can be
 	// anywhere from 4 (shortest prefix) to 32 (full SHA256 hash).
-	PrefixSize *int32 `protobuf:"varint,1,opt,name=prefix_size,json=prefixSize" json:"prefix_size,omitempty"`
+	PrefixSize int32 `protobuf:"varint,1,opt,name=prefix_size,json=prefixSize" json:"prefix_size,omitempty"`
 	// The hashes, all concatenated into one long string.  Each hash has a prefix
 	// size of |prefix_size| above. Hashes are sorted in lexicographic order.
-	RawHashes        []byte `protobuf:"bytes,2,opt,name=raw_hashes,json=rawHashes" json:"raw_hashes,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	RawHashes []byte `protobuf:"bytes,2,opt,name=raw_hashes,json=rawHashes,proto3" json:"raw_hashes,omitempty"`
 }
 
 func (m *RawHashes) Reset()                    { *m = RawHashes{} }
 func (m *RawHashes) String() string            { return proto.CompactTextString(m) }
 func (*RawHashes) ProtoMessage()               {}
-func (*RawHashes) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+func (*RawHashes) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
 func (m *RawHashes) GetPrefixSize() int32 {
-	if m != nil && m.PrefixSize != nil {
-		return *m.PrefixSize
+	if m != nil {
+		return m.PrefixSize
 	}
 	return 0
 }
@@ -1273,41 +970,40 @@ func (m *RawHashes) GetRawHashes() []byte {
 type RiceDeltaEncoding struct {
 	// The offset of the first entry in the encoded data, or, if only a single
 	// integer was encoded, that single integer's value.
-	FirstValue *int64 `protobuf:"varint,1,opt,name=first_value,json=firstValue" json:"first_value,omitempty"`
+	FirstValue int64 `protobuf:"varint,1,opt,name=first_value,json=firstValue" json:"first_value,omitempty"`
 	// The Golomb-Rice parameter which is a number between 2 and 28. This field
 	// is missing (that is, zero) if num_entries is zero.
-	RiceParameter *int32 `protobuf:"varint,2,opt,name=rice_parameter,json=riceParameter" json:"rice_parameter,omitempty"`
+	RiceParameter int32 `protobuf:"varint,2,opt,name=rice_parameter,json=riceParameter" json:"rice_parameter,omitempty"`
 	// The number of entries that are delta encoded in the encoded data. If only a
 	// single integer was encoded, this will be zero and the single value will be
 	// stored in first_value.
-	NumEntries *int32 `protobuf:"varint,3,opt,name=num_entries,json=numEntries" json:"num_entries,omitempty"`
+	NumEntries int32 `protobuf:"varint,3,opt,name=num_entries,json=numEntries" json:"num_entries,omitempty"`
 	// The encoded deltas that are encoded using the Golomb-Rice coder.
-	EncodedData      []byte `protobuf:"bytes,4,opt,name=encoded_data,json=encodedData" json:"encoded_data,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	EncodedData []byte `protobuf:"bytes,4,opt,name=encoded_data,json=encodedData,proto3" json:"encoded_data,omitempty"`
 }
 
 func (m *RiceDeltaEncoding) Reset()                    { *m = RiceDeltaEncoding{} }
 func (m *RiceDeltaEncoding) String() string            { return proto.CompactTextString(m) }
 func (*RiceDeltaEncoding) ProtoMessage()               {}
-func (*RiceDeltaEncoding) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
+func (*RiceDeltaEncoding) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
 func (m *RiceDeltaEncoding) GetFirstValue() int64 {
-	if m != nil && m.FirstValue != nil {
-		return *m.FirstValue
+	if m != nil {
+		return m.FirstValue
 	}
 	return 0
 }
 
 func (m *RiceDeltaEncoding) GetRiceParameter() int32 {
-	if m != nil && m.RiceParameter != nil {
-		return *m.RiceParameter
+	if m != nil {
+		return m.RiceParameter
 	}
 	return 0
 }
 
 func (m *RiceDeltaEncoding) GetNumEntries() int32 {
-	if m != nil && m.NumEntries != nil {
-		return *m.NumEntries
+	if m != nil {
+		return m.NumEntries
 	}
 	return 0
 }
@@ -1323,14 +1019,13 @@ func (m *RiceDeltaEncoding) GetEncodedData() []byte {
 // to know the metadata key/value pairs associated with each threat type.
 type ThreatEntryMetadata struct {
 	// The metadata entries.
-	Entries          []*ThreatEntryMetadata_MetadataEntry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
-	XXX_unrecognized []byte                               `json:"-"`
+	Entries []*ThreatEntryMetadata_MetadataEntry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
 }
 
 func (m *ThreatEntryMetadata) Reset()                    { *m = ThreatEntryMetadata{} }
 func (m *ThreatEntryMetadata) String() string            { return proto.CompactTextString(m) }
 func (*ThreatEntryMetadata) ProtoMessage()               {}
-func (*ThreatEntryMetadata) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
+func (*ThreatEntryMetadata) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
 func (m *ThreatEntryMetadata) GetEntries() []*ThreatEntryMetadata_MetadataEntry {
 	if m != nil {
@@ -1342,17 +1037,16 @@ func (m *ThreatEntryMetadata) GetEntries() []*ThreatEntryMetadata_MetadataEntry 
 // A single metadata entry.
 type ThreatEntryMetadata_MetadataEntry struct {
 	// The metadata entry key.
-	Key []byte `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// The metadata entry value.
-	Value            []byte `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *ThreatEntryMetadata_MetadataEntry) Reset()         { *m = ThreatEntryMetadata_MetadataEntry{} }
 func (m *ThreatEntryMetadata_MetadataEntry) String() string { return proto.CompactTextString(m) }
 func (*ThreatEntryMetadata_MetadataEntry) ProtoMessage()    {}
 func (*ThreatEntryMetadata_MetadataEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{17, 0}
+	return fileDescriptor0, []int{15, 0}
 }
 
 func (m *ThreatEntryMetadata_MetadataEntry) GetKey() []byte {
@@ -1374,90 +1068,55 @@ func (m *ThreatEntryMetadata_MetadataEntry) GetValue() []byte {
 // the type of entries in the list.
 type ThreatListDescriptor struct {
 	// The threat type posed by the list's entries.
-	ThreatType *ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
+	ThreatType ThreatType `protobuf:"varint,1,opt,name=threat_type,json=threatType,enum=safebrowsing.ThreatType" json:"threat_type,omitempty"`
 	// The platform type targeted by the list's entries.
-	PlatformType *PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
+	PlatformType PlatformType `protobuf:"varint,2,opt,name=platform_type,json=platformType,enum=safebrowsing.PlatformType" json:"platform_type,omitempty"`
 	// The entry types contained in the list.
-	ThreatEntryType  *ThreatEntryType `protobuf:"varint,3,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
-	XXX_unrecognized []byte           `json:"-"`
+	ThreatEntryType ThreatEntryType `protobuf:"varint,3,opt,name=threat_entry_type,json=threatEntryType,enum=safebrowsing.ThreatEntryType" json:"threat_entry_type,omitempty"`
 }
 
 func (m *ThreatListDescriptor) Reset()                    { *m = ThreatListDescriptor{} }
 func (m *ThreatListDescriptor) String() string            { return proto.CompactTextString(m) }
 func (*ThreatListDescriptor) ProtoMessage()               {}
-func (*ThreatListDescriptor) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
+func (*ThreatListDescriptor) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
 func (m *ThreatListDescriptor) GetThreatType() ThreatType {
-	if m != nil && m.ThreatType != nil {
-		return *m.ThreatType
+	if m != nil {
+		return m.ThreatType
 	}
 	return ThreatType_THREAT_TYPE_UNSPECIFIED
 }
 
 func (m *ThreatListDescriptor) GetPlatformType() PlatformType {
-	if m != nil && m.PlatformType != nil {
-		return *m.PlatformType
+	if m != nil {
+		return m.PlatformType
 	}
 	return PlatformType_PLATFORM_TYPE_UNSPECIFIED
 }
 
 func (m *ThreatListDescriptor) GetThreatEntryType() ThreatEntryType {
-	if m != nil && m.ThreatEntryType != nil {
-		return *m.ThreatEntryType
+	if m != nil {
+		return m.ThreatEntryType
 	}
 	return ThreatEntryType_THREAT_ENTRY_TYPE_UNSPECIFIED
 }
 
-// A collection of lists available for download.
+// A collection of lists available for download by the client.
 type ListThreatListsResponse struct {
-	// The lists available for download.
-	ThreatLists      []*ThreatListDescriptor `protobuf:"bytes,1,rep,name=threat_lists,json=threatLists" json:"threat_lists,omitempty"`
-	XXX_unrecognized []byte                  `json:"-"`
+	// The lists available for download by the client.
+	ThreatLists []*ThreatListDescriptor `protobuf:"bytes,1,rep,name=threat_lists,json=threatLists" json:"threat_lists,omitempty"`
 }
 
 func (m *ListThreatListsResponse) Reset()                    { *m = ListThreatListsResponse{} }
 func (m *ListThreatListsResponse) String() string            { return proto.CompactTextString(m) }
 func (*ListThreatListsResponse) ProtoMessage()               {}
-func (*ListThreatListsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
+func (*ListThreatListsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
 func (m *ListThreatListsResponse) GetThreatLists() []*ThreatListDescriptor {
 	if m != nil {
 		return m.ThreatLists
 	}
 	return nil
-}
-
-type Duration struct {
-	// Signed seconds of the span of time. Must be from -315,576,000,000
-	// to +315,576,000,000 inclusive.
-	Seconds *int64 `protobuf:"varint,1,opt,name=seconds" json:"seconds,omitempty"`
-	// Signed fractions of a second at nanosecond resolution of the span
-	// of time. Durations less than one second are represented with a 0
-	// `seconds` field and a positive or negative `nanos` field. For durations
-	// of one second or more, a non-zero value for the `nanos` field must be
-	// of the same sign as the `seconds` field. Must be from -999,999,999
-	// to +999,999,999 inclusive.
-	Nanos            *int32 `protobuf:"varint,2,opt,name=nanos" json:"nanos,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
-}
-
-func (m *Duration) Reset()                    { *m = Duration{} }
-func (m *Duration) String() string            { return proto.CompactTextString(m) }
-func (*Duration) ProtoMessage()               {}
-func (*Duration) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
-
-func (m *Duration) GetSeconds() int64 {
-	if m != nil && m.Seconds != nil {
-		return *m.Seconds
-	}
-	return 0
-}
-
-func (m *Duration) GetNanos() int32 {
-	if m != nil && m.Nanos != nil {
-		return *m.Nanos
-	}
-	return 0
 }
 
 func init() {
@@ -1472,10 +1131,7 @@ func init() {
 	proto.RegisterType((*FetchThreatListUpdatesResponse_ListUpdateResponse)(nil), "safebrowsing.FetchThreatListUpdatesResponse.ListUpdateResponse")
 	proto.RegisterType((*FindFullHashesRequest)(nil), "safebrowsing.FindFullHashesRequest")
 	proto.RegisterType((*FindFullHashesResponse)(nil), "safebrowsing.FindFullHashesResponse")
-	proto.RegisterType((*ThreatHit)(nil), "safebrowsing.ThreatHit")
-	proto.RegisterType((*ThreatHit_ThreatSource)(nil), "safebrowsing.ThreatHit.ThreatSource")
 	proto.RegisterType((*ClientInfo)(nil), "safebrowsing.ClientInfo")
-	proto.RegisterType((*ChromeClientInfo)(nil), "safebrowsing.ChromeClientInfo")
 	proto.RegisterType((*Checksum)(nil), "safebrowsing.Checksum")
 	proto.RegisterType((*ThreatEntry)(nil), "safebrowsing.ThreatEntry")
 	proto.RegisterType((*ThreatEntrySet)(nil), "safebrowsing.ThreatEntrySet")
@@ -1486,147 +1142,128 @@ func init() {
 	proto.RegisterType((*ThreatEntryMetadata_MetadataEntry)(nil), "safebrowsing.ThreatEntryMetadata.MetadataEntry")
 	proto.RegisterType((*ThreatListDescriptor)(nil), "safebrowsing.ThreatListDescriptor")
 	proto.RegisterType((*ListThreatListsResponse)(nil), "safebrowsing.ListThreatListsResponse")
-	proto.RegisterType((*Duration)(nil), "safebrowsing.Duration")
 	proto.RegisterEnum("safebrowsing.ThreatType", ThreatType_name, ThreatType_value)
 	proto.RegisterEnum("safebrowsing.PlatformType", PlatformType_name, PlatformType_value)
 	proto.RegisterEnum("safebrowsing.CompressionType", CompressionType_name, CompressionType_value)
 	proto.RegisterEnum("safebrowsing.ThreatEntryType", ThreatEntryType_name, ThreatEntryType_value)
 	proto.RegisterEnum("safebrowsing.FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType", FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType_name, FetchThreatListUpdatesResponse_ListUpdateResponse_ResponseType_value)
-	proto.RegisterEnum("safebrowsing.ThreatHit_ThreatSourceType", ThreatHit_ThreatSourceType_name, ThreatHit_ThreatSourceType_value)
-	proto.RegisterEnum("safebrowsing.ChromeClientInfo_SafeBrowsingReportingPopulation", ChromeClientInfo_SafeBrowsingReportingPopulation_name, ChromeClientInfo_SafeBrowsingReportingPopulation_value)
 }
 
 func init() { proto.RegisterFile("safebrowsing.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 2055 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0x4b, 0x8f, 0xe3, 0x58,
-	0x15, 0xc6, 0x49, 0xa5, 0x2a, 0x39, 0x79, 0x94, 0xfb, 0xd6, 0xa3, 0xd3, 0xc5, 0xf4, 0xcb, 0x03,
-	0xa8, 0xd5, 0x42, 0x35, 0x43, 0x8f, 0x18, 0x60, 0x60, 0x98, 0x71, 0x1c, 0xa7, 0x63, 0xc6, 0x65,
-	0x47, 0xd7, 0xce, 0x54, 0xf7, 0xca, 0x78, 0x92, 0x5b, 0x5d, 0x56, 0x27, 0x76, 0xda, 0x76, 0xba,
-	0xba, 0xe7, 0x0f, 0x20, 0x7e, 0x01, 0x42, 0x08, 0xb1, 0xe6, 0x37, 0xf0, 0x13, 0x90, 0xd8, 0xb0,
-	0x03, 0x21, 0xd6, 0x2c, 0xd8, 0xb2, 0x05, 0xdd, 0x87, 0x63, 0x27, 0x95, 0xaa, 0xea, 0xe9, 0x42,
-	0x9a, 0xd9, 0xf9, 0x9e, 0xc7, 0x77, 0xcf, 0x3d, 0xf7, 0xbc, 0xae, 0x01, 0x25, 0xfe, 0x09, 0xf9,
-	0x22, 0x8e, 0xce, 0x92, 0x20, 0x7c, 0x76, 0x38, 0x8b, 0xa3, 0x34, 0x42, 0x8d, 0x22, 0x4d, 0xf9,
-	0x5d, 0x09, 0xc0, 0x3d, 0x8d, 0x89, 0x9f, 0x1a, 0xe1, 0x49, 0x84, 0x7e, 0x0a, 0x8d, 0x94, 0xad,
-	0xbc, 0xf4, 0xf5, 0x8c, 0x24, 0x6d, 0xe9, 0x5e, 0xf9, 0x41, 0xeb, 0x51, 0xfb, 0x70, 0x09, 0x87,
-	0xcb, 0xbb, 0xaf, 0x67, 0x04, 0xd7, 0xd3, 0xc5, 0x77, 0x82, 0x54, 0x68, 0xcd, 0x26, 0x7e, 0x7a,
-	0x12, 0xc5, 0x53, 0xa1, 0x5e, 0x62, 0xea, 0x07, 0xcb, 0xea, 0x03, 0x21, 0xc3, 0x00, 0x9a, 0xb3,
-	0xc2, 0x2a, 0x41, 0x9f, 0x01, 0x12, 0xfb, 0x93, 0x30, 0x8d, 0x5f, 0x0b, 0x98, 0x0d, 0x06, 0x73,
-	0x7b, 0x9d, 0x15, 0x3a, 0x15, 0x63, 0x48, 0x72, 0xba, 0x4c, 0x48, 0xd0, 0xa7, 0xd0, 0x2a, 0x80,
-	0x05, 0x24, 0x69, 0x97, 0xef, 0x95, 0x1f, 0xd4, 0x1f, 0xdd, 0xba, 0x10, 0x08, 0x37, 0x73, 0x90,
-	0x80, 0x24, 0xca, 0xef, 0xcb, 0x50, 0xe7, 0xec, 0x23, 0x3f, 0x1d, 0x9d, 0xa2, 0x9f, 0x40, 0xbd,
-	0xe0, 0x9e, 0xb6, 0x74, 0x4f, 0xba, 0xd4, 0x3b, 0x90, 0x7b, 0x07, 0x7d, 0x02, 0xcd, 0x25, 0xe7,
-	0xb4, 0x4b, 0x4c, 0xf9, 0x32, 0xdf, 0x34, 0x8a, 0xbe, 0x41, 0x06, 0xdc, 0x38, 0xe7, 0x9a, 0xf6,
-	0x26, 0x03, 0xb9, 0xc2, 0x33, 0xdb, 0x2b, 0x9e, 0x41, 0x3f, 0x80, 0x4d, 0x4e, 0x6a, 0x97, 0xef,
-	0x49, 0x97, 0x3b, 0x44, 0x08, 0xa2, 0x21, 0xec, 0x2d, 0xed, 0x3e, 0x25, 0xa9, 0x3f, 0xf6, 0x53,
-	0xbf, 0xbd, 0xc1, 0x10, 0xee, 0x5f, 0x88, 0x70, 0x24, 0x04, 0xf1, 0x4e, 0x7a, 0x9e, 0x88, 0x3e,
-	0x86, 0xd6, 0xc8, 0x1f, 0x9d, 0x12, 0x6f, 0x3c, 0x8f, 0xfd, 0x34, 0x88, 0xc2, 0x76, 0x85, 0xe1,
-	0xed, 0x2f, 0xe3, 0x75, 0x05, 0x17, 0x37, 0x99, 0x74, 0xb6, 0x54, 0x7e, 0x25, 0x41, 0xbb, 0x17,
-	0x84, 0xe3, 0xc2, 0x1d, 0x91, 0x04, 0x93, 0x17, 0x73, 0x92, 0xa4, 0xe8, 0x7d, 0xd8, 0x1c, 0x4d,
-	0x02, 0x12, 0xa6, 0xec, 0x9e, 0xea, 0xab, 0xf7, 0xa4, 0x31, 0x1e, 0x8d, 0x7a, 0x2c, 0xe4, 0x0a,
-	0xd7, 0x1b, 0x84, 0x27, 0x11, 0xbb, 0xa1, 0xfa, 0xfa, 0xeb, 0x65, 0x6a, 0xe2, 0x7a, 0xe9, 0xb7,
-	0x32, 0x80, 0x5b, 0x6b, 0x0c, 0x49, 0x66, 0x51, 0x98, 0x10, 0xf4, 0x01, 0x6c, 0x4d, 0x39, 0x89,
-	0x25, 0xd4, 0x05, 0x0e, 0x67, 0x5a, 0x38, 0x93, 0x54, 0xfe, 0xb2, 0x09, 0xb7, 0x7b, 0x24, 0x1d,
-	0x9d, 0x72, 0xae, 0x19, 0x24, 0xe9, 0x70, 0x36, 0xf6, 0xd3, 0xeb, 0x1c, 0x30, 0x82, 0xdd, 0x49,
-	0x90, 0xa4, 0xde, 0x9c, 0x01, 0x79, 0x31, 0x07, 0xca, 0xf2, 0xe2, 0xe3, 0x65, 0xfd, 0x4b, 0x37,
-	0x3f, 0xcc, 0x49, 0x82, 0x82, 0xd1, 0x64, 0x95, 0x94, 0x20, 0x13, 0xd0, 0xe8, 0x34, 0x8e, 0xa6,
-	0xc4, 0xe3, 0x16, 0x70, 0xc7, 0xf2, 0x98, 0xb9, 0xb3, 0x62, 0x2e, 0x93, 0x2b, 0x18, 0x2d, 0x8f,
-	0x56, 0x28, 0x07, 0x7f, 0xda, 0x80, 0x1b, 0xe7, 0xf6, 0xfd, 0xe6, 0x25, 0x65, 0xe5, 0xad, 0x92,
-	0x72, 0x17, 0x2a, 0x49, 0xea, 0xa7, 0x84, 0xe5, 0x64, 0x03, 0xf3, 0x05, 0x7a, 0x0e, 0xf5, 0x51,
-	0x14, 0x26, 0x69, 0xec, 0x07, 0x61, 0x9a, 0x08, 0xcf, 0x19, 0xd7, 0xba, 0xa8, 0x43, 0x2d, 0x07,
-	0xc4, 0x45, 0xf4, 0x83, 0xbf, 0x4b, 0x50, 0x2f, 0x30, 0xd1, 0xf7, 0x01, 0x4d, 0xfd, 0x57, 0x59,
-	0xb4, 0x64, 0x45, 0x94, 0x3a, 0xb8, 0x82, 0xe5, 0xa9, 0xff, 0x8a, 0xc3, 0x8a, 0x62, 0x89, 0xde,
-	0x87, 0x5d, 0x2a, 0x4d, 0xf3, 0xfa, 0x0b, 0x3f, 0xc9, 0xe5, 0x4b, 0x4c, 0x9e, 0x22, 0x75, 0x05,
-	0x2b, 0xd3, 0xd8, 0x87, 0xcd, 0x98, 0x3c, 0xa3, 0x59, 0x4f, 0xcf, 0x5c, 0xc3, 0x62, 0x85, 0x5c,
-	0xd8, 0x4f, 0xe6, 0xb3, 0x59, 0x14, 0xa7, 0x64, 0xec, 0x8d, 0xa2, 0xe9, 0x2c, 0x26, 0x49, 0x12,
-	0x44, 0xe1, 0x05, 0x9d, 0x40, 0xcb, 0x25, 0x98, 0x6b, 0xf7, 0x16, 0xca, 0x05, 0x4e, 0xa2, 0xfc,
-	0x6d, 0x13, 0xee, 0x5c, 0xe4, 0x2a, 0x91, 0xa8, 0x09, 0xec, 0x2d, 0xe7, 0x07, 0xa7, 0x67, 0x69,
-	0xfb, 0xc9, 0x9b, 0xf9, 0x9d, 0x2b, 0x2d, 0x39, 0x9e, 0x93, 0xf0, 0xce, 0xe4, 0x1c, 0x2d, 0x41,
-	0xbf, 0x80, 0xbd, 0x69, 0x10, 0x06, 0xd3, 0xf9, 0xd4, 0x3b, 0xf3, 0x83, 0x34, 0x2f, 0x85, 0xa5,
-	0x4b, 0x4b, 0xe1, 0x8e, 0x50, 0x3a, 0xf6, 0x83, 0x34, 0x23, 0x1e, 0xfc, 0x67, 0x03, 0xd0, 0xf9,
-	0x7d, 0xaf, 0x93, 0x22, 0x6b, 0x23, 0xbc, 0xf4, 0x56, 0x11, 0x7e, 0x2e, 0xdb, 0xca, 0x5f, 0x31,
-	0xdb, 0x5e, 0x40, 0x33, 0xbb, 0x12, 0x0e, 0xb0, 0xc1, 0x00, 0xcc, 0x6b, 0x5e, 0xcb, 0x61, 0xf6,
-	0xc1, 0xb7, 0x8c, 0x0b, 0x2b, 0xf4, 0x11, 0xd4, 0xfc, 0xf1, 0x38, 0x48, 0x59, 0xf4, 0x55, 0x58,
-	0x14, 0xbc, 0x73, 0xe1, 0xb1, 0x1d, 0x92, 0xe2, 0x5c, 0x1c, 0xfd, 0x18, 0xaa, 0x31, 0x99, 0x46,
-	0x2f, 0xfd, 0x49, 0xd2, 0xde, 0x7c, 0x03, 0xd5, 0x85, 0x34, 0x7a, 0x00, 0x72, 0x48, 0xce, 0xb2,
-	0x9a, 0xc9, 0xcb, 0xc2, 0x16, 0x2b, 0x0b, 0xad, 0x90, 0x9c, 0xf1, 0x8a, 0xe8, 0xb0, 0xfa, 0xf0,
-	0x08, 0xaa, 0xa3, 0x53, 0x32, 0x7a, 0x9e, 0xcc, 0xa7, 0xed, 0xea, 0xba, 0x78, 0xd1, 0x04, 0x17,
-	0x2f, 0xe4, 0x14, 0x0c, 0x8d, 0xe2, 0x89, 0xd1, 0x6d, 0xb8, 0x85, 0x75, 0x67, 0x60, 0x5b, 0x8e,
-	0xee, 0xb9, 0x4f, 0x07, 0xba, 0x37, 0xb4, 0x9c, 0x81, 0xae, 0x19, 0x3d, 0x43, 0xef, 0xca, 0xdf,
-	0x42, 0x08, 0x5a, 0x03, 0x15, 0xbb, 0x86, 0x6a, 0x7a, 0xc3, 0x41, 0x57, 0x75, 0x75, 0x59, 0x42,
-	0xdb, 0x50, 0xef, 0x0d, 0xcd, 0x05, 0xa1, 0xa4, 0xfc, 0x51, 0x82, 0x3d, 0xda, 0x00, 0x7b, 0xf3,
-	0xc9, 0xa4, 0xef, 0x27, 0xd7, 0x6a, 0xc3, 0xef, 0x42, 0xb3, 0x78, 0x72, 0x3e, 0x46, 0x36, 0x70,
-	0x63, 0x94, 0x9f, 0x3b, 0x59, 0xed, 0xd5, 0xe5, 0xaf, 0xd0, 0xab, 0xff, 0x25, 0xc1, 0xfe, 0xaa,
-	0xad, 0xd7, 0xe8, 0xd4, 0xff, 0xcf, 0x04, 0x46, 0x16, 0xdc, 0x0c, 0xc9, 0x33, 0x3f, 0x0d, 0x5e,
-	0x12, 0x6f, 0x65, 0x32, 0x2a, 0x5f, 0x8a, 0xb6, 0x97, 0xa9, 0x69, 0x4b, 0x13, 0xd2, 0x7f, 0xcb,
-	0x50, 0xe3, 0x46, 0xf7, 0x83, 0xaf, 0xb7, 0x55, 0xbe, 0x07, 0x15, 0x56, 0x41, 0xae, 0x9e, 0x39,
-	0xb9, 0x1c, 0xea, 0x40, 0x2d, 0x26, 0x49, 0x34, 0x8f, 0x47, 0xe2, 0x09, 0x50, 0x7f, 0xf4, 0x9d,
-	0x75, 0x4a, 0xfd, 0x20, 0x15, 0x5f, 0x0e, 0x13, 0xc6, 0xb9, 0xda, 0xc1, 0x6f, 0x24, 0x68, 0x14,
-	0x79, 0x48, 0x86, 0xf2, 0x3c, 0x9e, 0xb0, 0x93, 0xd7, 0x30, 0xfd, 0x44, 0x3f, 0x83, 0x8d, 0xc2,
-	0x79, 0x1e, 0xbc, 0xc9, 0x0e, 0xec, 0x74, 0x4c, 0x0b, 0x7d, 0x9b, 0x1a, 0x39, 0x8d, 0x52, 0xe2,
-	0x05, 0x33, 0xd1, 0xc5, 0xaa, 0x9c, 0x60, 0xcc, 0xd0, 0x01, 0x2d, 0x00, 0x27, 0x24, 0x8e, 0x49,
-	0xcc, 0x4a, 0x15, 0xe3, 0xf1, 0xb5, 0xf2, 0x0c, 0xe4, 0x55, 0x48, 0xa4, 0xc0, 0x1d, 0xb7, 0x8f,
-	0x75, 0xd5, 0xf5, 0x1c, 0x7b, 0x88, 0xb5, 0xb5, 0xd9, 0x28, 0x43, 0xe3, 0x48, 0x75, 0xb5, 0xbe,
-	0x61, 0x3d, 0xf6, 0x86, 0xd8, 0x94, 0x25, 0x54, 0x87, 0x2d, 0x57, 0xed, 0xb0, 0x45, 0x89, 0xb2,
-	0xe9, 0x02, 0xeb, 0x5d, 0x03, 0xeb, 0x9a, 0x2b, 0x97, 0x95, 0x01, 0x40, 0x9e, 0x63, 0xd4, 0xde,
-	0x6c, 0x12, 0x1b, 0x0b, 0x2f, 0x54, 0x39, 0xc1, 0x18, 0xa3, 0xef, 0x42, 0x4b, 0x30, 0x5f, 0x92,
-	0x38, 0xc9, 0x22, 0xb8, 0x86, 0x45, 0x3a, 0x7e, 0xce, 0x89, 0xca, 0x3f, 0x25, 0x90, 0x57, 0xa7,
-	0x35, 0xf4, 0x02, 0x76, 0x63, 0x42, 0xbb, 0x6e, 0x10, 0x3e, 0xf3, 0x66, 0xd1, 0x6c, 0x3e, 0xe1,
-	0x51, 0xcb, 0x63, 0xec, 0xe7, 0x97, 0xcf, 0x7a, 0x87, 0x8e, 0x7f, 0x42, 0x3a, 0x82, 0x8b, 0x33,
-	0x98, 0xc1, 0x02, 0x05, 0xef, 0xc4, 0xe7, 0x89, 0xca, 0x13, 0xb8, 0x7b, 0x85, 0x1e, 0xad, 0x53,
-	0xcb, 0xee, 0xab, 0xc3, 0x96, 0x3d, 0x70, 0x3d, 0x7b, 0xe8, 0xca, 0x12, 0x6a, 0x40, 0x55, 0x7f,
-	0xe2, 0xea, 0x56, 0x57, 0xef, 0xca, 0x25, 0x54, 0x83, 0x8a, 0xa3, 0x51, 0x46, 0x59, 0x51, 0xa0,
-	0x9a, 0xd5, 0x4d, 0x3a, 0xa4, 0x24, 0xa7, 0xfe, 0xa3, 0x1f, 0x7e, 0xc8, 0x8e, 0xd2, 0xc0, 0x62,
-	0xa5, 0x7c, 0x90, 0x3d, 0x0d, 0x59, 0xd0, 0x22, 0x04, 0x1b, 0xa7, 0x7e, 0x72, 0x2a, 0x84, 0xd8,
-	0x77, 0x16, 0x6c, 0xa5, 0x45, 0xb0, 0x29, 0x7f, 0x2d, 0x41, 0x6b, 0xb9, 0xea, 0xa3, 0x3e, 0xc8,
-	0x85, 0x11, 0xa7, 0x98, 0x98, 0x57, 0x8c, 0x39, 0xdb, 0xa3, 0x65, 0x02, 0xfa, 0x10, 0x20, 0xf6,
-	0xcf, 0xbc, 0x53, 0x56, 0xd2, 0x44, 0xf1, 0xb9, 0xb9, 0x8c, 0x81, 0xfd, 0x33, 0x51, 0xf1, 0x6a,
-	0x71, 0xf6, 0x49, 0xab, 0x02, 0xd5, 0x0b, 0xc2, 0x71, 0x30, 0x62, 0x8f, 0xe4, 0x35, 0xa5, 0x14,
-	0xfb, 0x67, 0x06, 0xe7, 0x63, 0xba, 0x89, 0xf8, 0x46, 0x9f, 0x42, 0x3d, 0x0e, 0x46, 0x24, 0xdb,
-	0x93, 0x8f, 0xa7, 0x77, 0x57, 0x54, 0x83, 0x11, 0xe9, 0x92, 0x49, 0xea, 0xeb, 0xe1, 0x28, 0x1a,
-	0xd3, 0x8b, 0x02, 0xaa, 0x23, 0x36, 0xef, 0x40, 0x83, 0x21, 0x64, 0xbb, 0x57, 0xde, 0x0c, 0x82,
-	0x6d, 0x2b, 0xac, 0x50, 0xbe, 0x07, 0x90, 0xdb, 0x87, 0xda, 0xb0, 0x95, 0x81, 0xd1, 0x1a, 0x5e,
-	0xc1, 0xd9, 0x52, 0xf9, 0x0c, 0x6a, 0x0b, 0x07, 0xa0, 0xbb, 0x50, 0x9f, 0xc5, 0xe4, 0x24, 0x78,
-	0xe5, 0x25, 0xc1, 0x97, 0x44, 0x4c, 0xb5, 0xc0, 0x49, 0x4e, 0xf0, 0x25, 0x6d, 0x8b, 0xab, 0xee,
-	0x6c, 0x14, 0xbc, 0xa6, 0xfc, 0x41, 0x82, 0x1b, 0xe7, 0xec, 0xa2, 0xa8, 0x27, 0x41, 0x9c, 0xa4,
-	0xde, 0x4b, 0x7f, 0x32, 0xe7, 0xa8, 0x65, 0x0c, 0x8c, 0xf4, 0x39, 0xa5, 0xd0, 0x1c, 0x63, 0xe7,
-	0x9d, 0xf9, 0xb1, 0x3f, 0x25, 0x29, 0x89, 0xc5, 0x7c, 0xdc, 0xa4, 0xd4, 0x41, 0x46, 0xa4, 0x38,
-	0xe1, 0x7c, 0x5a, 0xf8, 0x71, 0xc1, 0xac, 0x0b, 0xe7, 0xd3, 0x6c, 0x76, 0xbe, 0x0f, 0x0d, 0x42,
-	0x37, 0x25, 0x63, 0x6f, 0xf1, 0x0e, 0x6f, 0xe0, 0xba, 0xa0, 0xd1, 0x49, 0x5b, 0xf9, 0xad, 0x04,
-	0x3b, 0x6b, 0x5e, 0xe2, 0xc8, 0x80, 0xad, 0x7c, 0x96, 0xa7, 0x65, 0xf5, 0xbd, 0x2b, 0x5f, 0xef,
-	0x87, 0xd9, 0x07, 0xaf, 0xd0, 0x99, 0xfe, 0xc1, 0x8f, 0xa0, 0xb9, 0xc4, 0xa1, 0x21, 0xff, 0x9c,
-	0xbc, 0x16, 0x59, 0x40, 0x3f, 0xe9, 0xbb, 0x86, 0xfb, 0x82, 0x7b, 0x90, 0x2f, 0x94, 0x7f, 0x48,
-	0xb0, 0x9b, 0xcf, 0x68, 0x5d, 0x92, 0x8c, 0xe2, 0x60, 0x96, 0x46, 0xf1, 0x37, 0xef, 0x35, 0x57,
-	0x7e, 0x9b, 0x59, 0x57, 0xf9, 0x25, 0xdc, 0xa4, 0x07, 0xcb, 0x8f, 0x98, 0xcf, 0x18, 0xfa, 0xe2,
-	0x1f, 0x1b, 0x7d, 0x0d, 0x64, 0x77, 0xa0, 0xac, 0xdb, 0x60, 0xd9, 0x37, 0xd9, 0xdf, 0x36, 0x06,
-	0xa7, 0x7c, 0x04, 0xd5, 0xc5, 0xd4, 0xd0, 0x86, 0xad, 0x84, 0x8c, 0xa2, 0x70, 0x9c, 0x88, 0x88,
-	0xcb, 0x96, 0xd4, 0xfb, 0xa1, 0x1f, 0x46, 0xd9, 0x2b, 0x8c, 0x2f, 0x1e, 0xfe, 0x7b, 0xf1, 0xd7,
-	0xcf, 0xe5, 0x4d, 0xec, 0xa6, 0xe8, 0x3b, 0xeb, 0xc7, 0xbf, 0x23, 0xd5, 0x3c, 0x56, 0xb1, 0xee,
-	0x71, 0x21, 0x59, 0xa2, 0x13, 0xa3, 0x63, 0x6b, 0x74, 0x22, 0xd4, 0xad, 0xc7, 0x86, 0xa5, 0xeb,
-	0x98, 0xb6, 0xa3, 0xc1, 0xb0, 0x63, 0x1a, 0x9a, 0x5c, 0x42, 0x7b, 0x70, 0x63, 0x68, 0x1d, 0xab,
-	0x96, 0xab, 0x77, 0x3d, 0xc7, 0xee, 0xb9, 0x54, 0x59, 0x2e, 0xa3, 0x77, 0xe1, 0xee, 0xc0, 0x76,
-	0x75, 0x8b, 0x8e, 0x92, 0xe6, 0x53, 0xaf, 0xaf, 0xe2, 0xa3, 0xde, 0xd0, 0xf4, 0xd4, 0xc1, 0xc0,
-	0x34, 0x34, 0xd5, 0x35, 0x6c, 0x4b, 0xde, 0x40, 0xfb, 0x80, 0xce, 0x43, 0xcb, 0x15, 0xd4, 0x84,
-	0x9a, 0x3a, 0x30, 0x3c, 0xb5, 0x33, 0x74, 0x74, 0x79, 0x13, 0xed, 0x82, 0x7c, 0xa4, 0x9a, 0x86,
-	0x66, 0xd8, 0x43, 0xc7, 0xeb, 0x18, 0x96, 0x8a, 0x9f, 0xca, 0x5b, 0xe8, 0x06, 0x34, 0x35, 0xa7,
-	0xeb, 0x1d, 0xf7, 0x0d, 0x57, 0x37, 0x0d, 0xc7, 0x95, 0xab, 0xe8, 0x00, 0xf6, 0x29, 0xa9, 0x6b,
-	0x1f, 0x5b, 0xa6, 0xad, 0x16, 0x79, 0x35, 0xb4, 0x03, 0xdb, 0x9a, 0x69, 0xe8, 0x96, 0xeb, 0x19,
-	0x96, 0x66, 0x74, 0x75, 0xcb, 0x95, 0x81, 0x19, 0x30, 0xec, 0x60, 0x5d, 0xb4, 0xe0, 0x9e, 0x61,
-	0xba, 0x3a, 0x96, 0x9b, 0xa8, 0x05, 0xe0, 0x0c, 0x9d, 0x01, 0xdf, 0x52, 0x6e, 0xd1, 0x4e, 0xd2,
-	0x31, 0x4c, 0x93, 0x5a, 0xb7, 0x4d, 0x1d, 0xd2, 0x37, 0x1e, 0xf7, 0x3d, 0xcd, 0xb6, 0x7a, 0x14,
-	0x48, 0xd3, 0x3d, 0xd5, 0x34, 0xed, 0x63, 0xb6, 0x91, 0xfc, 0xf0, 0xcf, 0x12, 0x34, 0x8a, 0x71,
-	0x47, 0xe5, 0x07, 0xa6, 0xea, 0xf6, 0x6c, 0x7c, 0xb4, 0xce, 0xe7, 0xbb, 0x20, 0x1f, 0x1b, 0x56,
-	0xd7, 0x3e, 0x76, 0xbc, 0x4c, 0x4c, 0x96, 0xe8, 0x4d, 0x98, 0x86, 0x35, 0x7c, 0x92, 0xd3, 0x4a,
-	0x54, 0x52, 0xb5, 0xba, 0xd8, 0x36, 0xba, 0x39, 0xb5, 0x4c, 0xa7, 0x00, 0xdb, 0x29, 0xc8, 0x6d,
-	0x50, 0x8a, 0x61, 0x17, 0xd0, 0x2a, 0x94, 0xa2, 0x5a, 0x4f, 0x73, 0xca, 0x26, 0xf5, 0x9e, 0x6a,
-	0x9a, 0x0b, 0x8a, 0x23, 0x6f, 0x31, 0x0f, 0xf5, 0xb1, 0x7d, 0xa4, 0xe7, 0x72, 0xd5, 0x87, 0x3d,
-	0xd8, 0x5e, 0xe9, 0x45, 0xe8, 0x1e, 0xbc, 0xa3, 0xd9, 0x47, 0x03, 0xac, 0x3b, 0x8e, 0x61, 0x5b,
-	0xeb, 0x8e, 0xb4, 0x05, 0x65, 0xac, 0x1e, 0xcb, 0x12, 0xaa, 0xc2, 0x06, 0x36, 0x34, 0x5d, 0x2e,
-	0x3d, 0xfc, 0xb5, 0x04, 0xdb, 0x2b, 0x89, 0x84, 0xee, 0xc3, 0x6d, 0x11, 0x8a, 0xba, 0xe5, 0xe2,
-	0xa7, 0x17, 0x20, 0xf1, 0xc1, 0xa7, 0x05, 0xa0, 0x3f, 0xd1, 0xb5, 0xa1, 0xab, 0x76, 0x4c, 0x5d,
-	0x2e, 0xd1, 0x76, 0x6e, 0x0c, 0x3c, 0xac, 0x5a, 0x8f, 0x69, 0xb4, 0xed, 0x82, 0x2c, 0x4c, 0x67,
-	0x3d, 0xde, 0xe1, 0xe1, 0xd5, 0x80, 0x6a, 0xcf, 0x30, 0x75, 0x4b, 0x3d, 0xd2, 0xe5, 0x0a, 0xb5,
-	0x45, 0xd3, 0xb1, 0x2b, 0x6f, 0x76, 0x4a, 0xfd, 0xf2, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0xa8,
-	0xf8, 0x8c, 0xdc, 0x2e, 0x17, 0x00, 0x00,
+	// 1802 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0xcd, 0x72, 0xdb, 0xc8,
+	0x11, 0x0e, 0x48, 0xf1, 0xaf, 0x49, 0x4a, 0xa3, 0xd1, 0x8f, 0x69, 0xed, 0x7a, 0x2d, 0x63, 0x2b,
+	0x29, 0x97, 0x2b, 0x25, 0x6f, 0xec, 0xca, 0xe6, 0xaf, 0x52, 0xbb, 0x10, 0x38, 0xb4, 0x50, 0x0b,
+	0x02, 0xc8, 0x00, 0x5c, 0x59, 0x27, 0x04, 0x26, 0x47, 0x12, 0xca, 0x24, 0xc0, 0x05, 0x40, 0xcb,
+	0xde, 0x53, 0x6e, 0xa9, 0x3c, 0x40, 0x0e, 0xa9, 0x1c, 0x92, 0x6b, 0x9e, 0x21, 0x8f, 0x91, 0x63,
+	0x6a, 0x1f, 0x21, 0x95, 0x5b, 0xce, 0xa9, 0x19, 0x00, 0x24, 0x48, 0x49, 0x96, 0xd7, 0xda, 0x83,
+	0x6f, 0x33, 0x3d, 0xdd, 0x5f, 0xcf, 0x7c, 0xdd, 0x3d, 0x3d, 0x00, 0xe0, 0xd8, 0x3b, 0x65, 0x2f,
+	0xa2, 0xf0, 0x22, 0xf6, 0x83, 0xb3, 0x83, 0x69, 0x14, 0x26, 0x21, 0x6e, 0x15, 0x65, 0x7b, 0x9f,
+	0x9c, 0x85, 0xe1, 0xd9, 0x98, 0x3d, 0x16, 0x6b, 0x2f, 0x66, 0xa7, 0x8f, 0x47, 0xb3, 0xc8, 0x4b,
+	0xfc, 0x30, 0x48, 0xb5, 0xe5, 0xbf, 0x96, 0x00, 0x9c, 0xf3, 0x88, 0x79, 0x89, 0x16, 0x9c, 0x86,
+	0xf8, 0x37, 0xd0, 0x4a, 0xc4, 0xcc, 0x4d, 0xde, 0x4c, 0x59, 0xdc, 0x91, 0xf6, 0xcb, 0x0f, 0xd7,
+	0x9f, 0x74, 0x0e, 0x96, 0xfc, 0xa4, 0xfa, 0xce, 0x9b, 0x29, 0xa3, 0xcd, 0x64, 0x3e, 0x8e, 0xb1,
+	0x02, 0xeb, 0xd3, 0xb1, 0x97, 0x9c, 0x86, 0xd1, 0x24, 0x33, 0x2f, 0x09, 0xf3, 0xbd, 0x65, 0x73,
+	0x2b, 0xd3, 0x11, 0x00, 0xed, 0x69, 0x61, 0x16, 0xe3, 0xaf, 0x00, 0x67, 0xfe, 0x59, 0x90, 0x44,
+	0x6f, 0x32, 0x98, 0x35, 0x01, 0x73, 0xef, 0xaa, 0x5d, 0x10, 0xae, 0x26, 0x90, 0x50, 0xb2, 0x2c,
+	0x88, 0xf1, 0x97, 0xb0, 0x5e, 0x00, 0xf3, 0x59, 0xdc, 0x29, 0xef, 0x97, 0x1f, 0x36, 0x9f, 0xdc,
+	0xbd, 0x16, 0x88, 0xb6, 0x17, 0x20, 0x3e, 0x8b, 0xe5, 0xbf, 0x97, 0xa1, 0x99, 0x2e, 0xf7, 0xbd,
+	0x64, 0x78, 0x8e, 0x7f, 0x05, 0xcd, 0x02, 0x3d, 0x1d, 0x69, 0x5f, 0x7a, 0x2b, 0x3b, 0xb0, 0x60,
+	0x07, 0x7f, 0x01, 0xed, 0x25, 0x72, 0x3a, 0x25, 0x61, 0xfc, 0x36, 0x6e, 0x5a, 0x45, 0x6e, 0xb0,
+	0x06, 0x9b, 0x97, 0xa8, 0xe9, 0x54, 0x05, 0xc8, 0x0d, 0xcc, 0x6c, 0xac, 0x30, 0x83, 0x7f, 0x06,
+	0xd5, 0x54, 0xd4, 0x29, 0xef, 0x4b, 0x6f, 0x27, 0x24, 0x53, 0xc4, 0x03, 0xd8, 0x59, 0xf2, 0x3e,
+	0x61, 0x89, 0x37, 0xf2, 0x12, 0xaf, 0xb3, 0x26, 0x10, 0x1e, 0x5c, 0x8b, 0xd0, 0xcf, 0x14, 0xe9,
+	0x56, 0x72, 0x59, 0xc8, 0x43, 0x34, 0xf4, 0x86, 0xe7, 0xcc, 0xcd, 0xd3, 0xb2, 0x53, 0xc9, 0x76,
+	0x94, 0xe6, 0xed, 0x41, 0x9e, 0xb7, 0x07, 0xdd, 0x4c, 0x81, 0xb6, 0x85, 0x41, 0x3e, 0x95, 0xff,
+	0x28, 0x41, 0xa7, 0xe7, 0x07, 0xa3, 0x42, 0x98, 0x58, 0x4c, 0xd9, 0x37, 0x33, 0x16, 0x27, 0xf8,
+	0x33, 0xa8, 0x0e, 0xc7, 0x3e, 0x0b, 0x12, 0x11, 0xaa, 0xe6, 0x6a, 0xa8, 0x54, 0xb1, 0xc6, 0x13,
+	0x9f, 0x66, 0x7a, 0x85, 0x08, 0xfb, 0xc1, 0x69, 0x28, 0x82, 0xd4, 0xbc, 0x3a, 0xc2, 0xc2, 0x2c,
+	0x8b, 0x30, 0x1f, 0xcb, 0x16, 0xdc, 0xbd, 0x62, 0x23, 0xf1, 0x34, 0x0c, 0x62, 0x86, 0x9f, 0x42,
+	0x6d, 0x92, 0x8a, 0x44, 0x4d, 0x5d, 0xc3, 0xb9, 0xb0, 0xa2, 0xb9, 0xa6, 0xfc, 0x87, 0x2a, 0xdc,
+	0xeb, 0xb1, 0x64, 0x78, 0x9e, 0xae, 0xea, 0x7e, 0x9c, 0x0c, 0xa6, 0x23, 0x2f, 0xb9, 0xcd, 0x01,
+	0x43, 0xd8, 0x1e, 0xfb, 0x71, 0xe2, 0xce, 0x04, 0x90, 0x1b, 0xa5, 0x40, 0x79, 0x69, 0xfc, 0x76,
+	0xd9, 0xfe, 0xad, 0xce, 0x0f, 0x16, 0xa2, 0x4c, 0x42, 0xf1, 0x78, 0x55, 0x14, 0xef, 0xfd, 0x73,
+	0x0d, 0x36, 0x2f, 0x69, 0x7e, 0x78, 0x95, 0x54, 0x79, 0xaf, 0x4a, 0xda, 0x86, 0x4a, 0x9c, 0x78,
+	0x09, 0x13, 0x85, 0xd4, 0xa2, 0xe9, 0x04, 0xbf, 0x84, 0xe6, 0x30, 0x0c, 0xe2, 0x24, 0xf2, 0xfc,
+	0x20, 0x89, 0xb3, 0x12, 0xd1, 0x6e, 0x45, 0xed, 0x81, 0xba, 0x00, 0xa4, 0x45, 0xf4, 0xbd, 0x7f,
+	0x4b, 0xd0, 0x2c, 0x2c, 0xe2, 0x9f, 0x02, 0x9e, 0x78, 0xaf, 0xf3, 0xf8, 0xe6, 0x37, 0x1f, 0x27,
+	0xb8, 0x42, 0xd1, 0xc4, 0x7b, 0x9d, 0xc2, 0x66, 0x37, 0x1c, 0xfe, 0x0c, 0xb6, 0xb9, 0x36, 0x2f,
+	0xc6, 0x17, 0x5e, 0xbc, 0xd0, 0x2f, 0x09, 0x7d, 0x8e, 0xd4, 0xcd, 0x96, 0x72, 0x8b, 0x5d, 0xa8,
+	0x46, 0xec, 0x8c, 0x97, 0x2a, 0x3f, 0x73, 0x83, 0x66, 0x33, 0xec, 0xc0, 0x6e, 0x3c, 0x9b, 0x4e,
+	0xc3, 0x28, 0x61, 0x23, 0x77, 0x18, 0x4e, 0xa6, 0x11, 0x8b, 0x63, 0x3f, 0x0c, 0xae, 0xb9, 0xbe,
+	0xd5, 0x85, 0x86, 0xa0, 0x76, 0x67, 0x6e, 0x5c, 0x58, 0x89, 0xe5, 0xef, 0xaa, 0xf0, 0xc9, 0x75,
+	0x54, 0x65, 0xa5, 0x15, 0xc3, 0xce, 0x72, 0x46, 0xa7, 0xf2, 0xbc, 0xd0, 0xbe, 0x78, 0x37, 0xde,
+	0x53, 0xa3, 0x25, 0xe2, 0x53, 0x11, 0xdd, 0x1a, 0x5f, 0x92, 0xc5, 0xb8, 0x0f, 0x3b, 0x13, 0x3f,
+	0xf0, 0x27, 0xb3, 0x89, 0x7b, 0xe1, 0xf9, 0xc9, 0xe2, 0xfe, 0x2a, 0xdd, 0x74, 0x7f, 0x6d, 0x65,
+	0x76, 0xc7, 0x9e, 0x9f, 0xe4, 0xc2, 0xbd, 0xff, 0xad, 0x01, 0xbe, 0xec, 0xfa, 0x36, 0x55, 0x72,
+	0x65, 0x92, 0x97, 0xde, 0x2b, 0xc9, 0x2f, 0x15, 0x5c, 0xf9, 0x7b, 0x16, 0xdc, 0x37, 0xd0, 0xce,
+	0xa3, 0x92, 0x02, 0xac, 0x09, 0x00, 0xfd, 0x96, 0x91, 0x39, 0xc8, 0x07, 0xa9, 0xcb, 0xa8, 0x30,
+	0xc3, 0xbf, 0x86, 0x86, 0x37, 0x1a, 0xf9, 0x89, 0x48, 0xc0, 0x8a, 0x48, 0x84, 0x8f, 0xaf, 0x3d,
+	0xb6, 0xcd, 0x12, 0xba, 0x50, 0xc7, 0xbf, 0x84, 0x7a, 0xc4, 0x26, 0xe1, 0x2b, 0x6f, 0x1c, 0x77,
+	0xaa, 0xef, 0x60, 0x3a, 0xd7, 0xc6, 0x0f, 0x01, 0x05, 0xec, 0xc2, 0x4d, 0xaf, 0x5a, 0x37, 0xbd,
+	0x19, 0x6a, 0xe2, 0x66, 0x58, 0x0f, 0xd8, 0x45, 0x7a, 0x1b, 0xdb, 0xe2, 0x8a, 0x78, 0x02, 0xf5,
+	0xe1, 0x39, 0x1b, 0xbe, 0x8c, 0x67, 0x93, 0x4e, 0x5d, 0xa4, 0xcc, 0xee, 0x4a, 0x7d, 0x64, 0xab,
+	0x74, 0xae, 0x27, 0x53, 0x68, 0x15, 0x4f, 0x8c, 0xef, 0xc1, 0x5d, 0x4a, 0x6c, 0xcb, 0x34, 0x6c,
+	0xe2, 0x3a, 0x27, 0x16, 0x71, 0x07, 0x86, 0x6d, 0x11, 0x55, 0xeb, 0x69, 0xa4, 0x8b, 0x7e, 0x84,
+	0x31, 0xac, 0x5b, 0x0a, 0x75, 0x34, 0x45, 0x77, 0x07, 0x56, 0x57, 0x71, 0x08, 0x92, 0xf0, 0x06,
+	0x34, 0x7b, 0x03, 0x7d, 0x2e, 0x28, 0xc9, 0xff, 0x90, 0x60, 0x87, 0x77, 0xad, 0xde, 0x6c, 0x3c,
+	0x3e, 0xf2, 0xe2, 0x5b, 0xf5, 0xce, 0x4f, 0xa1, 0x5d, 0x3c, 0x79, 0xfa, 0xfc, 0x6b, 0xd1, 0xd6,
+	0x70, 0x71, 0xee, 0x78, 0xb5, 0xc1, 0x96, 0xbf, 0x47, 0x83, 0xfd, 0xaf, 0x04, 0xbb, 0xab, 0x7b,
+	0xbd, 0x45, 0x7b, 0xfd, 0x81, 0x6b, 0x18, 0xff, 0x0e, 0xee, 0x04, 0xec, 0xcc, 0x4b, 0xfc, 0x57,
+	0xcc, 0x5d, 0x79, 0xd4, 0x94, 0x6f, 0x02, 0xdc, 0xc9, 0x2d, 0xd5, 0xa5, 0xc7, 0x8d, 0x05, 0xb0,
+	0xe0, 0x19, 0x7f, 0x04, 0x8d, 0x8c, 0x5f, 0x7f, 0x24, 0x82, 0xd2, 0xa0, 0xf5, 0x54, 0xa0, 0x8d,
+	0xf0, 0x8f, 0x61, 0x3d, 0x5b, 0x7c, 0xc5, 0xa2, 0x38, 0x3f, 0x45, 0x83, 0x66, 0x21, 0xf9, 0x3a,
+	0x15, 0xca, 0x32, 0xd4, 0xf3, 0xcc, 0xe2, 0x37, 0x79, 0x7c, 0xee, 0x3d, 0xf9, 0xf9, 0xe7, 0x02,
+	0xac, 0x45, 0xb3, 0x99, 0xfc, 0x34, 0x7f, 0xf4, 0x8a, 0x0c, 0xc7, 0x18, 0xd6, 0xce, 0xbd, 0xf8,
+	0x3c, 0x53, 0x12, 0x63, 0x8c, 0xa0, 0x3c, 0x8b, 0xc6, 0x99, 0x0b, 0x3e, 0x94, 0xff, 0x55, 0x82,
+	0xf5, 0xe5, 0xba, 0xc0, 0x47, 0x80, 0x0a, 0x7d, 0xa0, 0x78, 0x85, 0xdd, 0xd0, 0x0b, 0x36, 0x86,
+	0xcb, 0x02, 0xfc, 0x39, 0x40, 0xe4, 0x5d, 0xb8, 0xe7, 0x22, 0xe8, 0x59, 0x78, 0xee, 0x2c, 0x63,
+	0x50, 0xef, 0x22, 0xcb, 0x89, 0x46, 0x94, 0x0f, 0x79, 0xb2, 0x71, 0x3b, 0x3f, 0x18, 0xf9, 0x43,
+	0xf1, 0xfc, 0xbf, 0x22, 0xd9, 0xa8, 0x77, 0xa1, 0xa5, 0xeb, 0x94, 0x3b, 0xc9, 0xc6, 0xf8, 0x4b,
+	0x68, 0x46, 0xfe, 0x90, 0xe5, 0x3e, 0xd3, 0x1e, 0x7e, 0x7f, 0xc5, 0xd4, 0x1f, 0xb2, 0x2e, 0x1b,
+	0x27, 0x1e, 0x09, 0x86, 0xe1, 0xc8, 0x0f, 0xce, 0x28, 0x70, 0x9b, 0xcc, 0xf9, 0x21, 0xb4, 0x04,
+	0x42, 0xee, 0xbd, 0xf2, 0x6e, 0x10, 0xc2, 0x6d, 0xb6, 0x0b, 0xf9, 0x27, 0x00, 0x8b, 0xfd, 0xe1,
+	0x0e, 0xd4, 0x72, 0x30, 0x9e, 0xe5, 0x15, 0x9a, 0x4f, 0xe5, 0xaf, 0xa0, 0x31, 0x27, 0x00, 0xdf,
+	0x87, 0xe6, 0x34, 0x62, 0xa7, 0xfe, 0x6b, 0x37, 0xf6, 0xbf, 0x65, 0x59, 0xeb, 0x87, 0x54, 0x64,
+	0xfb, 0xdf, 0xf2, 0x8b, 0x63, 0x95, 0xce, 0x56, 0x81, 0x35, 0xf9, 0x6f, 0x12, 0x6c, 0x5e, 0xda,
+	0x17, 0x47, 0x3d, 0xf5, 0xa3, 0x38, 0x71, 0x5f, 0x79, 0xe3, 0x59, 0x8a, 0x5a, 0xa6, 0x20, 0x44,
+	0x5f, 0x73, 0x09, 0xcf, 0x40, 0x71, 0xde, 0xa9, 0x17, 0x79, 0x13, 0x96, 0xb0, 0x28, 0x7b, 0x44,
+	0xb4, 0xb9, 0xd4, 0xca, 0x85, 0x1c, 0x27, 0x98, 0x4d, 0x0a, 0x9f, 0x64, 0x62, 0x77, 0xc1, 0x6c,
+	0x92, 0x3f, 0x30, 0x1e, 0x40, 0x8b, 0x71, 0xa7, 0x6c, 0xe4, 0xce, 0xbf, 0x30, 0x5a, 0xb4, 0x99,
+	0xc9, 0xf8, 0x73, 0x44, 0xfe, 0x8b, 0x04, 0x5b, 0x57, 0x7c, 0x63, 0x60, 0x0d, 0x6a, 0x8b, 0x07,
+	0x0f, 0xbf, 0x06, 0x1e, 0xdf, 0xf8, 0x5d, 0x72, 0x90, 0x0f, 0xd2, 0xef, 0x9d, 0xdc, 0x7e, 0xef,
+	0x17, 0xd0, 0x5e, 0x5a, 0xe1, 0x29, 0xff, 0x92, 0xbd, 0xc9, 0xaa, 0x80, 0x0f, 0xf9, 0xe3, 0x2f,
+	0xe5, 0x22, 0x65, 0x30, 0x9d, 0xc8, 0xdf, 0x49, 0xb0, 0xbd, 0xe8, 0x62, 0x5d, 0x16, 0x0f, 0x23,
+	0x7f, 0x9a, 0x84, 0xd1, 0x87, 0xf7, 0xe4, 0x2d, 0xbf, 0xcf, 0x6b, 0x40, 0xfe, 0x3d, 0xdc, 0xe1,
+	0x07, 0x5b, 0x1c, 0x71, 0x71, 0x0b, 0x93, 0xf9, 0xdf, 0x03, 0xfe, 0x64, 0xca, 0x63, 0x20, 0x5f,
+	0xe5, 0x60, 0x99, 0x9b, 0xfc, 0x3f, 0x82, 0x80, 0x7b, 0xf4, 0x9f, 0xf9, 0x3f, 0x09, 0xb1, 0xf7,
+	0x8f, 0xe0, 0x8e, 0x73, 0x44, 0x89, 0xe2, 0x5c, 0xd3, 0xe4, 0xfa, 0x8a, 0x7e, 0xac, 0x50, 0xe2,
+	0xa6, 0x4a, 0x48, 0xe2, 0x7d, 0xd1, 0x36, 0x55, 0xde, 0xf7, 0x88, 0xf1, 0x4c, 0x33, 0x08, 0xa1,
+	0x9a, 0xf1, 0xcc, 0xb5, 0x06, 0x87, 0xba, 0xa6, 0xa2, 0x12, 0xde, 0x81, 0xcd, 0x81, 0x71, 0xac,
+	0x18, 0x0e, 0xe9, 0xba, 0xb6, 0xd9, 0x73, 0xb8, 0x31, 0x2a, 0xe3, 0x4f, 0xe1, 0xbe, 0x65, 0x3a,
+	0xc4, 0xe0, 0x0d, 0x53, 0x3f, 0x71, 0x8f, 0x14, 0xda, 0xef, 0x0d, 0x74, 0x57, 0xb1, 0x2c, 0x5d,
+	0x53, 0x15, 0x47, 0x33, 0x0d, 0xb4, 0x86, 0x77, 0x01, 0x5f, 0x86, 0x46, 0x15, 0xdc, 0x86, 0x86,
+	0x62, 0x69, 0xae, 0x72, 0x38, 0xb0, 0x09, 0xaa, 0xe2, 0x6d, 0x40, 0x7d, 0x45, 0xd7, 0x54, 0xcd,
+	0x1c, 0xd8, 0xee, 0xa1, 0x66, 0x28, 0xf4, 0x04, 0xd5, 0xf0, 0x26, 0xb4, 0x55, 0xbb, 0xeb, 0x1e,
+	0x1f, 0x69, 0x0e, 0xd1, 0x35, 0xdb, 0x41, 0x75, 0xbc, 0x07, 0xbb, 0x5c, 0xd4, 0x35, 0x8f, 0x0d,
+	0xdd, 0x54, 0x8a, 0x6b, 0x0d, 0xbc, 0x05, 0x1b, 0xaa, 0xae, 0x11, 0xc3, 0x71, 0x35, 0x43, 0xd5,
+	0xba, 0xc4, 0x70, 0x10, 0x88, 0x0d, 0x0c, 0x0e, 0x29, 0xb1, 0xcd, 0x01, 0x55, 0x89, 0xdb, 0xd3,
+	0x74, 0x87, 0x50, 0xd4, 0xc6, 0xeb, 0x00, 0xf6, 0xc0, 0xb6, 0x52, 0x97, 0x68, 0x1d, 0x37, 0xa1,
+	0x76, 0xa8, 0xe9, 0x3a, 0xdf, 0xdd, 0x06, 0x27, 0xe4, 0x48, 0x7b, 0x76, 0xe4, 0xaa, 0xa6, 0xd1,
+	0xe3, 0x40, 0x2a, 0x71, 0x15, 0x5d, 0x37, 0x8f, 0x85, 0x23, 0xf4, 0xe8, 0xcf, 0x12, 0xb4, 0x8a,
+	0xb9, 0xc3, 0xf5, 0x2d, 0x5d, 0x71, 0x7a, 0x26, 0xed, 0x5f, 0xc5, 0x79, 0x13, 0x6a, 0xc7, 0x9a,
+	0xd1, 0x35, 0x8f, 0x6d, 0x24, 0xe1, 0x06, 0x54, 0x74, 0xcd, 0x18, 0x3c, 0x47, 0x25, 0x2e, 0x57,
+	0x8c, 0x2e, 0x35, 0xb5, 0x2e, 0x2a, 0xe3, 0x1a, 0x94, 0x4d, 0xfb, 0x39, 0x5a, 0xe3, 0x03, 0xcd,
+	0xb4, 0x51, 0x05, 0x23, 0x68, 0x29, 0xc6, 0x89, 0x9b, 0x23, 0xa3, 0x2a, 0x27, 0x44, 0xd1, 0xf5,
+	0xb9, 0xc4, 0x46, 0x35, 0x0c, 0x50, 0x55, 0x8f, 0xa8, 0xd9, 0x27, 0xa8, 0xfe, 0xa8, 0x07, 0x1b,
+	0x2b, 0x9d, 0x01, 0xef, 0xc3, 0xc7, 0xaa, 0xd9, 0xb7, 0x28, 0xb1, 0x6d, 0xcd, 0x34, 0xae, 0xda,
+	0x5c, 0x0d, 0xca, 0x54, 0x39, 0x46, 0x12, 0xae, 0xc3, 0x1a, 0xd5, 0x54, 0x82, 0x4a, 0x8f, 0xfe,
+	0x24, 0xc1, 0xc6, 0x4a, 0x5a, 0xe3, 0x07, 0x70, 0x2f, 0x4b, 0x2a, 0x62, 0x38, 0xf4, 0xe4, 0x1a,
+	0xa4, 0x01, 0xd5, 0x91, 0xc4, 0xb9, 0x25, 0xcf, 0x89, 0x3a, 0x70, 0x94, 0x43, 0x9d, 0xa0, 0x12,
+	0x6e, 0x41, 0x5d, 0xb3, 0x5c, 0xaa, 0x18, 0xcf, 0x78, 0xde, 0x6c, 0x03, 0x4a, 0x77, 0xec, 0x92,
+	0xe7, 0x0e, 0x31, 0xec, 0x34, 0x51, 0x5a, 0x50, 0xef, 0x69, 0x3a, 0x31, 0x94, 0x3e, 0x41, 0x15,
+	0xbe, 0x17, 0x95, 0x50, 0x07, 0x55, 0x5f, 0x54, 0x45, 0xef, 0x7f, 0xfa, 0xff, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0xa4, 0x16, 0x44, 0xab, 0xba, 0x13, 0x00, 0x00,
 }
