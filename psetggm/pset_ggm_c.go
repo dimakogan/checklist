@@ -1,7 +1,7 @@
 package psetggm
 
 /*
-#cgo CXXFLAGS: -msse2 -msse -march=native -maes -Ofast
+#cgo CXXFLAGS: -msse2 -msse -march=native -maes -Ofast -std=c++11
 #include "pset_ggm.h"
 #include "xor.h"
 #include "answer.h"
