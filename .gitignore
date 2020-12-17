@@ -39,3 +39,4 @@ compare/fig/__pycache__/
 /sbproxy
 /sbserver
 /*.log
+/sbtunnel
