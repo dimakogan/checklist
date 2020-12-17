@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"sort"
+
+	. "github.com/dimakogan/boosted-pir/safebrowsing"
 )
 
 func riceDeltas(hashInts []uint32) []byte {

@@ -38,3 +38,4 @@ compare/fig/__pycache__/
 /psetggm/tests/test_xor
 /sbproxy
 /sbserver
+/*.log
