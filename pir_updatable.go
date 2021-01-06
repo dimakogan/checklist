@@ -2,7 +2,6 @@ package boosted
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 
 	"github.com/elliotchance/orderedmap"
@@ -340,7 +339,6 @@ func NewPirClientUpdatable(source *rand.Rand, servers [2]PirServer) *pirClientUp
 
 func (c *pirClientUpdatable) Init() error {
 	err := c.Update()
-	log.Printf("%v\n", c.keyToPos)
 	return err
 }
 
