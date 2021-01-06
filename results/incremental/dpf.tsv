@@ -9,3 +9,14 @@
    7000000                   904                519835              5            0                257168                   160           1625
 # NumLayerActivations: map[0:205]
 # NumLayerHintBytes: map[0:0]
+# benchmark_incremental -numRows=3000000 -pirType=DPF -updateSize=32000,16000,8000
+   numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
+   3000000       32000                   187                122793                     5              0                102331                   202           1565
+   3000000       16000                  6329                132806                     5              0                102103                   192           1565
+   3000000        8000                   166                126340                     5              0                103542                   191           1565
+# benchmark_incremental -numRows=3000000 -pirType=DPF -updateSize=4000,2000,1000,500
+   numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
+   3000000        4000                    42                137495                     5              0                100844                   205           1565
+   3000000        2000                    30                132149                     5              0                101834                   201           1565
+   3000000        1000                    24                132976                     5              0                103170                   207           1565
+   3000000         500                    22                132490                     6              0                102956                   205           1565

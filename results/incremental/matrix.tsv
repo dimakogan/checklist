@@ -9,3 +9,14 @@
    7000000                   991               1271887              5            0                26168                   807          74037
 # NumLayerActivations: map[0:205]
 # NumLayerHintBytes: map[0:0]
+# benchmark_incremental -numRows=3000000 -pirType=Matrix -updateSize=32000,16000,8000
+   numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
+   3000000       32000                   193                111832                     5              0                 11529                   592          44698
+   3000000       16000                  2705                127820                     5              0                 11639                   594          44674
+   3000000        8000                   324                130892                     5              0                 11741                   590          44651
+# benchmark_incremental -numRows=3000000 -pirType=Matrix -updateSize=4000,2000,1000,500
+   numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
+   3000000        4000                    63                131558                     5              0                 11715                   602          44645
+   3000000        2000                    30                127206                     5              0                 11701                   597          44642
+   3000000        1000                    24                125361                     5              0                 11732                   637          44641
+   3000000         500                    22                126367                     6              0                 11843                   666          44640
