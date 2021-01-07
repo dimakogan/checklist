@@ -57,13 +57,14 @@ matrix = os.path.join(args.input_dir, "matrix.tsv")
 all_files = [boosted, dpf, matrix]
 
 col_num_rows = 0
-col_off_server = 1
-col_off_client = 2
-col_off_comm = 3
-col_client_storage = 4
-col_on_server = 5
-col_on_client = 6
-col_on_comm = 7
+col_update_size = 1
+col_off_server = 2
+col_off_client = 3
+col_off_comm = 4
+col_client_storage = 5
+col_on_server = 6
+col_on_client = 7
+col_on_comm = 8
 
 plot({name : [col_num_rows, col_on_server] for name in all_files}, 
     ["", " (Offline)"], 
@@ -102,22 +103,22 @@ ax.tick_params('x', pad=0.5)
 #         color=colors[0],
 #         label='Boosted')
 
-plt.plot(dpf_times[:,col_num_rows],boosted_times[:,col_off_server]/dpf_times[:,col_on_server], 
-        "-o",
-        color=colors[1],
-        label='DPF')
+# plt.plot(dpf_times[:,col_num_rows],boosted_times[:,col_off_server]/dpf_times[:,col_on_server], 
+#         "-o",
+#         color=colors[1],
+#         label='DPF')
 
-plt.plot(matrix_times[:,col_num_rows],boosted_times[:,col_off_server]/matrix_times[:,col_on_server], 
-        "-o",
-        color=colors[2],
-        label='Matrix')
+# plt.plot(matrix_times[:,col_num_rows],boosted_times[:,col_off_server]/matrix_times[:,col_on_server], 
+#         "-o",
+#         color=colors[2],
+#         label='Matrix')
 
 
-plt.xlabel('Num Rows')
-plt.ylabel('Overhead')
+plt.xlabel('Update batch size')
+plt.ylabel('Per Query Cost')
 
 fig.legend()
-plt.savefig(args.out_basename+"_offline_server.pdf")
+plt.savefig(args.out_basename+"_inc.pdf")
 
 
 
