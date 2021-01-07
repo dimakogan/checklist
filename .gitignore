@@ -40,3 +40,4 @@ compare/fig/__pycache__/
 /sbserver
 /*.log
 /sbtunnel
+.ipynb_checkpoints/

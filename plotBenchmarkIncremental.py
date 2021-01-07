@@ -1,58 +1,31 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[28]:
+
 
 import argparse
 import matplotlib 
 matplotlib.use('Agg')
 import math
+import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
+import re
 
-linestyles = ["solid", "dashed", "dotted"]
-colors=["red", "blue", "green", "purple"]
-
-
-def plot(file_to_cols, pretty_col_names, scales, labels, out_name):
-    fig, ax = plt.subplots()
-
-    ax.set_xscale(scales[0])
-    ax.set_yscale(scales[1])
-
-    ax.tick_params('x', pad=0.5)
-
-    for file_num, filename in enumerate(file_to_cols):
-        pretty_name = os.path.splitext(os.path.basename(filename))[0]
-        results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
-
-        for idx, col_name in enumerate(results.dtype.names[1:]):
-            plt.plot(results[results.dtype.names[0]],results[col_name], 
-                "-o",
-                color=colors[file_num],
-                linestyle=linestyles[idx], 
-                label=f'{pretty_name}{pretty_col_names[idx]}')
-
-        plt.xlabel(labels[0])
-        plt.ylabel(labels[1])
-    fig.legend()
-    plt.savefig(out_name)
-
-parser = argparse.ArgumentParser(description='Plot benchmark results.')
-parser.add_argument('-i',
-                    dest='input_dir',
-                    default='results/incremental',
-                    help='directory containing TSV benchmark results')
-parser.add_argument('-o', 
-                    dest='out_basename',
-                    default='incremental',
-                    help='output file basename (default: \'initial\')')
-
-args = parser.parse_args()
+#get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-boosted = os.path.join(args.input_dir, "boosted.tsv")
-dpf = os.path.join(args.input_dir, "dpf.tsv")
-matrix = os.path.join(args.input_dir, "matrix.tsv")
+# In[29]:
+
+
+inc_results_dir = "results/incremental"
+
+boosted = os.path.join(inc_results_dir, "boosted.tsv")
+dpf = os.path.join(inc_results_dir, "dpf.tsv")
+matrix = os.path.join(inc_results_dir, "matrix.tsv")
 
 all_files = [boosted, dpf, matrix]
 
@@ -66,59 +39,73 @@ col_on_server = 6
 col_on_client = 7
 col_on_comm = 8
 
-plot({name : [col_num_rows, col_on_server] for name in all_files}, 
-    ["", " (Offline)"], 
-    ["linear", "log"],
-    ["Num Rows", 'Server Running time (µs)'], 
-    args.out_basename+"_server.pdf")
 
-plot({name : [col_num_rows, col_on_client] for name in all_files}, 
-    ["", " (Offline)"], 
-    ["linear", "log"],
-    ["Num Rows", 'Client Running time (µs)'], 
-    args.out_basename+"_client.pdf")
-
-plot({name : [col_num_rows, col_on_comm] for name in all_files}, 
-    ["", " (Offline)"], 
-    ["linear", "linear"],
-    ["Num Rows", 'Bytes sent'], 
-    args.out_basename+"_comm.pdf")
+# In[30]:
 
 
-# Plot offline time as ratio to online times
+# Compute cumulative costs
+def compute_with_num_queries(data, num_queries):
+    online_time = np.outer(data[:, col_on_server], num_queries)
+    online_comm = np.outer(data[:, col_on_comm], num_queries)
+    total_time = np.transpose([data[:,col_off_server]]*len(num_queries)) + online_time
+    total_comm = np.transpose([data[:,col_off_comm]]*len(num_queries)) + online_comm
+    per_query_time = total_time / num_queries
+    per_change_comm = total_comm / np.transpose(([data[:, col_update_size]]*len(num_queries)))
+    return per_query_time/1000, per_change_comm   
 
-boosted_times = np.genfromtxt(boosted, comments='#', skip_header=2)
-dpf_times = np.genfromtxt(dpf, comments='#', skip_header=2)
-matrix_times = np.genfromtxt(matrix, comments='#', skip_header=2)
+
+# In[31]:
+
+
+# Server running time
+
+boosted_data = np.genfromtxt(boosted, comments='#', skip_header=2)
+dpf_data = np.genfromtxt(dpf, comments='#', skip_header=2)
+matrix_data = np.genfromtxt(matrix, comments='#', skip_header=2)
+
+num_queries = np.linspace(1,20)
 
 fig, ax = plt.subplots()
 
 ax.set_xscale('linear')
 ax.set_yscale('linear')
 
-ax.tick_params('x', pad=0.5)
+linestyles = ["solid", "dashed", "dotted"]
+colors=["red", "blue", "green", "purple"]
 
-# plt.plot(boosted_times[:,col_num_rows],boosted_times[:,col_off_server]/boosted_times[:,col_on_server], 
-#         "-o",
-#         color=colors[0],
-#         label='Boosted')
-
-# plt.plot(dpf_times[:,col_num_rows],boosted_times[:,col_off_server]/dpf_times[:,col_on_server], 
-#         "-o",
-#         color=colors[1],
-#         label='DPF')
-
-# plt.plot(matrix_times[:,col_num_rows],boosted_times[:,col_off_server]/matrix_times[:,col_on_server], 
-#         "-o",
-#         color=colors[2],
-#         label='Matrix')
+per_query_time, per_change_comm = compute_with_num_queries(boosted_data, num_queries)
+plt.plot(num_queries,per_query_time[6,:],
+         color=colors[0],
+         label=('Boosted (B=%d)' % boosted_data[6,col_update_size]))
+plt.plot(num_queries,per_query_time[3,:],
+         color=colors[0],
+         linestyle='dotted',
+         label=('Boosted (B=%d)' % boosted_data[3,col_update_size]))
+plt.plot(num_queries,per_query_time[0,:],
+         color=colors[0],
+         linestyle='dashed',
+         label=('Boosted (B=%d)' % boosted_data[0,col_update_size]))
 
 
-plt.xlabel('Update batch size')
-plt.ylabel('Per Query Cost')
+per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)
+plt.plot(num_queries,per_query_time[3,:],
+         color=colors[1],
+         label='DPF')
+
+per_query_time, per_change_comm = compute_with_num_queries(matrix_data, num_queries)
+plt.plot(num_queries,per_query_time[3,:],
+         color=colors[2],
+         label='Matrix')
+
+
+plt.xlabel("Number of queries per period")
+plt.ylabel("Amortized server time per query [ms]")
+plt.xlim(xmin=0.0)
+plt.ylim(ymin=0.0)
 
 fig.legend()
-plt.savefig(args.out_basename+"_inc.pdf")
+plt.show()
+plt.savefig(os.path.join(inc_results_dir, "server.pdf"))
 
 
-
+# %%
