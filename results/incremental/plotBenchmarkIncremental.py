@@ -15,13 +15,17 @@ import os
 import sys
 import re
 
+sys.path.insert(1, '../initial')
+
+import custom_style
+
 #get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 # In[29]:
 
 
-inc_results_dir = "results/incremental"
+inc_results_dir = "."
 
 boosted = os.path.join(inc_results_dir, "boosted.tsv")
 dpf = os.path.join(inc_results_dir, "dpf.tsv")
@@ -67,8 +71,10 @@ num_queries = np.linspace(1,20)
 
 fig, ax = plt.subplots()
 
+custom_style.remove_chart_junk(plt, ax, grid=True)
 ax.set_xscale('linear')
 ax.set_yscale('linear')
+
 
 linestyles = ["solid", "dashed", "dotted"]
 colors=["red", "blue", "green", "purple"]
@@ -76,25 +82,28 @@ colors=["red", "blue", "green", "purple"]
 per_query_time, per_change_comm = compute_with_num_queries(boosted_data, num_queries)
 plt.plot(num_queries,per_query_time[6,:],
          color=colors[0],
+         marker="D",
          label=('Boosted (B=%d)' % boosted_data[6,col_update_size]))
 plt.plot(num_queries,per_query_time[3,:],
          color=colors[0],
-         linestyle='dotted',
+         marker='*',
          label=('Boosted (B=%d)' % boosted_data[3,col_update_size]))
 plt.plot(num_queries,per_query_time[0,:],
          color=colors[0],
-         linestyle='dashed',
+         marker='^',
          label=('Boosted (B=%d)' % boosted_data[0,col_update_size]))
 
 
 per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)
 plt.plot(num_queries,per_query_time[3,:],
          color=colors[1],
+         linestyle="dashed",
          label='DPF')
 
 per_query_time, per_change_comm = compute_with_num_queries(matrix_data, num_queries)
 plt.plot(num_queries,per_query_time[3,:],
          color=colors[2],
+         linestyle="dotted",
          label='Matrix')
 
 
@@ -104,8 +113,7 @@ plt.xlim(xmin=0.0)
 plt.ylim(ymin=0.0)
 
 fig.legend()
-plt.show()
-plt.savefig(os.path.join(inc_results_dir, "server.pdf"))
+custom_style.save_fig(fig, "server.pdf", [3.5, 2.25])
 
 
 # %%
