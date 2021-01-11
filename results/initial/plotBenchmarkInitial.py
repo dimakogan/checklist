@@ -64,11 +64,11 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         plt.ylabel(labels[1])
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [2, 1.6])
+    custom_style.save_fig(fig, out_name, [2.3, 1.8])
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,2,4]], [all_labels[1][i] for i in [0,2,4]]]
+        labels = [[all_labels[0][i] for i in [0,2,4]], ["Boosted PIR\n(this work)", "DPF", "Matrix"]]
         figlegend.legend(*labels, loc="center")
         figlegend.savefig("legend.pdf")
 
