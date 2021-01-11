@@ -9,18 +9,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
+from matplotlib.ticker import FuncFormatter
 import pylab
 
 def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False):
+
     fig, ax = plt.subplots()
 
     plt.ticklabel_format(style='plain')
     ax.set_xscale(scales[0])
     ax.set_yscale(scales[1])
 
+    ax.set_yticks([10**i for i in range(2,7)])
     ax.tick_params('x', pad=0.5)
     ax.set_xlim([0, 10000])
     ax.set_ylim([100, 2*(10**6)])
+
+    f = FuncFormatter(lambda x, pos: int(x))
+    ax.xaxis.set_major_formatter(f)
+
+    f = FuncFormatter(lambda x, pos: "$\\textsf{10}^\\textsf{%d}$" % round(math.log(x, 10)))
+    ax.yaxis.set_major_formatter(f)
 
     linestyles = ["solid", "dashed", "dotted"]
     colors=["red", "blue", "green", "purple"]
@@ -33,7 +42,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         online_cost = results[results.dtype.names[1]][5]
         offline_cost = results[results.dtype.names[2]][5]
         
-        print(offline_cost, online_cost)
+        #print(offline_cost, online_cost)
         for idx, col_name in enumerate(results.dtype.names[1:]):
 
             xs = range(1, 10000)
@@ -58,7 +67,9 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     custom_style.save_fig(fig, out_name, [2, 1.6])
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
-        figlegend.legend(*ax.get_legend_handles_labels(), loc="center")
+        all_labels = ax.get_legend_handles_labels()
+        labels = [[all_labels[0][i] for i in [0,2,4]], [all_labels[1][i] for i in [0,2,4]]]
+        figlegend.legend(*labels, loc="center")
         figlegend.savefig("legend.pdf")
 
 
@@ -87,21 +98,21 @@ plot({**{name : [0, 5, 1] for name in names},
     **{name : [0, 5] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
-    ["Num Queries", 'Server time\namortized (µs)'], 
+    ["Num Queries", 'Server time\n(µs, amortized)'], 
     args.out_basename+"_server.pdf")
 
 plot({**{name : [0, 6, 2] for name in names}, 
     **{name : [0, 6] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
-    ["Num Queries", 'Client time\namortized (µs)'], 
+    ["Num Queries", 'Client time\n(µs, amortized)'], 
     args.out_basename+"_client.pdf")
 
 plot({**{name : [0, 7, 3] for name in names}, 
     **{name : [0, 7] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
-    ["Num Queries", 'Communication\namortized (bytes)'], 
+    ["Num Queries", 'Communication\n(bytes, amortized)'], 
     args.out_basename+"_comm.pdf", legend=True)
 
 """
