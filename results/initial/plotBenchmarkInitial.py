@@ -63,8 +63,13 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
 
+    if legend:
+        all_labels = ax.get_legend_handles_labels()
+        labels = [[all_labels[0][i] for i in [0,2,4]], ["Boosted PIR\n(this work)", "DPF", "Matrix"]]
+        plt.legend(*labels, fontsize=6)
+
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [2.3, 1.8])
+    custom_style.save_fig(fig, out_name, [2.3, 1.6])
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
@@ -106,14 +111,14 @@ plot({**{name : [0, 6, 2] for name in names},
     ["", " (Offline)"], 
     ["linear", "log"],
     ["Num Queries", 'Client time\n(µs, amortized)'], 
-    args.out_basename+"_client.pdf")
+    args.out_basename+"_client.pdf", legend=True)
 
 plot({**{name : [0, 7, 3] for name in names}, 
     **{name : [0, 7] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
     ["Num Queries", 'Communication\n(bytes, amortized)'], 
-    args.out_basename+"_comm.pdf", legend=True)
+    args.out_basename+"_comm.pdf")
 
 """
 plot({name : [0, 4] for name in (names+no_offline_names)[0:1]},

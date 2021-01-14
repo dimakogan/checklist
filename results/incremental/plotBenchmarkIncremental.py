@@ -80,18 +80,18 @@ linestyles = ["solid", "dashed", "dotted"]
 colors=["red", "blue", "green", "purple"]
 
 per_query_time, per_change_comm = compute_with_num_queries(boosted_data, num_queries)
-plt.plot(num_queries,per_query_time[6,:],
-         color=colors[0],
-         marker="D",
-         label=('Boosted (B=%d)' % boosted_data[6,col_update_size]))
-plt.plot(num_queries,per_query_time[3,:],
-         color=colors[0],
-         marker='*',
-         label=('Boosted (B=%d)' % boosted_data[3,col_update_size]))
 plt.plot(num_queries,per_query_time[0,:],
          color=colors[0],
-         marker='^',
-         label=('Boosted (B=%d)' % boosted_data[0,col_update_size]))
+         linewidth=3,
+         label=('Boosted ($B=%d$)' % boosted_data[0,col_update_size]))
+plt.plot(num_queries,per_query_time[3,:],
+         color=colors[0],
+         linewidth=2,
+         label=('Boosted ($B=%d$)' % boosted_data[3,col_update_size]))
+plt.plot(num_queries,per_query_time[6,:],
+         color=colors[0],
+         linewidth=1,
+         label=('Boosted ($B=%d$)' % boosted_data[6,col_update_size]))
 
 
 per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)
@@ -108,12 +108,12 @@ plt.plot(num_queries,per_query_time[3,:],
 
 
 plt.xlabel("Number of queries per period")
-plt.ylabel("Amortized server time per query [ms]")
+plt.ylabel("Amortized server time\nper query [ms]")
 plt.xlim(xmin=0.0)
 plt.ylim(ymin=0.0)
 
-fig.legend()
-custom_style.save_fig(fig, "server.pdf", [3.5, 2.25])
+fig.legend(bbox_to_anchor=(0.91,0.77))
+custom_style.save_fig(fig, "server.pdf", [3.5, 2.1])
 
 
 # %%
