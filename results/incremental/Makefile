@@ -1,0 +1,3 @@
+
+all: 
+	python plotBenchmarkIncremental.py 
