@@ -86,8 +86,8 @@ find_xs = normalize_xs(find_xs)
 fetch_xs = normalize_xs(fetch_xs)
 
 fig, ax = plt.subplots()
-plt.scatter(find_xs, find_ys)
 plt.scatter(fetch_xs, fetch_ys, marker="d")
+plt.scatter(find_xs, find_ys)
 ax.set_xlim([0, None])
 ax.set_ylim([20, 40*10**6])
 
