@@ -121,7 +121,7 @@ func main() {
 			serverHintTime.Microseconds()/int64(numBatches),
 			(clientUpdateTime-serverHintTime).Microseconds()/int64(numBatches),
 			hintBytes/(numBatches*config.UpdateSize),
-			0,
+			client.StorageNumBytes(),
 			serverAnswerTime.Microseconds()/int64(numBatches),
 			(clientReadTime-serverAnswerTime).Microseconds()/int64(numBatches),
 			answerBytes/numBatches)

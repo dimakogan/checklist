@@ -98,4 +98,42 @@ extern "C"
         }
     }
 
+    // Copied from:  https://github.com/dkales/dpf-cpp/blob/master/hashdatastore.cpp
+    void xor_hashes_by_bit_vector(const uint8_t* db, unsigned int db_len, 
+        const uint8_t* indexing, uint8_t* out) {
+    // Optimize for a hash list of 32-bytes hashes.
+        __m256i result = _mm256_set_epi64x(0,0,0,0);
+        __m256i results[8][2] = {
+                {result, result},
+                {result, result},
+                {result, result},
+                {result, result},
+                {result, result},
+                {result, result},
+                {result, result},
+                {result, result}, };
+        
+        for(size_t i = 0; i < db_len/32; i+=8) {
+            uint8_t tmp = indexing[i/8];
+            results[0][(tmp>>0)&1] = _mm256_xor_si256(results[0][1], (((__m256i*)db))[i]);
+            results[1][(tmp>>1)&1] = _mm256_xor_si256(results[1][1], (((__m256i*)db))[i+1]);
+            results[2][(tmp>>2)&1] = _mm256_xor_si256(results[2][1], (((__m256i*)db))[i+2]);
+            results[3][(tmp>>3)&1] = _mm256_xor_si256(results[3][1], (((__m256i*)db))[i+3]);
+            results[4][(tmp>>4)&1] = _mm256_xor_si256(results[4][1], (((__m256i*)db))[i+4]);
+            results[5][(tmp>>5)&1] = _mm256_xor_si256(results[5][1], (((__m256i*)db))[i+5]);
+            results[6][(tmp>>6)&1] = _mm256_xor_si256(results[6][1], (((__m256i*)db))[i+6]);
+            results[7][(tmp>>7)&1] = _mm256_xor_si256(results[7][1], (((__m256i*)db))[i+7]);
+        }
+
+        result = _mm256_xor_si256(results[0][1], results[1][1]);
+        result = _mm256_xor_si256(result, results[2][1]);
+        result = _mm256_xor_si256(result, results[3][1]);
+        result = _mm256_xor_si256(result, results[4][1]);
+        result = _mm256_xor_si256(result, results[5][1]);
+        result = _mm256_xor_si256(result, results[6][1]);
+        result = _mm256_xor_si256(result, results[7][1]);
+        _mm256_storeu_si256((__m256i *)out, result);
+        return;
+}
+
 } // extern "C"

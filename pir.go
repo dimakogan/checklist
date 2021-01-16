@@ -125,6 +125,9 @@ type PirUpdatableClient interface {
 	Init() error
 	Read(key uint32) (Row, error)
 	Keys() []uint32
+
+	// Debug
+	StorageNumBytes() int
 }
 
 type ReconstructFunc func(resp []QueryResp) (Row, error)
