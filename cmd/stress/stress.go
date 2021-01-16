@@ -22,6 +22,8 @@ import (
 // Number of different records to read to avoid caching effects.
 var NumDifferentReads = 100
 
+/// Add TLS !!!
+
 func main() {
 	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	numRows := flag.Int("n", 10000, "Num DB rows")

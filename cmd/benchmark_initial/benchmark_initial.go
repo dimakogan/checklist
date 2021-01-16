@@ -60,9 +60,6 @@ func main() {
 			var clientInitTime time.Duration
 			var clientBytes int
 			for i := 0; i < b.N; i++ {
-				var m1, m2 runtime.MemStats
-				runtime.GC()
-				runtime.ReadMemStats(&m1)
 				start := time.Now()
 				if config.Updatable {
 					clientUpdatable = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
@@ -75,9 +72,9 @@ func main() {
 				}
 				assert.NilError(ep, err)
 				clientInitTime += time.Since(start)
-				runtime.GC()
-				runtime.ReadMemStats(&m2)
-				clientBytes += int(m2.Alloc) - int(m1.Alloc)
+				if config.Updatable {
+					clientBytes += clientUpdatable.StorageNumBytes()
+				}
 			}
 
 			var serverHintTime time.Duration

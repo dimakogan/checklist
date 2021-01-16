@@ -275,6 +275,20 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	return nil
 }
 
+func opsToKeyUpdates(ops []dbOp) KeyUpdates {
+	keys := make([]uint32, len(ops))
+	isDeletion := make([]uint8, (len(keys)-1)/8+1)
+	for j := range keys {
+		keys[j] = ops[j].Key
+		if ops[j].Delete {
+			isDeletion[j/8] |= (1 << (j % 8))
+		}
+	}
+	return KeyUpdates{
+		Keys:       keys,
+		IsDeletion: isDeletion}
+}
+
 func (s pirServerUpdatable) returnDiffKeys(nextTimestamp int) KeyUpdates {
 	firstPos := 0
 	if nextTimestamp >= s.initialTimestamp {
@@ -284,19 +298,9 @@ func (s pirServerUpdatable) returnDiffKeys(nextTimestamp int) KeyUpdates {
 		return KeyUpdates{}
 	}
 
-	keys := make([]uint32, len(s.ops)-firstPos)
-	isDeletion := make([]uint8, (len(keys)-1)/8+1)
-	for j := range keys {
-		keys[j] = s.ops[firstPos+j].Key
-		if s.ops[firstPos+j].Delete {
-			isDeletion[j/8] |= (1 << (j % 8))
-		}
-	}
-	return KeyUpdates{
-		InitialTimestamp: int32(s.initialTimestamp + firstPos),
-		Keys:             keys,
-		IsDeletion:       isDeletion}
-
+	keyUpdates := opsToKeyUpdates(s.ops[firstPos:])
+	keyUpdates.InitialTimestamp = int32(s.initialTimestamp + firstPos)
+	return keyUpdates
 }
 
 func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
@@ -320,6 +324,9 @@ func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
 type clientLayer struct {
 	numRows int
 	pir     pirClientImpl
+
+	// debug
+	hintNumBytes int
 }
 
 type pirClientUpdatable struct {
@@ -425,9 +432,16 @@ func (c *pirClientUpdatable) initLayers(resp HintResp) error {
 			if err != nil {
 				return err
 			}
+			// Debug
+			hintBytes, err := SerializedSizeOf(subResp)
+			if err != nil {
+				return err
+			}
+			newLayers[l].hintNumBytes = hintBytes
 		} else {
 			// Copy existing Hints for layers that haven't changed.
 			newLayers[l].pir = c.layers[l].pir
+			newLayers[l].hintNumBytes = c.layers[l].hintNumBytes
 		}
 	}
 
@@ -493,4 +507,21 @@ func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 			resps[Right].BatchResps[matchingLayer]})
 		return row, err
 	}
+}
+
+func (c *pirClientUpdatable) StorageNumBytes() int {
+	numBytes := 0
+
+	keyUpdates := opsToKeyUpdates(c.ops)
+	keysBytes, err := SerializedSizeOf(keyUpdates)
+	if err != nil {
+		return 0
+	}
+	numBytes += keysBytes
+
+	for _, l := range c.layers {
+		numBytes += l.hintNumBytes
+	}
+
+	return numBytes
 }

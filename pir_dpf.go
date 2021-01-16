@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/dimakogan/boosted-pir/psetggm"
 	"github.com/dimakogan/dpf-go/dpf"
 )
 
@@ -36,11 +37,14 @@ func NewPIRDPFServer(data []Row) PirDB {
 
 func (s pirDPFServer) matVecProduct(bitVector []byte) []byte {
 	out := make(Row, s.rowLen)
-
-	var j uint
-	for j = 0; j < uint(s.numRows); j++ {
-		if ((1 << (j % 8)) & bitVector[j/8]) != 0 {
-			xorInto(out, s.flatDb[j*uint(s.rowLen):(j+1)*uint(s.rowLen)])
+	if s.rowLen == 32 {
+		psetggm.XorHashesByBitVector(s.flatDb, bitVector, out)
+	} else {
+		var j uint
+		for j = 0; j < uint(s.numRows); j++ {
+			if ((1 << (j % 8)) & bitVector[j/8]) != 0 {
+				xorInto(out, s.flatDb[j*uint(s.rowLen):(j+1)*uint(s.rowLen)])
+			}
 		}
 	}
 	return out
