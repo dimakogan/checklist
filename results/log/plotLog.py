@@ -71,8 +71,8 @@ find_xs = normalize_xs(find_xs)
 fetch_xs = normalize_xs(fetch_xs)
 
 fig, ax = plt.subplots()
-plt.scatter(find_xs, find_ys)
-plt.scatter(fetch_xs, fetch_ys, marker="d")
+plt.scatter(fetch_xs, fetch_ys, label="Update", marker="d")
+plt.scatter(find_xs, find_ys, label="Search")
 ax.set_xlim([0, None])
 ax.set_ylim([20, 40*10**6])
 
@@ -102,6 +102,8 @@ plt.xlabel("Time (days)")
 plt.ylabel("Message length (bytes)")
 plt.yscale("log", basey=2)
 #plt.ylim(ymin=0.0)
+
+plt.legend(loc="upper right")
 
 #fig.legend(bbox_to_anchor=(0.91,0.77))
 custom_style.save_fig(fig, "log.pdf", [3.5, 2.1])
