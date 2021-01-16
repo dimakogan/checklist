@@ -22,8 +22,21 @@ def get_date(line):
     s = " ".join(line.split()[0:2])
     return datetime.datetime.strptime(s, "%Y/%m/%d %H:%M:%S")
 
-def get_size(line):
-    return int(line.split("Size: ")[1].split()[0])
+def get_updates(line):
+    second_part = line.split("bytes")[1].replace(",", "")
+    parts = second_part.split()
+    out = 0
+    for p in parts:
+        try: 
+            out += int(p)
+        except ValueError:
+            continue
+
+    # Special case for first point
+    if out > 100000:
+        out = (23*(10**6))/SIZE_UPDATE
+
+    return out
 
 def normalize_xs(xs):
     base = xs[0].timestamp()
@@ -51,18 +64,20 @@ def plot_evenings(plt):
     for i in range(11):
         plt.fill_between([i+0.9166, i+1.2916], [ylow, ylow], [yhigh, yhigh], color = 'k', alpha = 0.1, linewidth=0)
 
+SIZE_FIND = 7000
+SIZE_UPDATE= 11
 find_xs = []
 find_ys = []
 fetch_xs = [] 
 fetch_ys = []
 for line in sys.stdin:
-    if "FIND Request" in line or "FIND Response" in line:
+    if "FIND Request" in line: 
         find_xs.append(get_date(line))
-        find_ys.append(get_size(line))
+        find_ys.append(SIZE_FIND)
 
-    if "FETCH Request" in line or "FETCH Response" in line:
+    if "FETCH Response" in line:
         fetch_xs.append(get_date(line))
-        fetch_ys.append(get_size(line))
+        fetch_ys.append(SIZE_UPDATE * get_updates(line))
 
 find_xs, find_ys = dedup_dates(find_xs, find_ys)
 fetch_xs, fetch_ys = dedup_dates(fetch_xs, fetch_ys)
@@ -79,23 +94,6 @@ ax.set_ylim([20, 40*10**6])
 all_xs = sorted(find_xs + fetch_xs)
 plot_evenings(plt)
 
-"""
-all_points = list(zip(find_xs + fetch_xs, find_ys + fetch_ys))
-# Sort by xs
-all_points.sort(key=lambda x: x[0])
-line_x = [p[0] for p in all_points]
-line_y_tmp = [int(p[1]) for p in all_points]
-
-line_y = [line_y_tmp[0]]
-for i in range(1, len(line_y_tmp)):
-    line_y.append(line_y[i-1]+line_y_tmp[i])
-plt.plot(line_x, line_y)
-print(line_y)
-"""
-
-#plt.xticks(np.arange(0, max(find_xs)+1, 1.0))
-
-#ax.set_yticks([int(2**i) for i in range(2, 8, 4)])
 plt.xticks(np.arange(0, max(find_xs)+1, 1.0))
 
 plt.xlabel("Time (days)")
@@ -104,7 +102,7 @@ plt.yscale("log", basey=2)
 #plt.ylim(ymin=0.0)
 
 #fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "log.pdf", [3.5, 2.1])
+custom_style.save_fig(fig, "sim.pdf", [3.5, 2.1])
 
 
 # %%
