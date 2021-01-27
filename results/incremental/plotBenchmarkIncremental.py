@@ -83,15 +83,15 @@ per_query_time, per_change_comm = compute_with_num_queries(boosted_data, num_que
 plt.plot(num_queries,per_query_time[0,:],
          color=colors[0],
          linewidth=3,
-         label=('Boosted ($B=%d$)' % boosted_data[0,col_update_size]))
+         label=('Checklist ($B=%d$)' % boosted_data[0,col_update_size]))
 plt.plot(num_queries,per_query_time[3,:],
          color=colors[0],
          linewidth=2,
-         label=('Boosted ($B=%d$)' % boosted_data[3,col_update_size]))
+         label=('Checklist ($B=%d$)' % boosted_data[3,col_update_size]))
 plt.plot(num_queries,per_query_time[6,:],
          color=colors[0],
          linewidth=1,
-         label=('Boosted ($B=%d$)' % boosted_data[6,col_update_size]))
+         label=('Checklist ($B=%d$)' % boosted_data[6,col_update_size]))
 
 
 per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)

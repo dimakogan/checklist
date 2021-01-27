@@ -65,7 +65,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
 
     if legend:
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,2,4]], ["Boosted PIR\n(this work)", "DPF", "Matrix"]]
+        labels = [[all_labels[0][i] for i in [0,2,4]], ["Checklist PIR\n(this work)", "DPF", "Matrix"]]
         plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
