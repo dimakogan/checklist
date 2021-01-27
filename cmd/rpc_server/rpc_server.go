@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/rocketlaunchr/https-go"
+
 	b "github.com/dimakogan/boosted-pir"
 )
 
@@ -30,7 +32,8 @@ func main() {
 	// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
 	server.HandleHTTP("/", "/debug")
 
-	httpServer := &http.Server{Addr: fmt.Sprintf(":%d", *port)}
+	// Use self-signed certificate
+	httpServer, _ := https.Server(fmt.Sprintf("%d", *port), https.GenerateOptions{Host: "checklist.app"})
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -41,7 +44,7 @@ func main() {
 
 	log.Printf("Serving RPC server on port port %d\n", *port)
 	// Start accept incoming HTTP connections
-	e := httpServer.ListenAndServe()
+	e := httpServer.ListenAndServeTLS("", "")
 	if e == http.ErrServerClosed {
 		log.Println("Server shutdown")
 	} else if e != nil {

@@ -1,6 +1,12 @@
 package boosted
 
 import (
+	"bufio"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"net/rpc"
 	"time"
 )
@@ -17,7 +23,23 @@ type PirRpcProxy struct {
 }
 
 func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
-	remote, err := rpc.DialHTTP("tcp", serverAddr)
+	config := tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.Dial("tcp", serverAddr, &config)
+	if err != nil {
+		return nil, fmt.Errorf("client: dial: %s", err)
+	}
+
+	io.WriteString(conn, "CONNECT "+rpc.DefaultRPCPath+" HTTP/1.0\n\n")
+
+	// Require successful HTTP response
+	// before switching to RPC protocol.
+	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, errors.New("unexpected HTTP response: " + resp.Status)
+	}
+	remote := rpc.NewClient(conn)
 	if err != nil {
 		return nil, err
 	}
