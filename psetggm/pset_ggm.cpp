@@ -41,7 +41,7 @@ generator* pset_ggm_init(unsigned int univ_size, unsigned int set_size, uint8_t*
 
 const __m128i one = _mm_setr_epi32(0, 0, 0, 1);
 
-void expand(const __m128i& in, __m128i* out) {
+inline void expand(const __m128i& in, __m128i* out) {
     out[1] = _mm_xor_si128(in, one);
     mAesFixedKey.encryptECB(in, out[0]);
     mAesFixedKey.encryptECB(in, out[1]);
@@ -50,6 +50,48 @@ void expand(const __m128i& in, __m128i* out) {
     out[1] = _mm_xor_si128(out[1], one);
 }
 
+
+void tree_eval_all(generator* gen, __m128i seed, long long unsigned int* out) {	
+    uint32_t key_pos = 0;	
+    uint32_t max_height = get_height(gen->set_size); 	
+    uint32_t height = max_height;	
+    // std::vector<__m128i> path_key(2*(max_height+1));	
+    // path_key[0] = seed;	
+    __m128i* keys = gen->keys;
+
+    _mm_store_si128(keys, seed);
+
+    uint32_t node = 0;	
+    while (true) {	
+        if (height == 0) {	
+            out[node] = *(uint32_t*)(&keys[key_pos]) % gen->univ_size;	
+            bool is_right = true;	
+            // while 'is right child', go up	
+            while (node&1 == 1) {	
+                ++height;	
+                key_pos -= 1;	
+                node >>= 1;	
+            }	
+            if (height >= max_height) {	
+                return;	
+            }	
+            // move to right sibling	
+            node += 1;	
+            key_pos -= 1;	
+
+            if ((node << height) >=  gen->set_size) {	
+                return;	
+            }	
+
+            continue;	
+        }	
+        expand(keys[key_pos], &keys[key_pos+1]);	
+        node <<= 1;	
+        --height;	
+        // first go to left child	
+        key_pos += 2;	
+    }	
+}
 
 void tree_eval_all2(generator* gen, __m128i seed, long long unsigned int* elems) {
     uint32_t max_depth = get_height(gen->set_size); 
