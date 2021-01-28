@@ -36,9 +36,9 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
 #    f = FuncFormatter(lambda x, pos: "$\\textsf{10}^\\textsf{%d}$" % round(math.log(x, 10)))
     #ax.yaxis.set_major_formatter(f)
 
-    linestyles = ["solid", "dashed", "dotted"]
+    linestyles = ["solid", "solid", "solid"]
     colors=["red", "blue", "green", "purple"]
-    dots=[".", ".", ".", "."]
+    dots=["", "", "", ""]
 
     for file_num, filename in enumerate(file_to_cols):
         results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
@@ -55,7 +55,9 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
             xs,
             ys,
             dots[file_num],
+            marker=None,
             color=colors[file_num],
+            linewidth=1,
             linestyle=linestyles[file_num],
             label=filename)
 
