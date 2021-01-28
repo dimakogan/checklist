@@ -85,24 +85,44 @@ fetch_xs, fetch_ys = dedup_dates(fetch_xs, fetch_ys)
 find_xs = normalize_xs(find_xs)
 fetch_xs = normalize_xs(fetch_xs)
 
+
+def set_size(w,h, ax=None):
+    """ w, h: width, height in inches """
+    if not ax: ax=plt.gca()
+    l = ax.figure.subplotpars.left
+    r = ax.figure.subplotpars.right
+    t = ax.figure.subplotpars.top
+    b = ax.figure.subplotpars.bottom
+    figw = float(w)/(r-l)
+    figh = float(h)/(t-b)
+    ax.figure.set_size_inches(figw, figh)
+
 fig, ax = plt.subplots()
-plt.scatter(fetch_xs, fetch_ys, marker="d")
-plt.scatter(find_xs, find_ys)
-ax.set_xlim([0, None])
-ax.set_ylim([20, 40*10**6])
+plt.scatter(fetch_xs, fetch_ys, marker="d", label="Update")
+plt.scatter(find_xs, find_ys, label="Search")
 
 all_xs = sorted(find_xs + fetch_xs)
 plot_evenings(plt)
+#plt.grid(axis="y", linestyle=":")
 
 plt.xticks(np.arange(0, max(find_xs)+1, 1.0))
 
 plt.xlabel("Time (days)")
-plt.ylabel("Message length (bytes)")
+#plt.ylabel("Message length (bytes)")
+plt.ylabel("")
 plt.yscale("log", basey=2)
 #plt.ylim(ymin=0.0)
 
+ax.set_xlim([0, 7])
+ax.set_ylim([20, 40*10**6])
+
+plt.legend(loc="upper right", fontsize=8)
+ax.set_yticklabels([])
+
+set_size(1.3,1.7,ax)
+
 #fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "sim.pdf", [3.5, 2.1])
+custom_style.save_fig(fig, "sim.pdf", [1.35, 2.1])
 
 
 # %%

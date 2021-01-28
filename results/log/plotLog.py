@@ -73,11 +73,10 @@ fetch_xs = normalize_xs(fetch_xs)
 fig, ax = plt.subplots()
 plt.scatter(fetch_xs, fetch_ys, label="Update", marker="d")
 plt.scatter(find_xs, find_ys, label="Search")
-ax.set_xlim([0, None])
-ax.set_ylim([20, 40*10**6])
 
 all_xs = sorted(find_xs + fetch_xs)
 plot_evenings(plt)
+#plt.grid(axis="y", linestyle=":")
 
 """
 all_points = list(zip(find_xs + fetch_xs, find_ys + fetch_ys))
@@ -103,10 +102,11 @@ plt.ylabel("Message length (bytes)")
 plt.yscale("log", basey=2)
 #plt.ylim(ymin=0.0)
 
-plt.legend(loc="upper right")
+ax.set_xlim([0, 7])
+ax.set_ylim([20, 40*10**6])
 
 #fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "log.pdf", [3.5, 2.1])
+custom_style.save_fig(fig, "log.pdf", [1.7, 2.1])
 
 
 # %%
