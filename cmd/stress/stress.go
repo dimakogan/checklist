@@ -22,12 +22,10 @@ import (
 // Number of different records to read to avoid caching effects.
 var NumDifferentReads = 100
 
-/// Add TLS !!!
-
 func main() {
 	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	numRows := flag.Int("n", 10000, "Num DB rows")
-	rowLength := flag.Int("r", 1000, "Row length in bytes")
+	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")

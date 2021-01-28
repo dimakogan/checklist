@@ -3,7 +3,8 @@ module github.com/dimakogan/boosted-pir
 go 1.13
 
 require (
-	github.com/dimakogan/dpf-go v0.0.0-20201114031700-ca9e532cdd7f
+	github.com/dimakogan/dpf-go v0.0.0-20210127221207-b1d9b62bab9b
+	github.com/dkales/dpf-go v0.0.0-20190409133349-ba25eb14c6f7 // indirect
 	github.com/elliotchance/orderedmap v1.3.0
 	github.com/golang/protobuf v1.4.3
 	github.com/klauspost/reedsolomon v1.9.10
