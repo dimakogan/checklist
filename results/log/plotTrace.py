@@ -38,7 +38,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
 
     linestyles = ["solid", "dashed", "dotted"]
     colors=["red", "blue", "green", "purple"]
-    dots=["-", "-", "-", "-"]
+    dots=[".", ".", ".", "."]
 
     for file_num, filename in enumerate(file_to_cols):
         results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
