@@ -129,6 +129,8 @@ func main() {
 				assert.NilError(ep, driver.NumRows(none, &numRows))
 				assert.NilError(ep, driver.GetRow(rand.Intn(numRows), &rowIV))
 
+				driver.ResetMetrics(0, &none)
+
 				start := time.Now()
 				row, err := client.Read(rowIV.Key)
 				clientTime = time.Since(start)
