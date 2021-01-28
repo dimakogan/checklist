@@ -105,17 +105,17 @@ if len(names) == 0:
 
 plot({name : [0, 1] for name in names}, 
     ["linear", "log"],
-    ["DB Changes", 'Server time\n(sec)'], 
+    ["DB Changes", 'Server time (sec)'], 
     args.out_basename+"_server.pdf")
 
 plot({name : [0, 2] for name in names}, 
     ["linear", "linear"],
-    ["DB Changes", 'Client time\n(sec)'], 
+    ["DB Changes", 'Client time (sec)'], 
     args.out_basename+"_client.pdf", legend=True)
 
 plot({name : [0, 3] for name in names}, 
     ["linear", "log"],
-    ["DB Changes", 'Communication\n(MB)'], 
+    ["DB Changes", 'Communication (MB)'], 
     args.out_basename+"_comm.pdf")
 
 """
