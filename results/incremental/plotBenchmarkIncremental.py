@@ -84,24 +84,24 @@ plt.plot(num_queries,per_query_time[0,:],
          color=colors[0],
          linewidth=3,
          label=('Checklist ($B=%d$)' % boosted_data[0,col_update_size]))
-plt.plot(num_queries,per_query_time[3,:],
+plt.plot(num_queries,per_query_time[1,:],
          color=colors[0],
          linewidth=2,
          label=('Checklist ($B=%d$)' % boosted_data[3,col_update_size]))
-plt.plot(num_queries,per_query_time[6,:],
+plt.plot(num_queries,per_query_time[2,:],
          color=colors[0],
          linewidth=1,
          label=('Checklist ($B=%d$)' % boosted_data[6,col_update_size]))
 
 
 per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)
-plt.plot(num_queries,per_query_time[3,:],
+plt.plot(num_queries,per_query_time[1,:],
          color=colors[1],
          linestyle="dashed",
          label='DPF')
 
 per_query_time, per_change_comm = compute_with_num_queries(matrix_data, num_queries)
-plt.plot(num_queries,per_query_time[3,:],
+plt.plot(num_queries,per_query_time[1,:],
          color=colors[2],
          linestyle="dotted",
          label='Matrix')
