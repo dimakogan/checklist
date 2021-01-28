@@ -26,7 +26,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
 
     # ax.set_xticks([86400*7*i for i in range(10)])
     # ax.set_yticks([10**i for i in range(2,7)])
-    # ax.tick_params('x', pad=0.5)
+    #ax.tick_params('x', pad=0.5)
     # ax.set_xlim([0, 10000])
     # ax.set_ylim([100, 2*(10**6)])
 
@@ -77,7 +77,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
         plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [2.3, 1.6])
+    custom_style.save_fig(fig, out_name,  [3.5, 2.1], pad=0.05)
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
