@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -118,6 +119,7 @@ func main() {
 
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(1 * time.Second)
+	var totalNumQueries, totalLatency uint64
 
 	if len(*answerProf) > 0 {
 		err = proxyLeft.StartCpuProfile(0, &none)
@@ -131,7 +133,9 @@ func main() {
 			for {
 				idx := rand.Intn(len(proxyRight.QueryReqs))
 				var queryResp b.QueryResp
+				start := time.Now()
 				err := proxyRight.Answer(proxyRight.QueryReqs[idx], &queryResp)
+				atomic.AddUint64(&totalLatency, uint64(time.Since(start)))
 				if err != nil {
 					log.Fatalf("Failed to replay query number %d: %s\n", idx, err)
 				}
@@ -139,6 +143,7 @@ func main() {
 					log.Fatalf("Mismatching response in query number %d", idx)
 				}
 				counter.Incr(1)
+				atomic.AddUint64(&totalNumQueries, 1)
 			}
 		}()
 	}
@@ -163,6 +168,10 @@ func main() {
 	}()
 
 	for {
-		fmt.Printf("\rCurrent rate: %d QPS", counter.Rate())
+		var avgLatency uint64
+		if totalNumQueries > 0 {
+			avgLatency = totalLatency / totalNumQueries
+		}
+		fmt.Printf("\rCurrent rate: %d QPS, average latency: %.02f ms", counter.Rate(), float64(avgLatency)/1000000)
 	}
 }

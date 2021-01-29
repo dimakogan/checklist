@@ -47,7 +47,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
         cost = results[results.dtype.names[1]]
         
         xs = timestamp-timestamp[0]
-        ys = np.cumsum(cost)/10**6
+        ys = np.cumsum(cost+1000)/10**6
 
         plt.plot(
             #results[results.dtype.names[0]],
