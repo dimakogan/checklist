@@ -293,14 +293,14 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 		}
 	case 1:
 		newSet := c.setGen.GenWith(i)
-		extraL = c.randomMemberExcept(newSet, i)
-		extraR = c.randomMemberExcept(newSet, extraL)
+		extraR = c.randomMemberExcept(newSet, i)
+		extraL = c.randomMemberExcept(newSet, extraR)
 		puncSetL = c.setGen.Punc(newSet, extraR)
 		puncSetR = c.setGen.Punc(newSet, i)
 	case 2:
 		newSet := c.setGen.GenWith(i)
-		extraR = c.randomMemberExcept(newSet, i)
-		extraL = c.randomMemberExcept(newSet, extraR)
+		extraL = c.randomMemberExcept(newSet, i)
+		extraR = c.randomMemberExcept(newSet, extraL)
 		puncSetL = c.setGen.Punc(newSet, i)
 		puncSetR = c.setGen.Punc(newSet, extraL)
 	}
