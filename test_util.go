@@ -47,6 +47,8 @@ type TestConfig struct {
 	UpdateSize int
 
 	PresetRows []RowIndexVal
+
+	RandSeed int64
 }
 
 func (c TestConfig) String() string {

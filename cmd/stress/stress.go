@@ -24,7 +24,8 @@ import (
 var NumDifferentReads = 100
 
 func main() {
-	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	server1Addr := flag.String("s1", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	server2Addr := flag.String("s2", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	numRows := flag.Int("n", 10000, "Num DB rows")
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
@@ -36,13 +37,14 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Connecting to %s...", *serverAddr)
-	proxyLeft, err := b.NewPirRpcProxy(*serverAddr)
+	fmt.Printf("Connecting to %s...", *server1Addr)
+	proxyLeft, err := b.NewPirRpcProxy(*server1Addr)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
 
-	proxyRight, err := b.NewPirRpcProxy(*serverAddr)
+	fmt.Printf("Connecting to %s...", *server2Addr)
+	proxyRight, err := b.NewPirRpcProxy(*server2Addr)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -51,7 +53,7 @@ func main() {
 	fmt.Printf("Setting up remote DB...")
 	var none int
 
-	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength, Updatable: *updatable}
+	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength, Updatable: *updatable, RandSeed: 678}
 	config.PirType, err = b.PirTypeString(*pirTypeStr)
 	if err != nil {
 		log.Fatalf("Bad PirType: %s", *pirTypeStr)
@@ -69,6 +71,10 @@ func main() {
 
 	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
 	err = proxyLeft.Configure(config, &none)
+	if err != nil {
+		log.Fatalf("Failed to Configure: %s\n", err)
+	}
+	err = proxyRight.Configure(config, &none)
 	if err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}

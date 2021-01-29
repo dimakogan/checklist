@@ -105,6 +105,9 @@ func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err erro
 	driver.config = config
 	driver.pirType = config.PirType
 	driver.updatable = config.Updatable
+	if config.RandSeed > 0 {
+		driver.randSource = rand.New(rand.NewSource(config.RandSeed))
+	}
 
 	db := MakeDB(driver.randSource, config.NumRows, config.RowLen)
 	keys := MakeKeys(driver.randSource, config.NumRows)
