@@ -101,13 +101,13 @@ if len(names) == 0:
 
 plot({name : [0, 4] for name in names}, 
     ["linear", "linear"],
-    ["Time (days)", 'Server time\n(sec, cumulative)'], 
+    ["Time (days)", 'Server CPU time\n(sec, cumulative)'], 
     args.out_basename+"_server.pdf",
     legend=True)
 
 plot({name : [0, 5] for name in names}, 
     ["linear", "linear"],
-    ["Time (days)", 'Client time\n(sec, cumulative)'], 
+    ["Time (days)", 'Client CPU time\n(sec, cumulative)'], 
     args.out_basename+"_client.pdf")
 
 plot({name : [0, 6] for name in names}, 
