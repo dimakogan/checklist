@@ -112,7 +112,7 @@ plt.ylabel("Amortized server time\nper query [ms]")
 plt.xlim(xmin=0.0)
 plt.ylim(ymin=0.0)
 
-fig.legend(bbox_to_anchor=(0.91,0.77))
+fig.legend(bbox_to_anchor=(0.95,0.95))
 custom_style.save_fig(fig, "server.pdf", [3.5, 2.1])
 
 
