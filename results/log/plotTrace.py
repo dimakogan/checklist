@@ -16,7 +16,7 @@ sys.path.insert(1, '../initial')
 import custom_style
 
 
-def plot(file_to_cols, scales, labels, out_name, legend=False):
+def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
 
     fig, ax = plt.subplots()
 
@@ -25,10 +25,11 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
     ax.set_yscale(scales[1])
 
     ax.set_xticks([86400*7*i for i in range(10)])
+    #ax.set_ylim(bottom=10000)
     # ax.set_yticks([10**i for i in range(2,7)])
     # ax.tick_params('x', pad=0.5)
-    # ax.set_xlim([0, 10000])
-    # ax.set_ylim([100, 2*(10**6)])
+    ax.set_xlim([0, 86400*64])
+    #ax.set_ylim([100, 2*(10**6)])
 
     f = FuncFormatter(lambda x, pos: int(x/86400))
     ax.xaxis.set_major_formatter(f)
@@ -37,7 +38,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
     #ax.yaxis.set_major_formatter(f)
 
     linestyles = ["solid", "solid", "solid"]
-    colors=["red", "blue", "green", "purple"]
+    colors=["red", "blue", "grey", "purple"]
     dots=["", "", "", ""]
 
     for file_num, filename in enumerate(file_to_cols):
@@ -47,7 +48,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
         cost = results[results.dtype.names[1]]
         
         xs = timestamp-timestamp[0]
-        ys = np.cumsum(cost+1000)/10**6
+        ys = np.cumsum(cost+add_y)/10**6
 
         plt.plot(
             #results[results.dtype.names[0]],
@@ -55,26 +56,28 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
             xs,
             ys,
             dots[file_num],
-            marker=None,
+            marker='.',
+            markersize=1,
             color=colors[file_num],
             linewidth=1,
-            linestyle=linestyles[file_num],
+            linestyle='None', #linestyles[file_num],
             label=filename)
 
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
 
+    ax.set_ylim(bottom=0)
     if legend:
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,1,2]], ["Checklist PIR\n(this work)", "DPF", "Matrix"]]
-        plt.legend(*labels, fontsize=6)
+        labels = [[all_labels[0][i] for i in [0,1,2]], ["Checklist\n(this work)", "DPF", "Non-private"]]
+        plt.legend(*labels, fontsize=6, markerscale=6, handletextpad=0),  
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
     custom_style.save_fig(fig, out_name, [2.3, 1.6])
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,1,2]], ["Boosted PIR\n(this work)", "DPF", "Matrix"]]
+        labels = [[all_labels[0][i] for i in [0,1,2]], ["Checklist\n(this work)", "DPF", "Non-private"]]
         figlegend.legend(*labels, loc="center")
         figlegend.savefig("legend.pdf")
 
@@ -99,12 +102,13 @@ if len(names) == 0:
 plot({name : [0, 4] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Server time\n(sec, cumulative)'], 
-    args.out_basename+"_server.pdf")
+    args.out_basename+"_server.pdf",
+    add_y = 400, legend=True)
 
 plot({name : [0, 5] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Client time\n(sec, cumulative)'], 
-    args.out_basename+"_client.pdf", legend=True)
+    args.out_basename+"_client.pdf")
 
 plot({name : [0, 6] for name in names}, 
     ["linear", "linear"],
