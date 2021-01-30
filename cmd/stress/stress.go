@@ -35,7 +35,6 @@ func main() {
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
 	answerProf := flag.String("answerprof", "", "Profile Server.Answer filename")
 	updatable := flag.Bool("updatable", true, "Use Updatable PIR")
-	latenciesFile := flag.String("latenciesFile", "", "Latencies output filename")
 
 	flag.Parse()
 
@@ -129,7 +128,6 @@ func main() {
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(1 * time.Second)
 	var totalNumQueries, totalLatency uint64
-	latencies := make(chan int, 1000)
 
 	if len(*answerProf) > 0 {
 		err = proxyLeft.StartCpuProfile(0, &none)
@@ -147,9 +145,6 @@ func main() {
 				errLeft := proxyLeft.Answer(proxyLeft.QueryReqs[idx], &queryRespL)
 				errRight := proxyRight.Answer(proxyRight.QueryReqs[idx], &queryRespR)
 				elapsed := time.Since(start)
-				if len(*latenciesFile) > 0 {
-					latencies <- int(elapsed.Microseconds())
-				}
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
 				if errLeft != nil {
 					log.Fatalf("Failed to replay query number %d to left server: %s\n", idx, errLeft)
@@ -167,16 +162,6 @@ func main() {
 				atomic.AddUint64(&totalNumQueries, 1)
 			}
 		}(i)
-	}
-
-	if len(*latenciesFile) > 0 {
-		go func() {
-			lOut, _ := os.Create(*latenciesFile)
-			for l := range latencies {
-				lOut.WriteString(fmt.Sprintf("%d\n", l))
-			}
-			lOut.Close()
-		}()
 	}
 
 	c := make(chan os.Signal)
@@ -211,9 +196,6 @@ func main() {
 				log.Fatalf("Failed to write server profile to file: %s\n", err)
 			}
 			fmt.Printf("\nWrote Server.Answer profile file: %s\n", *answerProf)
-		}
-		if len(*latenciesFile) > 0 {
-			close(latencies)
 		}
 		os.Exit(0)
 	}()
