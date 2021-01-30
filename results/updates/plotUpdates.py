@@ -51,6 +51,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
         ys = cost/10**6
 
         avg = np.average(ys)
+        plt.plot(xs[0], ys[0], color=colors[file_num], marker='s',  linestyle = 'None', markersize='6', label='Initial setup')
 
         plt.plot(
             #results[results.dtype.names[0]],
@@ -61,27 +62,26 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
             linestyle="None",
             markersize = 2,
             marker = "X",
-            label=filename)
+            label='Waterfall update')
 
-        plt.axhline(y=avg, color=colors[file_num], linestyle='--', linewidth=1)
+        plt.axhline(y=avg, color=colors[file_num], linestyle='--', linewidth=1, label='Average')
 
-        plt.axhline(y=ys[0], color=colors[file_num+1], linestyle='--', linewidth=1)
 
 
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
+        plt.legend(loc=(0.5,0.2))
 
-    if legend:
-        all_labels = ax.get_legend_handles_labels()
-        labels = [all_labels[0], ["Boosted PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
-        plt.legend(*labels, fontsize=6)
+        # all_labels = ax.get_legend_handles_labels()
+        # #labels = [all_labels[0], ["Boosted PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
+        # plt.legend(all_labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
     custom_style.save_fig(fig, out_name,  [3.5, 2.1], pad=0.05)
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
-        labels = [all_labels[0], ["Boosted PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
+        labels = [all_labels[0], ["Checklist PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
         figlegend.legend(*labels, loc="center")
         figlegend.savefig("legend.pdf")
 
