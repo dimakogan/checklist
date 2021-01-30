@@ -99,11 +99,11 @@ if len(names) == 0:
     parser.print_help()
     exit(1) 
 
-plot({name : [0, 4] for name in names[0:2]}, 
+plot({name : [0, 4] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Server time\n(sec, cumulative)'], 
     args.out_basename+"_server.pdf",
-    add_y = 400, legend=True)
+    legend=True)
 
 plot({name : [0, 5] for name in names}, 
     ["linear", "linear"],
