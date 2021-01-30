@@ -23,7 +23,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     ax.set_yticks([10**i for i in range(2,7)])
     ax.tick_params('x', pad=0.5)
     ax.set_xlim([0, 10000])
-    ax.set_ylim([100, 2*(10**6)])
+    #ax.set_ylim([100, 2*(10**6)])
 
     f = FuncFormatter(lambda x, pos: int(x))
     ax.xaxis.set_major_formatter(f)
@@ -39,33 +39,43 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         pretty_name = os.path.splitext(os.path.basename(filename))[0]
         results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
 
-        online_cost = results[results.dtype.names[1]][5]
-        offline_cost = results[results.dtype.names[2]][5]
+        online_cost = results[results.dtype.names[1]][6]
+        offline_cost = results[results.dtype.names[2]][6]
         
-        #print(offline_cost, online_cost)
-        for idx, col_name in enumerate(results.dtype.names[1:]):
 
-            xs = range(1, 10000)
-            ys = []
-            for i in xs:
-                ys.append(offline_cost/float(i) + online_cost)
+        xs = range(1, 10000)
+        ys = []
+        for i in xs:
+            ys.append(offline_cost/float(i) + online_cost)
 
+        plt.plot(
+            #results[results.dtype.names[0]],
+            #results[col_name], 
+            xs,
+            [online_cost]*len(xs),
+            dots[file_num],
+            color=colors[file_num],
+            linestyle='solid', 
+            label=filename)
+
+        if offline_cost > online_cost*10:
             plt.plot(
                 #results[results.dtype.names[0]],
                 #results[col_name], 
                 xs,
                 ys,
-                dots[file_num],
+                #dots[file_num],
                 color=colors[file_num],
-                linestyle=linestyles[file_num], 
-                label=f'{pretty_name}{pretty_col_names[idx]}')
+                linestyle='--', 
+                label=filename)
 
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
 
     if legend:
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,2,4]], ["Checklist PIR\n(this work)", "DPF", "Matrix"]]
+        print(all_labels)
+        labels = [all_labels[0], ["Checklist PIR\n(this work)", "amortized","DPF", "Matrix"]]
         plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
@@ -73,7 +83,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,2,4]], ["Boosted PIR\n(this work)", "DPF", "Matrix"]]
+        labels = [all_labels[0], ["Checklist PIR\n(this work)", "amortized","DPF", "Matrix"]]
         figlegend.legend(*labels, loc="center")
         figlegend.savefig("legend.pdf")
 
@@ -103,21 +113,21 @@ plot({**{name : [0, 5, 1] for name in names},
     **{name : [0, 5] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
-    ["Num Queries", 'Server time\n(µs, amortized)'], 
+    ["Num Queries", 'Server time (µs)'], 
     args.out_basename+"_server.pdf")
 
 plot({**{name : [0, 6, 2] for name in names}, 
     **{name : [0, 6] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
-    ["Num Queries", 'Client time\n(µs, amortized)'], 
+    ["Num Queries", 'Client time (µs)'], 
     args.out_basename+"_client.pdf", legend=True)
 
 plot({**{name : [0, 7, 3] for name in names}, 
     **{name : [0, 7] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
-    ["Num Queries", 'Communication\n(bytes, amortized)'], 
+    ["Num Queries", 'Communication (bytes)'], 
     args.out_basename+"_comm.pdf")
 
 """
