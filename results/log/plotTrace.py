@@ -69,7 +69,7 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
     ax.set_ylim(bottom=0)
     if legend:
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,1,2]], ["Checklist\n(this work)", "DPF", "Non-private"]]
+        labels = [[all_labels[0][i] for i in range(len(file_to_cols))], ["Checklist\n(this work)", "DPF", "Non-private"]]
         plt.legend(*labels, fontsize=6, markerscale=6, handletextpad=0),  
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
@@ -77,7 +77,7 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
     if legend:
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in [0,1,2]], ["Checklist\n(this work)", "DPF", "Non-private"]]
+        labels = [[all_labels[0][i] for i in range(len(file_to_cols))], ["Checklist\n(this work)", "DPF", "Non-private"]]
         figlegend.legend(*labels, loc="center")
         figlegend.savefig("legend.pdf")
 
@@ -99,7 +99,7 @@ if len(names) == 0:
     parser.print_help()
     exit(1) 
 
-plot({name : [0, 4] for name in names}, 
+plot({name : [0, 4] for name in names[0:2]}, 
     ["linear", "linear"],
     ["Time (days)", 'Server time\n(sec, cumulative)'], 
     args.out_basename+"_server.pdf",
