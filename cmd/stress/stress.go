@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"runtime/pprof"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -30,6 +31,7 @@ func main() {
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
+	clientProf := flag.String("clientprof", "", "Profile Client filename")
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
 	answerProf := flag.String("answerprof", "", "Profile Server.Answer filename")
 	updatable := flag.Bool("updatable", true, "Use Updatable PIR")
@@ -140,19 +142,26 @@ func main() {
 		go func(idx int) {
 			for {
 				idx := rand.Intn(len(proxyRight.QueryReqs))
-				var queryResp b.QueryResp
+				var queryRespL, queryRespR b.QueryResp
 				start := time.Now()
-				err := proxyRight.Answer(proxyRight.QueryReqs[idx], &queryResp)
+				errLeft := proxyLeft.Answer(proxyLeft.QueryReqs[idx], &queryRespL)
+				errRight := proxyRight.Answer(proxyRight.QueryReqs[idx], &queryRespR)
 				elapsed := time.Since(start)
 				if len(*latenciesFile) > 0 {
 					latencies <- int(elapsed.Microseconds())
 				}
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
-				if err != nil {
-					log.Fatalf("Failed to replay query number %d: %s\n", idx, err)
+				if errLeft != nil {
+					log.Fatalf("Failed to replay query number %d to left server: %s\n", idx, errLeft)
 				}
-				if !reflect.DeepEqual(proxyRight.QueryResps[idx], queryResp) {
-					log.Fatalf("Mismatching response in query number %d", idx)
+				if errRight != nil {
+					log.Fatalf("Failed to replay query number %d to right server: %s\n", idx, errRight)
+				}
+				if !reflect.DeepEqual(proxyLeft.QueryResps[idx], queryRespL) {
+					log.Fatalf("Mismatching left response in query number %d", idx)
+				}
+				if !reflect.DeepEqual(proxyRight.QueryResps[idx], queryRespR) {
+					log.Fatalf("Mismatching right response in query number %d", idx)
 				}
 				counter.Incr(1)
 				atomic.AddUint64(&totalNumQueries, 1)
@@ -173,7 +182,24 @@ func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
+		var f *os.File
+		if len(*clientProf) > 0 {
+			f, err = os.Create(*clientProf)
+			if err != nil {
+				log.Fatal("could not create CPU profile: ", err)
+			}
+			if err := pprof.StartCPUProfile(f); err != nil {
+				log.Fatal("could not start CPU profile: ", err)
+			}
+		}
+
 		<-c
+
+		if f != nil {
+			pprof.StopCPUProfile()
+			f.Close()
+		}
+
 		if len(*answerProf) > 0 {
 			var profOut string
 			err = proxyLeft.StopCpuProfile(0, &profOut)
@@ -197,6 +223,7 @@ func main() {
 		if totalNumQueries > 0 {
 			avgLatency = totalLatency / totalNumQueries
 		}
+		time.Sleep(time.Second)
 		fmt.Printf("\rCurrent rate: %d QPS, average latency: %.02f ms", counter.Rate(), float64(avgLatency)/1000000)
 	}
 }
