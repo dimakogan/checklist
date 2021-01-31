@@ -117,7 +117,7 @@ func NewPirServerErasure(source *rand.Rand, data []Row, chunkSize int) (PirServe
 	}
 	// fmt.Printf("LenIn = %v\n", len(data))
 	// fmt.Printf("LenOut = %v\n", len(encdata))
-	serverPunc := NewPirServerPunc(source, encdata)
+	serverPunc := NewPirServerPunc(source, flattenDb(encdata), len(encdata), len(encdata[0]))
 	serverPunc.numHintsMultiplier = NUM_HINTS_MULTIPLIER
 	return pirServerErasure{serverPunc}, nil
 }

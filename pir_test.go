@@ -15,8 +15,8 @@ func TestMain(m *testing.M) {
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(RandSource(), 256, 100)
 
-	leftServer := NewPirServerPunc(RandSource(), db)
-	rightServer := NewPirServerPunc(RandSource(), db)
+	leftServer := NewPirServerPunc(RandSource(), flattenDb(db), 256, 100)
+	rightServer := NewPirServerPunc(RandSource(), flattenDb(db), 256, 100)
 	servers := [2]PirServer{leftServer, rightServer}
 	client := NewPIRClient(
 		NewPirClientPunc(RandSource()),
@@ -149,7 +149,7 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	src := RandSource()
 	db := MakeDB(src, 4, 100)
 
-	server := NewPirServerPunc(src, db)
+	server := NewPirServerPunc(src, flattenDb(db), 4, 100)
 
 	for i := 0; i < 100; i++ {
 		client := NewPIRClient(

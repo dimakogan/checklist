@@ -20,16 +20,13 @@ type pirDPFServer struct {
 	flatDb          []byte
 }
 
-func NewPIRDPFServer(data []Row) PirDB {
-	if len(data) < 1 {
+func NewPIRDPFServer(flatDb []byte, nRows, rowLen int) PirDB {
+	if nRows < 1 {
 		panic("Database must contain at least one row")
 	}
 
-	rowLen := len(data[0])
-	flatDb := flattenDb(data)
-
 	return &pirDPFServer{
-		numRows: len(data),
+		numRows: nRows,
 		rowLen:  rowLen,
 		flatDb:  flatDb,
 	}

@@ -32,7 +32,9 @@ type HintReq struct {
 	RandSeed int64
 
 	// For PirUpdatable
-	NextTimestamp int32
+	NextTimestamp   int32
+	DefragTimestamp int32
+	Layers          []Layer
 }
 
 type KeyUpdates struct {
@@ -40,6 +42,17 @@ type KeyUpdates struct {
 	Keys             []uint32
 	//Bit vector
 	IsDeletion []byte
+}
+
+type Layer struct {
+	MaxSize int
+	// Including both deletes and adds. This is not the same as len(db).
+	NumOps int
+
+	FirstRow int
+	NumRows  int
+
+	PirType PirType
 }
 
 //HintResp is a response to a hint request.
@@ -55,6 +68,7 @@ type HintResp struct {
 
 	// For updatable PIR
 	KeyUpdates          KeyUpdates
+	Layers              []Layer
 	DefragTimestamp     int
 	ShouldDeleteHistory bool
 
@@ -77,6 +91,8 @@ type QueryReq struct {
 
 	// For PirUpdatable
 	LatestKeyTimestamp int32
+	FirstRow, NumRows  int32
+	PirType            PirType
 
 	// Debug & testing.
 	Index int
@@ -144,16 +160,16 @@ type pirClient struct {
 	randSource *rand.Rand
 }
 
-func NewPirServerByType(pirType PirType, randSrc *rand.Rand, db []Row) PirDB {
+func NewPirServerByType(pirType PirType, randSrc *rand.Rand, flatDb []byte, nRows, rowLen int) PirDB {
 	switch pirType {
 	case Matrix:
-		return NewPirServerMatrix(db)
+		return NewPirServerMatrix(flatDb, nRows, rowLen)
 	case Punc:
-		return NewPirServerPunc(randSrc, db)
+		return NewPirServerPunc(randSrc, flatDb, nRows, rowLen)
 	case DPF:
-		return NewPIRDPFServer(db)
+		return NewPIRDPFServer(flatDb, nRows, rowLen)
 	case NonPrivate:
-		return NewPirServerNonPrivate(db)
+		return NewPirServerNonPrivate(flatDb, nRows, rowLen)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }

@@ -66,23 +66,19 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
 	xorRowsFlatSlice(s.flatDb, s.rowLen, indices, out)
 }
 
-func NewPirServerPunc(source *rand.Rand, data []Row) pirServerPunc {
+func NewPirServerPunc(source *rand.Rand, flatDb []byte, nRows, rowLen int) pirServerPunc {
 	s := pirServerPunc{
-		nRows:              len(data),
+		flatDb:             flatDb,
+		nRows:              nRows,
+		rowLen:             rowLen,
 		numHintsMultiplier: int(float64(*SecParam) * math.Log(2)),
 		nRowsPerBlock:      *nRowsPerBlock,
 	}
 
-	if len(data) > 0 {
-		s.rowLen = len(data[0])
-	}
-
 	s.blockLen = s.rowLen * (s.nRowsPerBlock)
 
-	s.flatDb = flattenDbWithExtraBytes(data, s.blockLen)
-
 	// Make flat DB look cyclical
-	copy(s.flatDb[s.nRows*s.rowLen:], s.flatDb[0:s.blockLen])
+	//	copy(s.flatDb[s.nRows*s.rowLen:], s.flatDb[0:s.blockLen])
 
 	return s
 }

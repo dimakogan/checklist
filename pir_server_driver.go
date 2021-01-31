@@ -122,7 +122,7 @@ func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err erro
 		driver.PirDB = server
 		driver.PirUpdatableDB = server
 	} else {
-		driver.PirDB = NewPirServerByType(config.PirType, driver.randSource, db)
+		driver.PirDB = NewPirServerByType(config.PirType, driver.randSource, flattenDb(db), len(db), len(db[0]))
 		driver.PirUpdatableDB = nil
 	}
 

@@ -31,25 +31,14 @@ func getHeightWidth(nRows int, rowLen int) (int, int) {
 	return width, height
 }
 
-func NewPirServerMatrix(data []Row) PirDB {
-	if len(data) < 1 {
+func NewPirServerMatrix(flatDb []byte, nRows, rowLen int) PirDB {
+	if nRows < 1 {
 		panic("Database must contain at least one row")
 	}
 
-	rowLen := len(data[0])
-	flatDb := make([]byte, rowLen*len(data))
-
-	for i, v := range data {
-		if len(v) != rowLen {
-			panic("Database rows must all be of the same length")
-		}
-
-		copy(flatDb[i*rowLen:], v[:])
-	}
-
-	width, height := getHeightWidth(len(data), rowLen)
+	width, height := getHeightWidth(nRows, rowLen)
 	return &pirMatrix{
-		nRows:  len(data),
+		nRows:  nRows,
 		rowLen: rowLen,
 		flatDb: flatDb,
 		height: height,

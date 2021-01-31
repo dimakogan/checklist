@@ -12,18 +12,18 @@ type pirClientNonPrivate struct {
 type pirServerNonPrivate struct {
 	nRows  int
 	rowLen int
-	db     []Row
+	flatDb []byte
 }
 
-func NewPirServerNonPrivate(data []Row) PirDB {
-	if len(data) < 1 {
+func NewPirServerNonPrivate(flatDb []byte, nRows, rowLen int) PirDB {
+	if nRows < 1 {
 		panic("Database must contain at least one row")
 	}
 
 	return &pirServerNonPrivate{
-		nRows:  len(data),
-		rowLen: len(data[0]),
-		db:     data,
+		nRows:  nRows,
+		rowLen: rowLen,
+		flatDb: flatDb,
 	}
 }
 
@@ -36,7 +36,7 @@ func (s pirServerNonPrivate) Hint(req HintReq, resp *HintResp) error {
 }
 
 func (s *pirServerNonPrivate) Answer(q QueryReq, resp *QueryResp) error {
-	*resp = QueryResp{Val: s.db[q.Index]}
+	*resp = QueryResp{Val: s.flatDb[q.Index*s.rowLen : (q.Index+1)*s.rowLen]}
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (s *pirServerNonPrivate) GetRow(idx int, row *RowIndexVal) error {
 		// return random row
 		idx = RandSource().Int() % s.nRows
 	}
-	row.Value = s.db[idx]
+	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
 	row.Index = idx
 	row.Key = uint32(idx)
 	return nil

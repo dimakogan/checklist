@@ -2,21 +2,11 @@ package boosted
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 
 	"github.com/elliotchance/orderedmap"
 )
-
-type serverLayer struct {
-	// Including both deletes and adds. This is not the same as len(db).
-	numOps int
-
-	numRows int
-
-	pir PirServer
-
-	pirType PirType
-}
 
 type dbOp struct {
 	Key    uint32
@@ -27,18 +17,19 @@ type dbOp struct {
 type pirServerUpdatable struct {
 	initialTimestamp int
 	defragTimestamp  int
+	numRows          int
+	rowLen           int
 	ops              []dbOp
+	flatDb           []byte
 	kv               *orderedmap.OrderedMap
 
-	layers   []serverLayer
-	maxSizes []int
-	pirType  PirType
+	pirType PirType
 
 	randSource *rand.Rand
 
 	curTimestamp int32
 
-	defragRatio int
+	defragRatio float64
 }
 
 func smallestLayerSize(nRows int) int {
@@ -70,20 +61,28 @@ func opsToRows(ops []dbOp) []Row {
 	return db
 }
 
-func (s *pirServerUpdatable) initLayers(nRows int) {
-	s.maxSizes = s.layersMaxSize(nRows)
+func (s *pirServerUpdatable) initLayers(nRows int) []Layer {
+	maxSizes := s.layersMaxSize(nRows)
 
-	s.layers = make([]serverLayer, len(s.maxSizes))
-	if len(s.layers) == 0 {
-		return
+	layers := make([]Layer, len(maxSizes))
+	if len(layers) == 0 {
+		return layers
+	}
+	for i := range layers {
+		layers[i].MaxSize = maxSizes[i]
+		layers[i].PirType = s.pirType
+	}
+
+	// Even when using PirPunc, the smallest layer always uses matrix
+	if s.pirType == Punc {
+		layers[len(layers)-1].PirType = Matrix
 	}
 
 	if NumLayerActivations == nil {
 		NumLayerActivations = make(map[int]int)
 		NumLayerHintBytes = make(map[int]int)
 	}
-	for i := range s.layers {
-		s.layers[i].pirType = s.pirType
+	for i := range layers {
 		if _, ok := NumLayerActivations[i]; !ok {
 			NumLayerActivations[i] = 0
 		}
@@ -92,10 +91,7 @@ func (s *pirServerUpdatable) initLayers(nRows int) {
 		}
 	}
 
-	// Even when using PirPunc, the smallest layer always uses matrix
-	if s.pirType == Punc {
-		s.layers[len(s.layers)-1].pirType = Matrix
-	}
+	return layers
 }
 
 func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatable {
@@ -106,7 +102,6 @@ func NewPirServerUpdatable(source *rand.Rand, pirType PirType) *pirServerUpdatab
 		pirType:      pirType,
 		kv:           orderedmap.NewOrderedMap(),
 	}
-	s.initLayers(0)
 	return &s
 }
 
@@ -145,6 +140,12 @@ func (s *pirServerUpdatable) SomeKeys(num int) []uint32 {
 }
 
 func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
+	if s.rowLen == 0 {
+		s.rowLen = len(rows[0])
+	} else if s.rowLen != len(rows[0]) {
+		log.Fatalf("Different row length added, expected: %d, got: %d", s.rowLen, len(rows[0]))
+	}
+
 	ops := make([]dbOp, len(keys))
 	for i := range keys {
 		ops[i] = dbOp{Key: keys[i], data: rows[i]}
@@ -152,47 +153,8 @@ func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
 	}
 
 	s.ops = append(s.ops, ops...)
-
-	numNewRows := len(ops)
-	numNewOps := len(ops)
-	var i int
-	for i = len(s.layers) - 1; i >= 0; i-- {
-		numNewRows += s.layers[i].numRows
-		numNewOps += s.layers[i].numOps
-		if numNewRows <= s.maxSizes[i] {
-			break
-		}
-
-		s.layers[i].numOps = 0
-		s.layers[i].numRows = 0
-		s.layers[i].pir = nil
-	}
-
-	if i <= 0 {
-		if len(s.ops) > s.defragRatio*(s.defragTimestamp-s.initialTimestamp) {
-			endDefrag := numNewOps / 2
-			newOps, numRemoved := defrag(s.ops, endDefrag)
-			s.defragTimestamp = s.initialTimestamp + endDefrag
-			s.initialTimestamp += (len(s.ops) - len(newOps))
-			s.ops = newOps
-			numNewRows -= numRemoved
-
-			numNewOps = len(s.ops)
-		}
-		// Biggest layer reached capacity.
-		// Recompute all layer sizes and reinitialize
-		s.initLayers(numNewRows)
-		i = 0
-	}
-
-	newRows := opsToRows(s.ops[len(s.ops)-numNewOps:])
-
-	if len(s.layers) == 0 {
-		return
-	}
-	s.layers[i].numOps = numNewOps
-	s.layers[i].numRows = numNewRows
-	s.layers[i].init(s.randSource, newRows)
+	s.numRows += len(rows)
+	s.flatDb = append(s.flatDb, flattenDb(rows)...)
 }
 
 func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
@@ -202,7 +164,16 @@ func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
 		s.kv.Delete(keys[i])
 	}
 	s.ops = append(s.ops, ops...)
-	s.layers[len(s.layers)-1].numOps += len(ops)
+
+	if len(s.ops) > int(s.defragRatio*float64(s.kv.Len())) {
+		endDefrag := len(s.ops) / 2
+		newOps, numRemoved := defrag(s.ops, endDefrag)
+		s.defragTimestamp = s.initialTimestamp + endDefrag
+		s.initialTimestamp += (len(s.ops) - len(newOps))
+		s.ops = newOps
+		s.flatDb = flattenDb(opsToRows(s.ops))
+		s.numRows -= numRemoved
+	}
 }
 
 func defrag(ops []dbOp, endDefrag int) (newOps []dbOp, numRemoved int) {
@@ -236,21 +207,46 @@ func defrag(ops []dbOp, endDefrag int) (newOps []dbOp, numRemoved int) {
 	return newOps, numRemoved
 }
 
-func (layer *serverLayer) init(randSrc *rand.Rand, db []Row) {
-	layer.numRows = len(db)
-	if len(db) == 0 {
-		layer.pir = nil
-		return
-	}
-	layer.pir = NewPirServerByType(layer.pirType, randSrc, db)
-}
-
 var NumLayerActivations map[int]int
 var NumLayerHintBytes map[int]int
 
+func (s pirServerUpdatable) updateLayers(layers []Layer, ops []dbOp) []Layer {
+	numNewRows := 0
+	for _, op := range ops {
+		if !op.Delete {
+			numNewRows++
+		}
+	}
+	numNewOps := len(ops)
+	var i int
+	for i = len(layers) - 1; i >= 0; i-- {
+		numNewRows += layers[i].NumRows
+		numNewOps += layers[i].NumOps
+		if numNewRows <= layers[i].MaxSize {
+			break
+		}
+
+		layers[i].NumOps = 0
+		layers[i].NumRows = 0
+		layers[i].FirstRow = 0
+	}
+	if i <= 0 {
+		// Biggest layer reached capacity.
+		// Recompute all layer sizes and reinitialize
+		layers = s.initLayers(numNewRows)
+		i = 0
+	}
+	if len(layers) == 0 {
+		return layers
+	}
+	layers[i].NumOps = numNewOps
+	layers[i].NumRows = numNewRows
+	layers[i].FirstRow = s.numRows - numNewRows
+	return layers
+}
+
 func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	clientSrc := rand.New(rand.NewSource(req.RandSeed))
-	resp.BatchResps = make([]HintResp, len(s.layers))
 	resp.DefragTimestamp = s.defragTimestamp
 	if int(req.NextTimestamp) < s.defragTimestamp {
 		resp.ShouldDeleteHistory = true
@@ -258,18 +254,28 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	}
 	resp.KeyUpdates = s.returnDiffKeys(int(req.NextTimestamp))
 
+	if int(req.DefragTimestamp) < s.defragTimestamp {
+		resp.Layers = s.updateLayers([]Layer{}, s.ops)
+	} else {
+		newOps := s.ops[len(s.ops)-len(resp.KeyUpdates.Keys):]
+		resp.Layers = s.updateLayers(req.Layers, newOps)
+	}
+
 	layerEnd := s.initialTimestamp
-	for l, layer := range s.layers {
-		layerEnd += layer.numOps
-		if layer.pir != nil && (int(req.NextTimestamp) < layerEnd) {
-			layer.pir.Hint(
+	resp.BatchResps = make([]HintResp, len(resp.Layers))
+	for l, layer := range resp.Layers {
+		layerEnd += layer.NumOps
+		if layer.NumRows != 0 && (int(req.NextTimestamp) < layerEnd) {
+			layerFlatDb := s.flatDb[layer.FirstRow*s.rowLen : (layer.FirstRow+layer.NumRows)*s.rowLen]
+			pir := NewPirServerByType(layer.PirType, s.randSource, layerFlatDb, layer.NumRows, s.rowLen)
+			pir.Hint(
 				HintReq{RandSeed: int64(clientSrc.Uint64())},
 				&resp.BatchResps[l])
-			resp.BatchResps[l].PirType = layer.pirType
+			resp.BatchResps[l].PirType = layer.PirType
 			NumLayerActivations[l]++
 			NumLayerHintBytes[l] += len(resp.BatchResps[l].Hints) * resp.BatchResps[l].NumRowsPerBlock * resp.BatchResps[l].RowLen
 		}
-		resp.BatchResps[l].NumRows = layer.numRows
+		resp.BatchResps[l].NumRows = layer.NumRows
 	}
 
 	return nil
@@ -307,11 +313,13 @@ func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
 
 	resp.BatchResps = make([]QueryResp, len(req.BatchReqs))
 	for l, q := range req.BatchReqs {
-		if s.layers[l].pir == nil {
+		if q.NumRows == 0 {
 			continue
 		}
 		// start := time.Now()
-		err := s.layers[l].pir.Answer(q, &(resp.BatchResps[l]))
+		layerFlatDb := s.flatDb[int(q.FirstRow)*s.rowLen : int(q.FirstRow+q.NumRows)*s.rowLen]
+		pir := NewPirServerByType(q.PirType, s.randSource, layerFlatDb, int(q.NumRows), s.rowLen)
+		err := pir.Answer(q, &(resp.BatchResps[l]))
 		//		log.Printf("pirServerPunc::Answer layer: %d | nRows: %d | time: %dµs", l, s.layers[l].numRows, time.Since(start).Microseconds())
 
 		if err != nil {
@@ -337,6 +345,7 @@ type pirClientUpdatable struct {
 	ops              []dbOp
 	keyToPos         map[uint32]int32
 	layers           []clientLayer
+	hintLayers       []Layer
 	servers          [2]PirServer
 }
 
@@ -360,12 +369,16 @@ func (c *pirClientUpdatable) Keys() []uint32 {
 func (c *pirClientUpdatable) Update() error {
 	nextTimestamp := c.nextTimestamp()
 	hintReq := HintReq{
-		NextTimestamp: int32(nextTimestamp),
-		RandSeed:      int64(c.randSource.Uint64())}
+		Layers:          c.hintLayers,
+		DefragTimestamp: int32(c.defragTimestamp),
+		NextTimestamp:   int32(nextTimestamp),
+		RandSeed:        int64(c.randSource.Uint64())}
 	var hintResp HintResp
 	if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
 		return err
 	}
+
+	c.hintLayers = hintResp.Layers
 
 	if hintResp.ShouldDeleteHistory {
 		c.ops = []dbOp{}
@@ -500,6 +513,12 @@ func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 		layerEnd += layer.numRows
 		req[Left].BatchReqs[l] = q[Left]
 		req[Right].BatchReqs[l] = q[Right]
+		req[Left].BatchReqs[l].FirstRow = int32(c.hintLayers[l].FirstRow)
+		req[Right].BatchReqs[l].FirstRow = int32(c.hintLayers[l].FirstRow)
+		req[Left].BatchReqs[l].NumRows = int32(c.hintLayers[l].NumRows)
+		req[Right].BatchReqs[l].NumRows = int32(c.hintLayers[l].NumRows)
+		req[Left].BatchReqs[l].PirType = c.hintLayers[l].PirType
+		req[Right].BatchReqs[l].PirType = c.hintLayers[l].PirType
 	}
 	return req, func(resps []QueryResp) (Row, error) {
 		row, err := reconstructFunc([]QueryResp{
