@@ -140,6 +140,9 @@ func (s *pirServerUpdatable) SomeKeys(num int) []uint32 {
 }
 
 func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
+	if len(rows) == 0 {
+		return
+	}
 	if s.rowLen == 0 {
 		s.rowLen = len(rows[0])
 	} else if s.rowLen != len(rows[0]) {
