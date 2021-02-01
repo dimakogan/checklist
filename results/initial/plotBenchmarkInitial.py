@@ -38,25 +38,15 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     for file_num, filename in enumerate(file_to_cols):
         pretty_name = os.path.splitext(os.path.basename(filename))[0]
         results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
+        print(results)
 
-        online_cost = results[results.dtype.names[1]][6]
-        offline_cost = results[results.dtype.names[2]][6]
-        
+        online_cost = np.array([results[results.dtype.names[1]]])
+        offline_cost = np.array([results[results.dtype.names[2]]])
 
         xs = range(1, 10000)
         ys = []
         for i in xs:
             ys.append(offline_cost/float(i) + online_cost)
-
-        plt.plot(
-            #results[results.dtype.names[0]],
-            #results[col_name], 
-            xs,
-            [online_cost]*len(xs),
-            dots[file_num],
-            color=colors[file_num],
-            linestyle='solid', 
-            label=filename)
 
         if offline_cost > online_cost*10:
             plt.plot(
@@ -66,8 +56,22 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
                 ys,
                 #dots[file_num],
                 color=colors[file_num],
-                linestyle='--', 
+                linewidth=1,
+                linestyle="solid", 
+                marker="o",
+                markevery=500,
                 label=filename)
+
+        plt.plot(
+            #results[results.dtype.names[0]],
+            #results[col_name], 
+            xs,
+            [online_cost]*len(xs),
+            dots[file_num],
+                linewidth=1,
+            color=colors[file_num],
+            linestyle=linestyles[file_num], 
+            label=filename)
 
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
@@ -75,7 +79,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     if legend:
         all_labels = ax.get_legend_handles_labels()
         print(all_labels)
-        labels = [all_labels[0], ["Checklist PIR\n(this work)", "amortized","DPF", "Matrix"]]
+        labels = [all_labels[0], ["Checklist PIR (online)", "Checklist PIR (amortized)","DPF", "Matrix"]]
         plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)

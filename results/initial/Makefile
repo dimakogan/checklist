@@ -1,3 +1,3 @@
 
 all: 
-	python plotBenchmarkInitial.py *.tsv
+	python plotBenchmarkInitial.py boosted.txt dpf.txt matrix.txt

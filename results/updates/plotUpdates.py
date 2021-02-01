@@ -63,7 +63,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
             marker = "X",
             label='Waterfall update')
 
-        plt.axhline(y=avg, color="green", linestyle='--', linewidth=1, label='Average')
+        plt.axhline(y=avg, color="purple", linestyle='--', linewidth=1, label='Average')
 
 
         ax.set_yticks([0.0001,0.001,0.01,0.1,1,10])

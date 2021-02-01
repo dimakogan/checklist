@@ -83,15 +83,19 @@ per_query_time, per_change_comm = compute_with_num_queries(boosted_data, num_que
 plt.plot(num_queries,per_query_time[0,:],
          color=colors[0],
          marker="o",
+         markevery=3,
          linewidth=1,
          label=('Checklist ($B=%d$)' % boosted_data[0,col_update_size]))
 plt.plot(num_queries,per_query_time[1,:],
          color=colors[0],
          marker="*",
+         markersize=5,
+         markevery=3,
          linewidth=1,
          label=('Checklist ($B=%d$)' % boosted_data[1,col_update_size]))
 plt.plot(num_queries,per_query_time[2,:],
          color=colors[0],
+         markevery=3,
          marker="d",
          linewidth=1,
          label=('Checklist ($B=%d$)' % boosted_data[2,col_update_size]))
