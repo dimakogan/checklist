@@ -109,6 +109,7 @@ type KeyUpdatesResp struct {
 	Keys []uint32
 	//Bit vector
 	IsDeletion []byte
+	RowLen     int
 
 	ShouldDeleteHistory bool
 }

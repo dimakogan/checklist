@@ -162,6 +162,7 @@ var NumLayerHintBytes map[int]int
 
 func (s pirServerUpdatable) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
 	resp.DefragTimestamp = s.defragTimestamp
+	resp.RowLen = s.rowLen
 
 	nextTimestamp := int(req.NextTimestamp)
 	if nextTimestamp < s.defragTimestamp {
@@ -270,6 +271,7 @@ type pirClientUpdatable struct {
 	initialTimestamp int
 	defragTimestamp  int
 	numRows          int
+	rowLen           int
 	ops              []dbOp
 	keyToPos         map[uint32]int32
 	layers           []clientLayer
@@ -314,7 +316,7 @@ func (c *pirClientUpdatable) updateKeys() error {
 	if err := c.servers[Left].KeyUpdates(keyReq, &keyResp); err != nil {
 		return err
 	}
-
+	c.rowLen = keyResp.RowLen
 	if keyResp.ShouldDeleteHistory {
 		c.ops = []dbOp{}
 		c.numRows = 0
@@ -441,22 +443,33 @@ func (c *pirClientUpdatable) updateHint() error {
 		Layers:          make([]HintLayer, len(c.layers)),
 		DefragTimestamp: int32(c.defragTimestamp),
 		RandSeed:        int64(c.randSource.Uint64())}
-	var hintResp HintResp
+	hintResp := HintResp{
+		BatchResps: make([]HintResp, len(hintReq.Layers)),
+	}
 
+	needServer := false
 	for l, layer := range c.layers {
 		if layer.numRows != 0 && layer.pir == nil {
-			hintReq.Layers[l].FirstRow = layer.firstRow
-			hintReq.Layers[l].NumRows = layer.numRows
-			hintReq.Layers[l].PirType = c.pirType
-			// When using PirPunc, the smallest layer still always uses matrix
-			if c.pirType == Punc && l == len(hintReq.Layers)-1 {
-				hintReq.Layers[l].PirType = Matrix
+			if c.pirType != Punc || l == len(hintReq.Layers)-1 {
+				hintResp.BatchResps[l].NumRows = layer.numRows
+				hintResp.BatchResps[l].RowLen = c.rowLen
+				hintResp.BatchResps[l].PirType = c.pirType
+				if c.pirType == Punc && l == len(hintReq.Layers)-1 {
+					hintResp.BatchResps[l].PirType = Matrix
+				}
+			} else {
+				hintReq.Layers[l].FirstRow = layer.firstRow
+				hintReq.Layers[l].NumRows = layer.numRows
+				hintReq.Layers[l].PirType = Punc
+				needServer = true
 			}
 		}
 	}
 
-	if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
-		return err
+	if needServer {
+		if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
+			return err
+		}
 	}
 
 	if err := c.initHints(hintResp); err != nil {
@@ -483,8 +496,6 @@ func (c *pirClientUpdatable) initHints(resp HintResp) error {
 			return err
 		}
 		c.layers[l].hintNumBytes = offlineBytes
-
-		NumLayerActivations[l]++
 		NumLayerHintBytes[l] += len(resp.BatchResps[l].Hints) * resp.BatchResps[l].NumRowsPerBlock * resp.BatchResps[l].RowLen
 	}
 	return nil
