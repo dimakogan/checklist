@@ -19,8 +19,8 @@ func main() {
 	server1Addr := flag.String("s1", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	server2Addr := flag.String("s2", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	useTLS := flag.Bool("tls", true, "Should use TLS")
-	usePersistent := flag.Bool("persistent", false, "Should use persisten connectoin")
-	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
+	usePersistent := flag.Bool("persistent", false, "Should use persistent connectoin")
+	pirTypeStr := flag.String("t", "Punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 
 	flag.Parse()
 

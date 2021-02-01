@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/rpc"
 	"time"
@@ -48,6 +49,15 @@ func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 	return remote, nil
 }
 
+func NewHTTPRPCClient(serverAddr string) (*rpc.Client, error) {
+	var err error
+	conn, err := net.Dial("tcp", serverAddr)
+	if err != nil {
+		return nil, err
+	}
+	return rpc.NewClient(conn), nil
+}
+
 func NewPirRpcProxy(serverAddr string, useTLS bool, usePersistent bool) (*PirRpcProxy, error) {
 	proxy := PirRpcProxy{serverAddr: serverAddr, useTLS: useTLS}
 	var err error
@@ -63,7 +73,7 @@ func (p *PirRpcProxy) connect() (*rpc.Client, error) {
 	if p.useTLS {
 		return NewHTTPSRPCClient(p.serverAddr)
 	} else {
-		return rpc.DialHTTP("tcp", p.serverAddr)
+		return NewHTTPRPCClient(p.serverAddr)
 	}
 }
 
