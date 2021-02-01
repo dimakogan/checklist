@@ -1,5 +1,5 @@
 # benchmark_incremental -numRows=3000000 -pirType=DPF -updateSize=32000,4000,500
    numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-   3000000       32000                   168                138058                     5       30766867                 27843                   219           1565
-   3000000        4000                    46                141338                     5       30725893                 27771                   197           1565
-   3000000         500                    21                140863                     6       30722016                 28091                   203           1565
+   3000000       32000                   253                126165                     5       30768286                 37349                   261           1653
+   3000000        4000                    52                 93733                     5       30727312                 39519                   272           1653
+   3000000         500                    24                 96658                     6       30727354                 38693                   272           1653
