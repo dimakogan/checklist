@@ -114,7 +114,7 @@ func main() {
 	fmt.Printf("(%d #cached) [OK]\n", len(proxy.QueryReqs))
 
 	// We're recording marks-per-1second
-	counter := ratecounter.NewRateCounter(1 * time.Second)
+	counter := ratecounter.NewRateCounter(10 * time.Second)
 	var totalNumQueries, totalLatency uint64
 
 	if len(*answerProf) > 0 {
@@ -192,6 +192,6 @@ func main() {
 			avgLatency = totalLatency / totalNumQueries
 		}
 		time.Sleep(time.Second)
-		fmt.Printf("\rCurrent rate: %d QPS, average latency: %.02f ms", counter.Rate(), float64(avgLatency)/1000000)
+		fmt.Printf("\rCurrent rate: %d QPS, average latency: %.02f ms", counter.Rate()/10, float64(avgLatency)/1000000)
 	}
 }
