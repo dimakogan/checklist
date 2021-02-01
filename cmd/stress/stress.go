@@ -166,18 +166,23 @@ func main() {
 	for i := 0; i < *numWorkers; i++ {
 		go func(idx int) {
 			for {
+				var err error
 				start := time.Now()
 				switch loadType {
 				case Answer:
-					replayQuery(proxy)
+					err = replayQuery(proxy)
 				case Hint:
-					replayHint(proxy, sizes, probs)
+					err = replayHint(proxy, sizes, probs)
 				case KeyUpdate:
-					replayKeyUpdate(proxy)
+					err = replayKeyUpdate(proxy)
 				}
 
 				elapsed := time.Since(start)
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
+
+				if err != nil {
+					log.Fatalf("Failed to replay query: %v", err)
+				}
 
 				counter.Incr(1)
 				atomic.AddUint64(&totalNumQueries, 1)
