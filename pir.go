@@ -32,27 +32,14 @@ type HintReq struct {
 	RandSeed int64
 
 	// For PirUpdatable
-	NextTimestamp   int32
 	DefragTimestamp int32
-	Layers          []Layer
+	Layers          []HintLayer
 }
 
-type KeyUpdates struct {
-	InitialTimestamp int32
-	Keys             []uint32
-	//Bit vector
-	IsDeletion []byte
-}
-
-type Layer struct {
-	MaxSize int
-	// Including both deletes and adds. This is not the same as len(db).
-	NumOps int
-
+type HintLayer struct {
 	FirstRow int
 	NumRows  int
-
-	PirType PirType
+	PirType  PirType
 }
 
 //HintResp is a response to a hint request.
@@ -67,10 +54,7 @@ type HintResp struct {
 	IsMatrix        bool
 
 	// For updatable PIR
-	KeyUpdates          KeyUpdates
-	Layers              []Layer
-	DefragTimestamp     int
-	ShouldDeleteHistory bool
+	NumOps int
 
 	BatchResps []HintResp
 }
@@ -113,23 +97,48 @@ type QueryResp struct {
 	Val Row
 }
 
+type KeyUpdatesReq struct {
+	DefragTimestamp int32
+	NextTimestamp   int32
+}
+
+type KeyUpdatesResp struct {
+	InitialTimestamp int32
+	DefragTimestamp  int
+
+	Keys []uint32
+	//Bit vector
+	IsDeletion []byte
+
+	ShouldDeleteHistory bool
+}
+
 type PirServer interface {
 	Hint(req HintReq, resp *HintResp) error
 	Answer(q QueryReq, resp *QueryResp) error
 }
 
-type PirDB interface {
+type PirUpdatableServer interface {
 	PirServer
+	KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error
+}
+
+type DB interface {
 	GetRow(idx int, row *RowIndexVal) error
 	NumRows(none int, out *int) error
 }
 
+type PirDB interface {
+	DB
+	PirServer
+}
+
 type PirUpdatableDB interface {
-	PirDB
+	DB
+	PirUpdatableServer
 
 	AddRows(keys []uint32, vals []Row)
 	DeleteRows(keys []uint32)
-	SomeKeys(num int) []uint32
 }
 
 type PirClient interface {

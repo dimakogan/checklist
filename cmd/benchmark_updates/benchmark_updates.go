@@ -60,7 +60,7 @@ func main() {
 		}
 		driver.ResetMetrics(0, &none)
 
-		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+		client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
 
 		var clientUpdateTime, clientReadTime time.Duration
 
@@ -88,22 +88,22 @@ func main() {
 			assert.NilError(ep, err)
 			assert.DeepEqual(ep, row, rowIV.Value)
 
-			var serverHintTime, serverAnswerTime time.Duration
-			var hintBytes, answerBytes int
-			assert.NilError(ep, driver.GetHintTimer(0, &serverHintTime))
-			assert.NilError(ep, driver.GetAnswerTimer(0, &serverAnswerTime))
-			assert.NilError(ep, driver.GetAnswerBytes(0, &answerBytes))
-			assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
+			var serverOfflineTime, serverOnlineTime time.Duration
+			var offlineBytes, onlineBytes int
+			assert.NilError(ep, driver.GetOfflineTimer(0, &serverOfflineTime))
+			assert.NilError(ep, driver.GetOnlineTimer(0, &serverOnlineTime))
+			assert.NilError(ep, driver.GetOnlineBytes(0, &onlineBytes))
+			assert.NilError(ep, driver.GetOfflineBytes(0, &offlineBytes))
 
 			fmt.Printf("%15d%22d%22d%22d%15d%22d%22d%15d\n",
 				i*config.UpdateSize,
-				serverHintTime.Microseconds(),
-				(clientUpdateTime - serverHintTime).Microseconds(),
-				hintBytes,
+				serverOfflineTime.Microseconds(),
+				(clientUpdateTime - serverOfflineTime).Microseconds(),
+				offlineBytes,
 				0,
-				serverAnswerTime.Microseconds(),
-				(clientReadTime - serverAnswerTime).Microseconds(),
-				answerBytes)
+				serverOnlineTime.Microseconds(),
+				(clientReadTime - serverOnlineTime).Microseconds(),
+				onlineBytes)
 
 			if *progress {
 				fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numUpdates)

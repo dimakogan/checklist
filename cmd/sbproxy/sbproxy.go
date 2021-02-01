@@ -52,7 +52,7 @@ func NewSBProxy(serverAddr string) *sbproxy {
 		rpcRight = rpcLeft
 	}
 
-	client := boosted.NewPirClientUpdatable(boosted.RandSource(), [2]boosted.PirServer{rpcLeft, rpcRight})
+	client := boosted.NewPirClientUpdatable(boosted.RandSource(), boosted.Punc, [2]boosted.PirUpdatableServer{rpcLeft, rpcRight})
 	if err = client.Init(); err != nil {
 		log.Fatalf("Failed to run PIR Init: %s\n", err)
 	}

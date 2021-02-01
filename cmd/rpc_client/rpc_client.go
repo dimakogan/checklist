@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -17,8 +18,14 @@ func main() {
 	latenciesFile := flag.String("latenciesFile", "", "Latencies output filename")
 	server1Addr := flag.String("s1", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	server2Addr := flag.String("s2", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 
 	flag.Parse()
+
+	pirType, err := b.PirTypeString(*pirTypeStr)
+	if err != nil {
+		log.Fatalf("Bad PirType: %s", *pirTypeStr)
+	}
 
 	latencies := make([]int64, 0)
 
@@ -36,7 +43,7 @@ func main() {
 	fmt.Printf("[OK]\n")
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
-	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
+	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
 	err = client.Init()
 	if err != nil {
 		log.Fatalf("Failed to Initialize client: %s\n", err)

@@ -62,7 +62,7 @@ func main() {
 			for i := 0; i < b.N; i++ {
 				start := time.Now()
 				if config.Updatable {
-					clientUpdatable = NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+					clientUpdatable = NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
 					err = clientUpdatable.Init()
 				} else {
 					clientStatic = NewPIRClient(NewPirClientByType(config.PirType, rand), rand,
@@ -77,14 +77,14 @@ func main() {
 				}
 			}
 
-			var serverHintTime time.Duration
-			assert.NilError(ep, driver.GetHintTimer(0, &serverHintTime))
-			b.ReportMetric(float64(serverHintTime.Microseconds())/float64(b.N), "hint-us/op")
-			b.ReportMetric(float64((clientInitTime-serverHintTime).Microseconds())/float64(b.N), "init-us/op")
+			var serverOfflineTime time.Duration
+			assert.NilError(ep, driver.GetOfflineTimer(0, &serverOfflineTime))
+			b.ReportMetric(float64(serverOfflineTime.Microseconds())/float64(b.N), "hint-us/op")
+			b.ReportMetric(float64((clientInitTime-serverOfflineTime).Microseconds())/float64(b.N), "init-us/op")
 
-			var hintBytes int
-			assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
-			b.ReportMetric(float64(hintBytes)/float64(b.N), "hint-bytes/op")
+			var offlineBytes int
+			assert.NilError(ep, driver.GetOfflineBytes(0, &offlineBytes))
+			b.ReportMetric(float64(offlineBytes)/float64(b.N), "hint-bytes/op")
 			b.ReportMetric(float64(clientBytes)/float64(b.N), "client-bytes/op")
 		})
 		fmt.Printf("%10d%22d%22d%15d%15d",
@@ -123,14 +123,14 @@ func main() {
 					}
 				}
 			}
-			var serverAnswerTime time.Duration
-			assert.NilError(ep, driver.GetAnswerTimer(0, &serverAnswerTime))
-			b.ReportMetric(float64(serverAnswerTime.Microseconds())/float64(b.N), "answer-us/op")
-			b.ReportMetric(float64((clientReadTime-serverAnswerTime).Microseconds())/float64(b.N), "read-us/op")
+			var serverOnlineTime time.Duration
+			assert.NilError(ep, driver.GetOnlineTimer(0, &serverOnlineTime))
+			b.ReportMetric(float64(serverOnlineTime.Microseconds())/float64(b.N), "answer-us/op")
+			b.ReportMetric(float64((clientReadTime-serverOnlineTime).Microseconds())/float64(b.N), "read-us/op")
 
-			var answerBytes int
-			assert.NilError(ep, driver.GetAnswerBytes(0, &answerBytes))
-			b.ReportMetric(float64(answerBytes)/float64(b.N), "answer-bytes/op")
+			var onlineBytes int
+			assert.NilError(ep, driver.GetOnlineBytes(0, &onlineBytes))
+			b.ReportMetric(float64(onlineBytes)/float64(b.N), "answer-bytes/op")
 
 		})
 		fmt.Printf("%22d%22d%15d\n",

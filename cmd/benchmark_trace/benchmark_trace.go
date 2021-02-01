@@ -96,7 +96,7 @@ func main() {
 		}
 		driver.ResetMetrics(0, &none)
 
-		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+		client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
 
 		var clientTime, serverTime time.Duration
 		var numBytes int
@@ -118,8 +118,8 @@ func main() {
 				client.Update()
 				clientTime = time.Since(start)
 
-				assert.NilError(ep, driver.GetHintTimer(0, &serverTime))
-				assert.NilError(ep, driver.GetHintBytes(0, &numBytes))
+				assert.NilError(ep, driver.GetOfflineTimer(0, &serverTime))
+				assert.NilError(ep, driver.GetOfflineBytes(0, &numBytes))
 
 			}
 
@@ -137,8 +137,8 @@ func main() {
 				assert.NilError(ep, err)
 				assert.DeepEqual(ep, row, rowIV.Value)
 
-				assert.NilError(ep, driver.GetAnswerTimer(0, &serverTime))
-				assert.NilError(ep, driver.GetAnswerBytes(0, &numBytes))
+				assert.NilError(ep, driver.GetOnlineTimer(0, &serverTime))
+				assert.NilError(ep, driver.GetOnlineBytes(0, &numBytes))
 
 			}
 

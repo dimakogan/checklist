@@ -55,10 +55,6 @@ func main() {
 	var none int
 
 	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength, Updatable: *updatable, RandSeed: 678}
-	config.PirType, err = b.PirTypeString(*pirTypeStr)
-	if err != nil {
-		log.Fatalf("Bad PirType: %s", *pirTypeStr)
-	}
 
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := i % *numRows
@@ -70,7 +66,11 @@ func main() {
 			Value: value})
 	}
 
-	client := b.NewPirClientUpdatable(b.RandSource(), [2]b.PirServer{proxyLeft, proxyRight})
+	pirType, err := b.PirTypeString(*pirTypeStr)
+	if err != nil {
+		log.Fatalf("Bad PirType: %s", *pirTypeStr)
+	}
+	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
 	err = proxyLeft.Configure(config, &none)
 	if err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)

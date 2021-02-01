@@ -60,7 +60,7 @@ func main() {
 			log.Fatalf("Failed to configure driver: %s\n", err)
 		}
 
-		client := NewPirClientUpdatable(RandSource(), [2]PirServer{driver, driver})
+		client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
 
 		err = client.Init()
 		assert.NilError(ep, err)
@@ -108,23 +108,23 @@ func main() {
 				}
 			}
 		}
-		var serverHintTime, serverAnswerTime time.Duration
-		var hintBytes, answerBytes int
-		assert.NilError(ep, driver.GetHintTimer(0, &serverHintTime))
-		assert.NilError(ep, driver.GetAnswerTimer(0, &serverAnswerTime))
-		assert.NilError(ep, driver.GetAnswerBytes(0, &answerBytes))
-		assert.NilError(ep, driver.GetHintBytes(0, &hintBytes))
+		var serverOfflineTime, serverOnlineTime time.Duration
+		var offlineBytes, onlineBytes int
+		assert.NilError(ep, driver.GetOfflineTimer(0, &serverOfflineTime))
+		assert.NilError(ep, driver.GetOnlineTimer(0, &serverOnlineTime))
+		assert.NilError(ep, driver.GetOnlineBytes(0, &onlineBytes))
+		assert.NilError(ep, driver.GetOfflineBytes(0, &offlineBytes))
 
 		fmt.Printf("%10d%12d%22d%22d%22d%15d%22d%22d%15d\n",
 			config.NumRows,
 			config.UpdateSize,
-			serverHintTime.Microseconds()/int64(numBatches),
-			(clientUpdateTime-serverHintTime).Microseconds()/int64(numBatches),
-			hintBytes/(numBatches*config.UpdateSize),
+			serverOfflineTime.Microseconds()/int64(numBatches),
+			(clientUpdateTime-serverOfflineTime).Microseconds()/int64(numBatches),
+			offlineBytes/(numBatches*config.UpdateSize),
 			client.StorageNumBytes(),
-			serverAnswerTime.Microseconds()/int64(numBatches),
-			(clientReadTime-serverAnswerTime).Microseconds()/int64(numBatches),
-			answerBytes/numBatches)
+			serverOnlineTime.Microseconds()/int64(numBatches),
+			(clientReadTime-serverOnlineTime).Microseconds()/int64(numBatches),
+			onlineBytes/numBatches)
 	}
 	fmt.Fprintf(os.Stderr, "# NumLayerActivations: %v\n", NumLayerActivations)
 	fmt.Fprintf(os.Stderr, "# NumLayerHintBytes: %v\n", NumLayerHintBytes)

@@ -49,6 +49,10 @@ func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
 	}, nil
 }
 
+func (p *PirRpcProxy) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
+	return p.remote.Call("PirServerDriver.KeyUpdates", req, resp)
+}
+
 func (p *PirRpcProxy) Hint(req HintReq, resp *HintResp) error {
 	err := p.remote.Call("PirServerDriver.Hint", req, &resp)
 	if err == nil && p.ShouldRecord {
@@ -95,22 +99,22 @@ func (p *PirRpcProxy) GetRow(idx int, row *RowIndexVal) error {
 	return p.remote.Call("PirServerDriver.GetRow", idx, row)
 }
 
-func (p *PirRpcProxy) GetHintTimer(none int, out *time.Duration) error {
-	return p.remote.Call("PirServerDriver.GetHintTimer", none, out)
+func (p *PirRpcProxy) GetOfflineTimer(none int, out *time.Duration) error {
+	return p.remote.Call("PirServerDriver.GetOfflineTimer", none, out)
 }
 
-func (p *PirRpcProxy) GetAnswerTimer(none int, out *time.Duration) error {
-	return p.remote.Call("PirServerDriver.GetAnswerTimer", none, out)
+func (p *PirRpcProxy) GetOnlineTimer(none int, out *time.Duration) error {
+	return p.remote.Call("PirServerDriver.GetOnlineTimer", none, out)
 }
 
 func (p *PirRpcProxy) ResetMetrics(none int, none2 *int) error {
 	return p.remote.Call("PirServerDriver.ResetMetrics", none, none2)
 }
 
-func (p *PirRpcProxy) GetHintBytes(none int, out *int) error {
-	return p.remote.Call("PirServerDriver.GetHintBytes", none, out)
+func (p *PirRpcProxy) GetOfflineBytes(none int, out *int) error {
+	return p.remote.Call("PirServerDriver.GetOfflineBytes", none, out)
 }
 
-func (p *PirRpcProxy) GetAnswerBytes(none int, out *int) error {
-	return p.remote.Call("PirServerDriver.GetAnswerBytes", none, out)
+func (p *PirRpcProxy) GetOnlineBytes(none int, out *int) error {
+	return p.remote.Call("PirServerDriver.GetOnlineBytes", none, out)
 }
