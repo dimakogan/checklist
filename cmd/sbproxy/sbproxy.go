@@ -38,13 +38,13 @@ type sbproxy struct {
 
 func NewSBProxy(serverAddr string) *sbproxy {
 	addrs := strings.Split(serverAddr, ",")
-	rpcLeft, err := boosted.NewPirRpcProxy(addrs[0])
+	rpcLeft, err := boosted.NewPirRpcProxy(addrs[0], true)
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %s", addrs[0], err)
 	}
 	var rpcRight *boosted.PirRpcProxy
 	if len(addrs) > 1 {
-		rpcRight, err = boosted.NewPirRpcProxy(addrs[1])
+		rpcRight, err = boosted.NewPirRpcProxy(addrs[1], true)
 		if err != nil {
 			log.Fatalf("Failed to connect to %s: %s", addrs[1], err)
 		}

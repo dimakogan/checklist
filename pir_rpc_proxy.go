@@ -46,9 +46,18 @@ func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 	return remote, nil
 }
 
-func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
-	remote, err := NewHTTPSRPCClient(serverAddr)
-	return &PirRpcProxy{remote: remote}, err
+func NewPirRpcProxy(serverAddr string, useTLS bool) (*PirRpcProxy, error) {
+	if useTLS {
+		remote, err := NewHTTPSRPCClient(serverAddr)
+		return &PirRpcProxy{remote: remote}, err
+	} else {
+		remote, err := rpc.DialHTTP("tcp", serverAddr)
+		return &PirRpcProxy{remote: remote}, err
+	}
+}
+
+func (p *PirRpcProxy) Close() {
+	p.remote.Close()
 }
 
 func (p *PirRpcProxy) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {

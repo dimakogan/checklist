@@ -18,6 +18,7 @@ func main() {
 	latenciesFile := flag.String("latenciesFile", "", "Latencies output filename")
 	server1Addr := flag.String("s1", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	server2Addr := flag.String("s2", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	useTLS := flag.Bool("tls", true, "Should use TLS")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 
 	flag.Parse()
@@ -30,13 +31,13 @@ func main() {
 	latencies := make([]int64, 0)
 
 	fmt.Printf("Connecting to %s...", *server1Addr)
-	proxyLeft, err := b.NewPirRpcProxy(*server1Addr)
+	proxyLeft, err := b.NewPirRpcProxy(*server1Addr, *useTLS)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
 
 	fmt.Printf("Connecting to %s...", *server2Addr)
-	proxyRight, err := b.NewPirRpcProxy(*server2Addr)
+	proxyRight, err := b.NewPirRpcProxy(*server2Addr, *useTLS)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}

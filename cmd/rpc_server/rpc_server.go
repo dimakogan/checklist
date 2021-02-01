@@ -17,6 +17,7 @@ import (
 
 func main() {
 	port := flag.Int("p", 12345, "Listening port")
+	useTLS := flag.Bool("tls", true, "Should use TLS")
 	flag.Parse()
 
 	driver, err := b.NewPirServerDriver()
@@ -32,9 +33,8 @@ func main() {
 	// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
 	server.HandleHTTP("/", "/debug")
 
-	// Use self-signed certificate
-	httpServer, _ := https.Server(fmt.Sprintf("%d", *port), https.GenerateOptions{Host: "checklist.app"})
-
+	log.Printf("Serving RPC server on port %d\n", *port)
+	var httpServer *http.Server
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -42,12 +42,17 @@ func main() {
 		httpServer.Close()
 	}()
 
-	log.Printf("Serving RPC server on port port %d\n", *port)
-	// Start accept incoming HTTP connections
-	e := httpServer.ListenAndServeTLS("", "")
-	if e == http.ErrServerClosed {
+	if *useTLS {
+		// Use self-signed certificate
+		httpServer, _ = https.Server(fmt.Sprintf("%d", *port), https.GenerateOptions{Host: "checklist.app"})
+		err = httpServer.ListenAndServeTLS("", "")
+	} else {
+		httpServer = &http.Server{Addr: fmt.Sprintf(":%d", *port)}
+		err = httpServer.ListenAndServe()
+	}
+	if err == http.ErrServerClosed {
 		log.Println("Server shutdown")
-	} else if e != nil {
-		log.Fatal("Failed to http.Serve, %w", e)
+	} else if err != nil {
+		log.Fatal("Failed to http.Serve, %w", err)
 	}
 }

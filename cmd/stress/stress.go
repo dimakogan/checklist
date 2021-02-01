@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dimakogan/boosted-pir"
 	b "github.com/dimakogan/boosted-pir"
 
 	"github.com/paulbellamy/ratecounter"
@@ -30,6 +29,7 @@ func main() {
 	numRows := flag.Int("n", 10000, "Num DB rows")
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
+	useTLS := flag.Bool("tls", true, "Should use TLS")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	clientProf := flag.String("clientprof", "", "Profile Client filename")
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
@@ -39,7 +39,7 @@ func main() {
 	flag.Parse()
 
 	fmt.Printf("Connecting to %s...", *serverAddr)
-	proxy, err := b.NewPirRpcProxy(*serverAddr)
+	proxy, err := b.NewPirRpcProxy(*serverAddr, *useTLS)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -130,11 +130,11 @@ func main() {
 				idx := rand.Intn(len(proxy.QueryReqs))
 				var queryResp b.QueryResp
 				start := time.Now()
-				remote, err := boosted.NewHTTPSRPCClient(*serverAddr)
+				remote, err := b.NewPirRpcProxy(*serverAddr, *useTLS)
 				if err != nil {
 					log.Fatalf("Failed to connects: %s", err)
 				}
-				err = remote.Call("PirServerDriver.Answer", proxy.QueryReqs[idx], &queryResp)
+				err = remote.Answer(proxy.QueryReqs[idx], &queryResp)
 				elapsed := time.Since(start)
 				remote.Close()
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
