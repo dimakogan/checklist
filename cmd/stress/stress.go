@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dimakogan/boosted-pir"
 	b "github.com/dimakogan/boosted-pir"
 
 	"github.com/paulbellamy/ratecounter"
@@ -25,8 +26,7 @@ import (
 var NumDifferentReads = 100
 
 func main() {
-	server1Addr := flag.String("s1", "localhost:12345", "server address <HOSTNAME>:<PORT>")
-	server2Addr := flag.String("s2", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
 	numRows := flag.Int("n", 10000, "Num DB rows")
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
@@ -38,14 +38,8 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Connecting to %s...", *server1Addr)
-	proxyLeft, err := b.NewPirRpcProxy(*server1Addr)
-	if err != nil {
-		log.Fatal("Connection error: ", err)
-	}
-
-	fmt.Printf("Connecting to %s...", *server2Addr)
-	proxyRight, err := b.NewPirRpcProxy(*server2Addr)
+	fmt.Printf("Connecting to %s...", *serverAddr)
+	proxy, err := b.NewPirRpcProxy(*serverAddr)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -70,12 +64,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Bad PirType: %s", *pirTypeStr)
 	}
-	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
-	err = proxyLeft.Configure(config, &none)
-	if err != nil {
-		log.Fatalf("Failed to Configure: %s\n", err)
-	}
-	err = proxyRight.Configure(config, &none)
+	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxy, proxy})
+	err = proxy.Configure(config, &none)
 	if err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
@@ -84,7 +74,7 @@ func main() {
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
 	if len(*hintProf) > 0 {
-		err = proxyLeft.StartCpuProfile(0, &none)
+		err = proxy.StartCpuProfile(0, &none)
 		if err != nil {
 			log.Fatalf("Failed to StartCpuProfile: %s\n", err)
 		}
@@ -95,7 +85,7 @@ func main() {
 	}
 	if len(*hintProf) > 0 {
 		var profOut string
-		err = proxyLeft.StopCpuProfile(0, &profOut)
+		err = proxy.StopCpuProfile(0, &profOut)
 		if err != nil {
 			log.Fatalf("Failed to StopCpuProfile: %s\n", err)
 		}
@@ -109,8 +99,7 @@ func main() {
 	fmt.Printf("[OK]\n")
 
 	fmt.Printf("Caching responses...")
-	proxyLeft.ShouldRecord = true
-	proxyRight.ShouldRecord = true
+	proxy.ShouldRecord = true
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := rand.Intn(NumDifferentReads)
 		readVal, err := client.Read(config.PresetRows[idx].Key)
@@ -121,16 +110,15 @@ func main() {
 			log.Fatalf("Mismatching row value at index %d", idx)
 		}
 	}
-	proxyLeft.ShouldRecord = false
-	proxyRight.ShouldRecord = false
-	fmt.Printf("(%d #cached) [OK]\n", len(proxyRight.QueryReqs))
+	proxy.ShouldRecord = false
+	fmt.Printf("(%d #cached) [OK]\n", len(proxy.QueryReqs))
 
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(1 * time.Second)
 	var totalNumQueries, totalLatency uint64
 
 	if len(*answerProf) > 0 {
-		err = proxyLeft.StartCpuProfile(0, &none)
+		err = proxy.StartCpuProfile(0, &none)
 		if err != nil {
 			log.Fatalf("Failed to StartCpuProfile: %s\n", err)
 		}
@@ -139,24 +127,22 @@ func main() {
 	for i := 0; i < *numWorkers; i++ {
 		go func(idx int) {
 			for {
-				idx := rand.Intn(len(proxyRight.QueryReqs))
-				var queryRespL, queryRespR b.QueryResp
+				idx := rand.Intn(len(proxy.QueryReqs))
+				var queryResp b.QueryResp
 				start := time.Now()
-				errLeft := proxyLeft.Answer(proxyLeft.QueryReqs[idx], &queryRespL)
-				errRight := proxyRight.Answer(proxyRight.QueryReqs[idx], &queryRespR)
+				remote, err := boosted.NewHTTPSRPCClient(*serverAddr)
+				if err != nil {
+					log.Fatalf("Failed to connects: %s", err)
+				}
+				err = remote.Call("PirServerDriver.Answer", proxy.QueryReqs[idx], &queryResp)
 				elapsed := time.Since(start)
+				remote.Close()
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
-				if errLeft != nil {
-					log.Fatalf("Failed to replay query number %d to left server: %s\n", idx, errLeft)
+				if err != nil {
+					log.Fatalf("Failed to replay query number %d to server: %s\n", idx, err)
 				}
-				if errRight != nil {
-					log.Fatalf("Failed to replay query number %d to right server: %s\n", idx, errRight)
-				}
-				if !reflect.DeepEqual(proxyLeft.QueryResps[idx], queryRespL) {
-					log.Fatalf("Mismatching left response in query number %d", idx)
-				}
-				if !reflect.DeepEqual(proxyRight.QueryResps[idx], queryRespR) {
-					log.Fatalf("Mismatching right response in query number %d", idx)
+				if !reflect.DeepEqual(proxy.QueryResps[idx], queryResp) {
+					log.Fatalf("Mismatching  response in query number %d", idx)
 				}
 				counter.Incr(1)
 				atomic.AddUint64(&totalNumQueries, 1)
@@ -187,7 +173,7 @@ func main() {
 
 		if len(*answerProf) > 0 {
 			var profOut string
-			err = proxyLeft.StopCpuProfile(0, &profOut)
+			err = proxy.StopCpuProfile(0, &profOut)
 			if err != nil {
 				log.Fatalf("Failed to StopCpuProfile: %s\n", err)
 			}

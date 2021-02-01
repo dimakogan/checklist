@@ -22,7 +22,7 @@ type PirRpcProxy struct {
 	QueryResps   []QueryResp
 }
 
-func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
+func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 	config := tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -43,10 +43,12 @@ func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	registerExtraTypes()
-	return &PirRpcProxy{
-		remote: remote,
-	}, nil
+	return remote, nil
+}
+
+func NewPirRpcProxy(serverAddr string) (*PirRpcProxy, error) {
+	remote, err := NewHTTPSRPCClient(serverAddr)
+	return &PirRpcProxy{remote: remote}, err
 }
 
 func (p *PirRpcProxy) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
