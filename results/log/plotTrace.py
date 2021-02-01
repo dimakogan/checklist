@@ -16,7 +16,7 @@ sys.path.insert(1, '../initial')
 import custom_style
 
 
-def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
+def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False, ylim=None):
 
     fig, ax = plt.subplots()
 
@@ -57,7 +57,7 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
             ys,
             dots[file_num],
             marker='.',
-            markersize=1,
+            markersize=2,
             color=colors[file_num],
             linewidth=1,
             linestyle='None', #linestyles[file_num],
@@ -67,10 +67,12 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
         plt.ylabel(labels[1])
 
     ax.set_ylim(bottom=0)
+    if ylim:
+        ax.set_ylim(top=ylim)
     if legend:
         all_labels = ax.get_legend_handles_labels()
         labels = [[all_labels[0][i] for i in range(len(file_to_cols))], ["Checklist\n(this work)", "DPF", "Non-private"]]
-        plt.legend(*labels, fontsize=6, markerscale=6, handletextpad=0),  
+        plt.legend(*labels, fontsize=6, markerscale=2, handletextpad=0, loc="upper left"),  
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
     custom_style.save_fig(fig, out_name, [2.3, 1.6])
@@ -78,7 +80,7 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False):
         figlegend = pylab.figure(figsize=(1.3,1.1))
         all_labels = ax.get_legend_handles_labels()
         labels = [[all_labels[0][i] for i in range(len(file_to_cols))], ["Checklist\n(this work)", "DPF", "Non-private"]]
-        figlegend.legend(*labels, loc="center")
+        figlegend.legend(*labels)
         figlegend.savefig("legend.pdf")
 
 
@@ -102,18 +104,18 @@ if len(names) == 0:
 plot({name : [0, 4] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Server CPU time\n(sec, cumulative)'], 
-    args.out_basename+"_server.pdf",
+    args.out_basename+"_server.pdf", ylim=80,
     legend=True)
 
 plot({name : [0, 5] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Client CPU time\n(sec, cumulative)'], 
-    args.out_basename+"_client.pdf")
+    args.out_basename+"_client.pdf", ylim=150)
 
 plot({name : [0, 6] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Communication\n(MB, cumulative)'], 
-    args.out_basename+"_comm.pdf")
+    args.out_basename+"_comm.pdf", ylim=120)
 
 """
 plot({name : [0, 4] for name in (names+no_offline_names)[0:1]},

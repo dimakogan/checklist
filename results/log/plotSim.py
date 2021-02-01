@@ -116,13 +116,14 @@ plt.yscale("log", basey=2)
 ax.set_xlim([0, 7])
 ax.set_ylim([20, 40*10**6])
 
-plt.legend(loc="upper right", fontsize=8)
+plt.legend(loc="upper right", fontsize=6)
 ax.set_yticklabels([])
 
 set_size(1.3,1.7,ax)
+ax.set_yticks([2**4, 2**8, 2**12, 2**16, 2**20, 2**24])
 
 #fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "sim.pdf", [1.35, 2.1])
+custom_style.save_fig(fig, "sim.pdf", [1.2, 1.8])
 
 
 # %%

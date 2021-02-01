@@ -27,9 +27,9 @@ import custom_style
 
 inc_results_dir = "."
 
-boosted = os.path.join(inc_results_dir, "boosted.tsv")
-dpf = os.path.join(inc_results_dir, "dpf.tsv")
-matrix = os.path.join(inc_results_dir, "matrix.tsv")
+boosted = os.path.join(inc_results_dir, "boosted.txt")
+dpf = os.path.join(inc_results_dir, "dpf.txt")
+matrix = os.path.join(inc_results_dir, "matrix.txt")
 
 all_files = [boosted, dpf, matrix]
 
@@ -82,16 +82,19 @@ colors=["red", "blue", "green", "purple"]
 per_query_time, per_change_comm = compute_with_num_queries(boosted_data, num_queries)
 plt.plot(num_queries,per_query_time[0,:],
          color=colors[0],
-         linewidth=3,
+         marker="o",
+         linewidth=1,
          label=('Checklist ($B=%d$)' % boosted_data[0,col_update_size]))
 plt.plot(num_queries,per_query_time[1,:],
          color=colors[0],
-         linewidth=2,
-         label=('Checklist ($B=%d$)' % boosted_data[3,col_update_size]))
+         marker="*",
+         linewidth=1,
+         label=('Checklist ($B=%d$)' % boosted_data[1,col_update_size]))
 plt.plot(num_queries,per_query_time[2,:],
          color=colors[0],
+         marker="d",
          linewidth=1,
-         label=('Checklist ($B=%d$)' % boosted_data[6,col_update_size]))
+         label=('Checklist ($B=%d$)' % boosted_data[2,col_update_size]))
 
 
 per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)
@@ -112,8 +115,8 @@ plt.ylabel("Amortized server time\nper query [ms]")
 plt.xlim(xmin=0.0)
 plt.ylim(ymin=0.0)
 
-fig.legend(bbox_to_anchor=(0.95,0.95))
-custom_style.save_fig(fig, "server.pdf", [3.5, 2.1])
+fig.legend(fontsize=6)
+custom_style.save_fig(fig, "server.pdf", [2.3, 1.8])
 
 
 # %%

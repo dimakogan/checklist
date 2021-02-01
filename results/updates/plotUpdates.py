@@ -28,9 +28,8 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
     # ax.set_yticks([10**i for i in range(2,7)])
     #ax.tick_params('x', pad=0.5)
     # ax.set_xlim([0, 10000])
-    # ax.set_ylim([100, 2*(10**6)])
 
-    f = FuncFormatter(lambda x, pos: "%d%%"%int(x*100))
+    f = FuncFormatter(lambda x, pos: "%d\n{\\fontsize{6}{7}\\selectfont(%d%%)}"%(int(x*100), int(x*100)))
     ax.xaxis.set_major_formatter(f)
 
 #    f = FuncFormatter(lambda x, pos: "$\\textsf{10}^\\textsf{%d}$" % round(math.log(x, 10)))
@@ -64,26 +63,25 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
             marker = "X",
             label='Waterfall update')
 
-        plt.axhline(y=avg, color=colors[file_num], linestyle='--', linewidth=1, label='Average')
+        plt.axhline(y=avg, color="green", linestyle='--', linewidth=1, label='Average')
 
 
-
+        ax.set_yticks([0.0001,0.001,0.01,0.1,1,10])
+        ax.set_ylim([None, 3])
+        ax.set_xlim([0, None])
         plt.xlabel(labels[0])
+
+        ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
+
         plt.ylabel(labels[1])
-        plt.legend(loc=(0.5,0.2))
+        plt.legend(loc="center right", fontsize=6)
 
         # all_labels = ax.get_legend_handles_labels()
         # #labels = [all_labels[0], ["Boosted PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
         # plt.legend(all_labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name,  [3.5, 2.1], pad=0.05)
-    if legend:
-        figlegend = pylab.figure(figsize=(1.3,1.1))
-        all_labels = ax.get_legend_handles_labels()
-        labels = [all_labels[0], ["Checklist PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
-        figlegend.legend(*labels, loc="center")
-        figlegend.savefig("legend.pdf")
+    custom_style.save_fig(fig, out_name,  [2.3,1.8])
 
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
@@ -105,7 +103,7 @@ if len(names) == 0:
 
 plot({name : [0, 1] for name in names}, 
     ["linear", "log"],
-    ["DB Changes", 'Server time (sec)'], 
+    ["Updates \\fontsize{6}{7}\\selectfont{(% DB changed)}", 'Server time (sec)'], 
     args.out_basename+"_server.pdf")
 
 plot({name : [0, 2] for name in names}, 

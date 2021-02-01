@@ -94,7 +94,6 @@ print(line_y)
 
 #plt.xticks(np.arange(0, max(find_xs)+1, 1.0))
 
-#ax.set_yticks([int(2**i) for i in range(2, 8, 4)])
 plt.xticks(np.arange(0, max(find_xs)+1, 1.0))
 
 plt.xlabel("Time (days)")
@@ -104,9 +103,10 @@ plt.yscale("log", basey=2)
 
 ax.set_xlim([0, 7])
 ax.set_ylim([20, 40*10**6])
+ax.set_yticks([2**4, 2**8, 2**12, 2**16, 2**20, 2**24])
 
 #fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "log.pdf", [1.7, 2.1])
+custom_style.save_fig(fig, "log.pdf", [1.5, 1.8])
 
 
 # %%
