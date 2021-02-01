@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -23,13 +24,26 @@ import (
 
 // Number of different records to read to avoid caching effects.
 var NumDifferentReads = 100
+var numRows int
+
+//go:generate enumer -type=LoadType
+type LoadType int
+
+const (
+	Answer LoadType = iota
+	Hint
+	KeyUpdate
+)
+
+var pirType b.PirType
 
 func main() {
 	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
-	numRows := flag.Int("n", 10000, "Num DB rows")
+	flag.IntVar(&numRows, "n", 10000, "Num DB rows")
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	useTLS := flag.Bool("tls", true, "Should use TLS")
+	loadTypeStr := flag.String("l", Answer.String(), "load type: answer|hint")
 	usePersistent := flag.Bool("persistent", false, "Should use persistent connections")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	clientProf := flag.String("clientprof", "", "Profile Client filename")
@@ -38,6 +52,11 @@ func main() {
 	updatable := flag.Bool("updatable", true, "Use Updatable PIR")
 
 	flag.Parse()
+
+	loadType, err := LoadTypeString(*loadTypeStr)
+	if err != nil {
+		log.Fatalf("Bad LoadType: %s\n", loadTypeStr)
+	}
 
 	fmt.Printf("Connecting to %s...", *serverAddr)
 	proxy, err := b.NewPirRpcProxy(*serverAddr, *useTLS, *usePersistent)
@@ -49,10 +68,10 @@ func main() {
 	fmt.Printf("Setting up remote DB...")
 	var none int
 
-	config := b.TestConfig{NumRows: *numRows, RowLen: *rowLength, Updatable: *updatable, RandSeed: 678}
+	config := b.TestConfig{NumRows: numRows, RowLen: *rowLength, Updatable: *updatable, RandSeed: 678}
 
 	for i := 0; i < NumDifferentReads; i++ {
-		idx := i % *numRows
+		idx := i % numRows
 		value := make([]byte, *rowLength)
 		rand.Read(value)
 		config.PresetRows = append(config.PresetRows, b.RowIndexVal{
@@ -61,7 +80,7 @@ func main() {
 			Value: value})
 	}
 
-	pirType, err := b.PirTypeString(*pirTypeStr)
+	pirType, err = b.PirTypeString(*pirTypeStr)
 	if err != nil {
 		log.Fatalf("Bad PirType: %s", *pirTypeStr)
 	}
@@ -129,7 +148,13 @@ func main() {
 		go func(idx int) {
 			for {
 				start := time.Now()
-				replayQuery(proxy)
+				switch loadType {
+				case Answer:
+					replayQuery(proxy)
+				case Hint:
+					replayHint(proxy)
+				}
+
 				elapsed := time.Since(start)
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
 
@@ -181,7 +206,7 @@ func main() {
 			avgLatency = totalLatency / totalNumQueries
 		}
 		time.Sleep(time.Second)
-		fmt.Printf("\rCurrent rate: %d QPS, average latency: %.02f ms", counter.Rate()/10, float64(avgLatency)/1000000)
+		fmt.Printf("\rCurrent rate: %.02f QPS, average latency: %.02f ms", float64(counter.Rate())/10, float64(avgLatency)/1000000)
 	}
 }
 
@@ -194,6 +219,29 @@ func replayQuery(proxy *b.PirRpcProxy) error {
 	}
 	if !reflect.DeepEqual(proxy.QueryResps[idx], queryResp) {
 		return fmt.Errorf("Mismatching  response in query number %d", idx)
+	}
+	return nil
+}
+
+func replayHint(proxy *b.PirRpcProxy) error {
+	layerSize := numRows - 1
+	firstRow := rand.Intn(numRows - layerSize)
+	hintReq := b.HintReq{
+		RandSeed:        42,
+		DefragTimestamp: math.MaxInt32,
+		Layers:          []b.HintLayer{{FirstRow: firstRow, NumRows: layerSize, PirType: pirType}},
+	}
+
+	var hintResp b.HintResp
+	err := proxy.Hint(hintReq, &hintResp)
+	if err != nil {
+		return fmt.Errorf("Failed to replay hint request %v, %s", hintReq, err)
+	}
+	if len(hintResp.BatchResps) < 1 {
+		return fmt.Errorf("Failed to replay hint request, 0 subresponses: %v", hintReq)
+	}
+	if hintResp.BatchResps[0].NumRows != numRows {
+		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, numRows, hintResp.BatchResps[0].NumRows)
 	}
 	return nil
 }
