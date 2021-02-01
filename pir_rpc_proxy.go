@@ -86,7 +86,12 @@ func (p *PirRpcProxy) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error 
 }
 
 func (p *PirRpcProxy) Hint(req HintReq, resp *HintResp) error {
-	err := p.remote.Call("PirServerDriver.Hint", req, &resp)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	err = remote.Call("PirServerDriver.Hint", req, &resp)
 	if err == nil && p.ShouldRecord {
 		p.HintReqs = append(p.HintReqs, req)
 		p.HintResps = append(p.HintResps, *resp)
@@ -95,7 +100,12 @@ func (p *PirRpcProxy) Hint(req HintReq, resp *HintResp) error {
 }
 
 func (p *PirRpcProxy) Answer(query QueryReq, resp *QueryResp) error {
-	err := p.remote.Call("PirServerDriver.Answer", query, resp)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	err = remote.Call("PirServerDriver.Answer", query, resp)
 	if err == nil && p.ShouldRecord {
 		p.QueryReqs = append(p.QueryReqs, query)
 		p.QueryResps = append(p.QueryResps, *resp)
