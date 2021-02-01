@@ -8,4 +8,4 @@ sim.pdf: plotSim.py
 	python plotSim.py < sbtunnel.log
 
 trace_client.pdf: plotTrace.py
-	python plotTrace.py boosted.txt dpf.txt matrix.txt
+	python plotTrace.py boosted.txt dpf.txt nonprivate.txt

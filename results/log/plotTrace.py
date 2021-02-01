@@ -115,7 +115,7 @@ plot({name : [0, 5] for name in names},
 plot({name : [0, 6] for name in names}, 
     ["linear", "linear"],
     ["Time (days)", 'Communication\n(MB, cumulative)'], 
-    args.out_basename+"_comm.pdf", ylim=120)
+    args.out_basename+"_comm.pdf", ylim=60)
 
 """
 plot({name : [0, 4] for name in (names+no_offline_names)[0:1]},
