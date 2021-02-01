@@ -20,7 +20,6 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     ax.set_xscale(scales[0])
     ax.set_yscale(scales[1])
 
-    ax.set_yticks([10**i for i in range(2,7)])
     ax.tick_params('x', pad=0.5)
     ax.set_xlim([0, 10000])
     #ax.set_ylim([100, 2*(10**6)])
@@ -76,6 +75,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
 
+    ax.set_yticks([10**i for i in range(1,7)])
     if legend:
         all_labels = ax.get_legend_handles_labels()
         print(all_labels)
