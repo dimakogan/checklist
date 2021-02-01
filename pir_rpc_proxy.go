@@ -49,7 +49,7 @@ func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 }
 
 func NewPirRpcProxy(serverAddr string, useTLS bool, usePersistent bool) (*PirRpcProxy, error) {
-	proxy := PirRpcProxy{serverAddr: serverAddr}
+	proxy := PirRpcProxy{serverAddr: serverAddr, useTLS: true}
 	var err error
 	if usePersistent {
 		if proxy.remote, err = proxy.getRemote(); err != nil {
