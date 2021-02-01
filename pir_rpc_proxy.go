@@ -12,7 +12,9 @@ import (
 )
 
 type PirRpcProxy struct {
-	remote *rpc.Client
+	serverAddr string
+	useTLS     bool
+	remote     *rpc.Client
 
 	// Recording requests
 	ShouldRecord bool
@@ -46,22 +48,41 @@ func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 	return remote, nil
 }
 
-func NewPirRpcProxy(serverAddr string, useTLS bool) (*PirRpcProxy, error) {
-	if useTLS {
-		remote, err := NewHTTPSRPCClient(serverAddr)
-		return &PirRpcProxy{remote: remote}, err
+func NewPirRpcProxy(serverAddr string, useTLS bool, usePersistent bool) (*PirRpcProxy, error) {
+	proxy := PirRpcProxy{serverAddr: serverAddr}
+	var err error
+	if usePersistent {
+		if proxy.remote, err = proxy.getRemote(); err != nil {
+			return nil, err
+		}
+	}
+	return &proxy, nil
+}
+
+func (p *PirRpcProxy) getRemote() (*rpc.Client, error) {
+	if p.remote != nil {
+		return p.remote, nil
+	}
+	if p.useTLS {
+		return NewHTTPSRPCClient(p.serverAddr)
 	} else {
-		remote, err := rpc.DialHTTP("tcp", serverAddr)
-		return &PirRpcProxy{remote: remote}, err
+		return rpc.DialHTTP("tcp", p.serverAddr)
 	}
 }
 
 func (p *PirRpcProxy) Close() {
-	p.remote.Close()
+	if p.remote != nil {
+		p.remote.Close()
+	}
 }
 
 func (p *PirRpcProxy) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
-	return p.remote.Call("PirServerDriver.KeyUpdates", req, resp)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.KeyUpdates", req, resp)
 }
 
 func (p *PirRpcProxy) Hint(req HintReq, resp *HintResp) error {
@@ -83,49 +104,109 @@ func (p *PirRpcProxy) Answer(query QueryReq, resp *QueryResp) error {
 }
 
 func (p *PirRpcProxy) Configure(config TestConfig, none *int) error {
-	return p.remote.Call("PirServerDriver.Configure", config, none)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.Configure", config, none)
 }
 
-func (p *PirRpcProxy) AddRows(numRows int, none *int) (err error) {
-	return p.remote.Call("PirServerDriver.AddRows", numRows, none)
+func (p *PirRpcProxy) AddRows(numRows int, none *int) error {
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.AddRows", numRows, none)
 }
 
-func (p *PirRpcProxy) DeleteRows(numRows int, none *int) (err error) {
-	return p.remote.Call("PirServerDriver.DeleteRows", numRows, none)
+func (p *PirRpcProxy) DeleteRows(numRows int, none *int) error {
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.DeleteRows", numRows, none)
 }
 
 func (p *PirRpcProxy) StartCpuProfile(none int, none2 *int) error {
-	return p.remote.Call("PirServerDriver.StartCpuProfile", none, none2)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.StartCpuProfile", none, none2)
 }
 
 func (p *PirRpcProxy) StopCpuProfile(none int, out *string) error {
-	return p.remote.Call("PirServerDriver.StopCpuProfile", none, out)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.StopCpuProfile", none, out)
 }
 
 func (p *PirRpcProxy) NumRows(none int, out *int) error {
-	return p.remote.Call("PirServerDriver.NumRows", none, out)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.NumRows", none, out)
 }
 
 func (p *PirRpcProxy) GetRow(idx int, row *RowIndexVal) error {
-	return p.remote.Call("PirServerDriver.GetRow", idx, row)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.GetRow", idx, row)
 }
 
 func (p *PirRpcProxy) GetOfflineTimer(none int, out *time.Duration) error {
-	return p.remote.Call("PirServerDriver.GetOfflineTimer", none, out)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.GetOfflineTimer", none, out)
 }
 
 func (p *PirRpcProxy) GetOnlineTimer(none int, out *time.Duration) error {
-	return p.remote.Call("PirServerDriver.GetOnlineTimer", none, out)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.GetOnlineTimer", none, out)
 }
 
 func (p *PirRpcProxy) ResetMetrics(none int, none2 *int) error {
-	return p.remote.Call("PirServerDriver.ResetMetrics", none, none2)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.ResetMetrics", none, none2)
 }
 
 func (p *PirRpcProxy) GetOfflineBytes(none int, out *int) error {
-	return p.remote.Call("PirServerDriver.GetOfflineBytes", none, out)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.GetOfflineBytes", none, out)
 }
 
 func (p *PirRpcProxy) GetOnlineBytes(none int, out *int) error {
-	return p.remote.Call("PirServerDriver.GetOnlineBytes", none, out)
+	var remote *rpc.Client
+	var err error
+	if remote, err = p.getRemote(); err != nil {
+		return err
+	}
+	return remote.Call("PirServerDriver.GetOnlineBytes", none, out)
 }

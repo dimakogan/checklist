@@ -30,6 +30,7 @@ func main() {
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	useTLS := flag.Bool("tls", true, "Should use TLS")
+	usePersistent := flag.Bool("persistent", false, "Should use persistent connections")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	clientProf := flag.String("clientprof", "", "Profile Client filename")
 	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
@@ -39,7 +40,7 @@ func main() {
 	flag.Parse()
 
 	fmt.Printf("Connecting to %s...", *serverAddr)
-	proxy, err := b.NewPirRpcProxy(*serverAddr, *useTLS)
+	proxy, err := b.NewPirRpcProxy(*serverAddr, *useTLS, *usePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -127,23 +128,11 @@ func main() {
 	for i := 0; i < *numWorkers; i++ {
 		go func(idx int) {
 			for {
-				idx := rand.Intn(len(proxy.QueryReqs))
-				var queryResp b.QueryResp
 				start := time.Now()
-				remote, err := b.NewPirRpcProxy(*serverAddr, *useTLS)
-				if err != nil {
-					log.Fatalf("Failed to connects: %s", err)
-				}
-				err = remote.Answer(proxy.QueryReqs[idx], &queryResp)
+				replayQuery(proxy)
 				elapsed := time.Since(start)
-				remote.Close()
 				atomic.AddUint64(&totalLatency, uint64(elapsed))
-				if err != nil {
-					log.Fatalf("Failed to replay query number %d to server: %s\n", idx, err)
-				}
-				if !reflect.DeepEqual(proxy.QueryResps[idx], queryResp) {
-					log.Fatalf("Mismatching  response in query number %d", idx)
-				}
+
 				counter.Incr(1)
 				atomic.AddUint64(&totalNumQueries, 1)
 			}
@@ -194,4 +183,17 @@ func main() {
 		time.Sleep(time.Second)
 		fmt.Printf("\rCurrent rate: %d QPS, average latency: %.02f ms", counter.Rate()/10, float64(avgLatency)/1000000)
 	}
+}
+
+func replayQuery(proxy *b.PirRpcProxy) error {
+	idx := rand.Intn(len(proxy.QueryReqs))
+	var queryResp b.QueryResp
+	err := proxy.Answer(proxy.QueryReqs[idx], &queryResp)
+	if err != nil {
+		return fmt.Errorf("Failed to replay query number %d to server: %s", idx, err)
+	}
+	if !reflect.DeepEqual(proxy.QueryResps[idx], queryResp) {
+		return fmt.Errorf("Mismatching  response in query number %d", idx)
+	}
+	return nil
 }

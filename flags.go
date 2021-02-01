@@ -78,7 +78,7 @@ func TestConfigs() []TestConfig {
 
 func ServerDriver() (PirServerDriver, error) {
 	if serverAddr != "" {
-		return NewPirRpcProxy(serverAddr, useTLS)
+		return NewPirRpcProxy(serverAddr, useTLS, true)
 	} else {
 		return NewPirServerDriver()
 	}
