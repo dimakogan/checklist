@@ -297,7 +297,7 @@ func replayHint(proxy *b.PirRpcProxy, sizes []int, probs []float64) error {
 		return fmt.Errorf("Failed to replay hint request, 0 subresponses: %v", hintReq)
 	}
 	if hintResp.BatchResps[0].NumRows != numRows {
-		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, numRows, hintResp.BatchResps[0].NumRows)
+		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.BatchResps[0].NumRows)
 	}
 	return nil
 }
