@@ -359,7 +359,7 @@ func smallestLayerSize(nRows int) int {
 	return 10 * (*SecParam) * (*SecParam)
 }
 
-func (c pirClientUpdatable) layersMaxSize(nRows int) []int {
+func (c pirClientUpdatable) LayersMaxSize(nRows int) []int {
 	// if nRows == 0 {
 	// 	return []int{}
 	// }
@@ -375,7 +375,7 @@ func (c pirClientUpdatable) layersMaxSize(nRows int) []int {
 }
 
 func (c *pirClientUpdatable) freshLayers(numRows int) []clientLayer {
-	maxSizes := c.layersMaxSize(numRows)
+	maxSizes := c.LayersMaxSize(numRows)
 
 	layers := make([]clientLayer, len(maxSizes))
 	if len(layers) == 0 {

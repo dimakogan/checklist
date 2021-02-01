@@ -25,6 +25,7 @@ import (
 // Number of different records to read to avoid caching effects.
 var NumDifferentReads = 100
 var numRows int
+var updateSize int
 
 //go:generate enumer -type=LoadType
 type LoadType int
@@ -43,7 +44,8 @@ func main() {
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
 	useTLS := flag.Bool("tls", true, "Should use TLS")
-	loadTypeStr := flag.String("l", Answer.String(), "load type: answer|hint")
+	loadTypeStr := flag.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
+	flag.IntVar(&updateSize, "b", 500, "Number of new keys on each key update")
 	usePersistent := flag.Bool("persistent", false, "Should use persistent connections")
 	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
 	clientProf := flag.String("clientprof", "", "Profile Client filename")
@@ -92,6 +94,22 @@ func main() {
 
 	fmt.Printf("[OK]\n")
 
+	var sizes []int
+	var probs []float64
+	if loadType == Hint {
+		sizes = client.LayersMaxSize(numRows)
+		probs = make([]float64, len(sizes))
+		probs[len(probs)-1] = 1.0
+		overflowSize := 2 * sizes[len(sizes)-1]
+		for l := len(sizes) - 2; l >= 0; l-- {
+			// Number of time this layer gots activated before it overflows
+			c := sizes[l] / overflowSize
+			probs[l] = probs[l+1] * (float64(c) / float64(c+1))
+			overflowSize = (c + 1) * overflowSize
+		}
+		fmt.Printf("Using layer sizes %v with probabilities %v\n", sizes, probs)
+	}
+
 	fmt.Printf("Obtaining hint (this may take a while)...")
 	if len(*hintProf) > 0 {
 		err = proxy.StartCpuProfile(0, &none)
@@ -135,6 +153,7 @@ func main() {
 
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(10 * time.Second)
+	startTime := time.Now()
 	var totalNumQueries, totalLatency uint64
 
 	if len(*answerProf) > 0 {
@@ -152,7 +171,9 @@ func main() {
 				case Answer:
 					replayQuery(proxy)
 				case Hint:
-					replayHint(proxy)
+					replayHint(proxy, sizes, probs)
+				case KeyUpdate:
+					replayKeyUpdate(proxy)
 				}
 
 				elapsed := time.Since(start)
@@ -206,7 +227,10 @@ func main() {
 			avgLatency = totalLatency / totalNumQueries
 		}
 		time.Sleep(time.Second)
-		fmt.Printf("\rCurrent rate: %.02f QPS, average latency: %.02f ms", float64(counter.Rate())/10, float64(avgLatency)/1000000)
+		fmt.Printf("\rCurrent rate: %.02f QPS, overall rate: %.02f, average latency: %.02f ms",
+			float64(counter.Rate())/10,
+			float64(totalNumQueries)/time.Since(startTime).Seconds(),
+			float64(avgLatency)/1000000)
 	}
 }
 
@@ -223,15 +247,41 @@ func replayQuery(proxy *b.PirRpcProxy) error {
 	return nil
 }
 
-func replayHint(proxy *b.PirRpcProxy) error {
-	layerSize := numRows - 1
-	firstRow := rand.Intn(numRows - layerSize)
+func replayKeyUpdate(proxy *b.PirRpcProxy) error {
+	keyReq := b.KeyUpdatesReq{
+		DefragTimestamp: math.MaxInt32,
+		NextTimestamp:   int32(numRows - updateSize),
+	}
+	//fmt.Printf("Using size: %d\n", layerSize)
+	var keyResp b.KeyUpdatesResp
+	err := proxy.KeyUpdates(keyReq, &keyResp)
+	if err != nil {
+		return fmt.Errorf("Failed to replay key update request %v, %s", keyReq, err)
+	}
+	if len(keyResp.Keys) != updateSize {
+		return fmt.Errorf("Invalid size of key update, expected: %d, got: %d", numRows, len(keyResp.Keys))
+	}
+	return nil
+}
+
+func randSize(sizes []int, probs []float64) int {
+	p := rand.Float64()
+	bucket := 0
+	for p > probs[bucket] {
+		bucket++
+	}
+	return sizes[bucket]
+}
+
+func replayHint(proxy *b.PirRpcProxy, sizes []int, probs []float64) error {
+	layerSize := randSize(sizes, probs)
+	firstRow := rand.Intn(numRows - layerSize + 1)
 	hintReq := b.HintReq{
 		RandSeed:        42,
 		DefragTimestamp: math.MaxInt32,
 		Layers:          []b.HintLayer{{FirstRow: firstRow, NumRows: layerSize, PirType: pirType}},
 	}
-
+	//fmt.Printf("Using size: %d\n", layerSize)
 	var hintResp b.HintResp
 	err := proxy.Hint(hintReq, &hintResp)
 	if err != nil {
