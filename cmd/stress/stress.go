@@ -232,8 +232,9 @@ func main() {
 			avgLatency = totalLatency / totalNumQueries
 		}
 		time.Sleep(time.Second)
-		fmt.Printf("\rCurrent rate: %.02f QPS, overall rate: %.02f, average latency: %.02f ms",
+		fmt.Printf("\rCurrent rate: %.02f QPS, overall rate (over %s): %.02f, average latency: %.02f ms",
 			float64(counter.Rate())/10,
+			time.Since(startTime).String(),
 			float64(totalNumQueries)/time.Since(startTime).Seconds(),
 			float64(avgLatency)/1000000)
 	}
