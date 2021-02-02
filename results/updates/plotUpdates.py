@@ -67,14 +67,14 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
 
 
         ax.set_yticks([0.0001,0.001,0.01,0.1,1,10])
-        ax.set_ylim([None, 3])
+        #ax.set_ylim([None, 3])
         ax.set_xlim([0, None])
         plt.xlabel(labels[0])
 
         ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
 
         plt.ylabel(labels[1])
-        plt.legend(loc="right", fontsize=6)
+        plt.legend(loc="right", fontsize=6, bbox_to_anchor=(1.04,0.37))
 
         # all_labels = ax.get_legend_handles_labels()
         # #labels = [all_labels[0], ["Boosted PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
