@@ -55,6 +55,7 @@ func NewHTTPRPCClient(serverAddr string) (*rpc.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return rpc.NewClient(conn), nil
 }
 
