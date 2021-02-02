@@ -71,7 +71,7 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False, ylim=N
         ax.set_ylim(top=ylim)
     if legend:
         all_labels = ax.get_legend_handles_labels()
-        labels = [[all_labels[0][i] for i in range(len(file_to_cols))], ["Checklist\n(this work)", "DPF", "Non-private"]]
+        labels = [[all_labels[0][i] for i in range(len(file_to_cols))], ["Checklist", "DPF", "Non-private"]]
         plt.legend(*labels, fontsize=6, markerscale=2, handletextpad=0, loc="upper left"),  
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
