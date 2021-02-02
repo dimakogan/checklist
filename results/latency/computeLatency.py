@@ -11,5 +11,5 @@ def average(name):
         return "-"
 
 for name in ["boosted", "dpf", "nonprivate", "google"]:
-    print("%s: PERSISTENT HTTP: %s, RECONNECT HTTP: %s, RECONNECT TLS: %s \n" % (name, average(name+"_persistent.txt"), average(name+".txt"), average(name+"_tls.txt")))
+    print("%20s:\t PERSISTENT HTTP: %7s, HTTP: %7s, TLS: %7s \n" % (name, average(name+"_persistent.txt"), average(name+".txt"), average(name+"_tls.txt")))
 

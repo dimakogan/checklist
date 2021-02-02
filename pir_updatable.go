@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 
 	"github.com/elliotchance/orderedmap"
 )
@@ -524,15 +525,26 @@ func (c pirClientUpdatable) Read(key uint32) (Row, error) {
 		return nil, fmt.Errorf("Failed to query: %x", key)
 	}
 	responses := make([]QueryResp, 2)
-	err := c.servers[Left].Answer(queryReq[Left], &responses[Left])
-	if err != nil {
-		return nil, err
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		errs[Left] = c.servers[Left].Answer(queryReq[Left], &responses[Left])
+	}()
+	go func() {
+		defer wg.Done()
+		errs[Right] = c.servers[Right].Answer(queryReq[Right], &responses[Right])
+	}()
+	wg.Wait()
+	if errs[Left] != nil {
+		return nil, errs[Left]
+	}
+	if errs[Right] != nil {
+		return nil, errs[Left]
 	}
 
-	err = c.servers[Right].Answer(queryReq[Right], &responses[Right])
-	if err != nil {
-		return nil, err
-	}
 	return reconstructFunc(responses)
 }
 
