@@ -136,20 +136,22 @@ func main() {
 
 	fmt.Printf("[OK]\n")
 
-	fmt.Printf("Caching responses...")
-	proxy.ShouldRecord = true
-	for i := 0; i < NumDifferentReads; i++ {
-		idx := rand.Intn(NumDifferentReads)
-		readVal, err := client.Read(config.PresetRows[idx].Key)
-		if err != nil {
-			log.Fatalf("Failed to read index %d: %s", i, err)
+	if loadType == Answer {
+		fmt.Printf("Caching responses...")
+		proxy.ShouldRecord = true
+		for i := 0; i < NumDifferentReads; i++ {
+			idx := rand.Intn(NumDifferentReads)
+			readVal, err := client.Read(config.PresetRows[idx].Key)
+			if err != nil {
+				log.Fatalf("Failed to read index %d: %s", i, err)
+			}
+			if !reflect.DeepEqual(config.PresetRows[idx].Value, readVal) {
+				log.Fatalf("Mismatching row value at index %d", idx)
+			}
 		}
-		if !reflect.DeepEqual(config.PresetRows[idx].Value, readVal) {
-			log.Fatalf("Mismatching row value at index %d", idx)
-		}
+		proxy.ShouldRecord = false
+		fmt.Printf("(%d #cached) [OK]\n", len(proxy.QueryReqs))
 	}
-	proxy.ShouldRecord = false
-	fmt.Printf("(%d #cached) [OK]\n", len(proxy.QueryReqs))
 
 	// We're recording marks-per-1second
 	counter := ratecounter.NewRateCounter(10 * time.Second)
