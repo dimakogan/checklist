@@ -87,14 +87,16 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     custom_style.remove_chart_junk(plt, ax, grid=True)
     custom_style.save_fig(fig, out_name, [2.3, 1.6])
     if legend:
-        dummy = Line2D([0], [0], linewidth=0, linestyle=None)
-        figlegend = pylab.figure(figsize=(5,0.5))
         handles, labels = ax.get_legend_handles_labels()
-        new_handles = [dummy, handles[0], dummy, handles[1], dummy, handles[2]] + handles[3:] 
-        pretty_labels = ["",  "online", "Checklist", "offline", "", "amortized", "DPF",  "Matrix"]
 
-        figlegend.legend(handles=new_handles, labels=pretty_labels, loc="center", ncol=4)
-        figlegend.savefig("legend.pdf")
+        figlegend1 = pylab.figure(figsize=(3.55,0.22))
+        dummy = Line2D([0], [0], linewidth=0, linestyle=None)
+        figlegend1.legend(handles=[dummy]+handles[0:3], labels=["Checklist", "online", "offline", "amortized"], loc="center", ncol=4)
+        figlegend1.savefig("legend1.pdf")
+
+        figlegend2 = pylab.figure(figsize=(1.52,0.22))
+        figlegend2.legend(handles=handles[3:5], labels=[ "DPF",  "Matrix"], loc="center", ncol=2)
+        figlegend2.savefig("legend2.pdf")
 
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
