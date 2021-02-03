@@ -47,7 +47,8 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         ys = []
         for i in xs:
             ys.append(offline_cost/float(i) + online_cost)
-
+        print(online_cost)
+        
         plt.plot(
             #results[results.dtype.names[0]],
             #results[col_name], 
