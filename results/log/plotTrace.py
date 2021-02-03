@@ -90,8 +90,6 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False, ylim=N
 
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
-parser.add_argument('input_files', metavar='input_files', type=str, nargs='*',
-                   help='filenames of TSV benchmark results')
 parser.add_argument('-o', 
                     dest='out_basename',
                     default='trace',
@@ -100,7 +98,7 @@ parser.add_argument('-o',
 args = parser.parse_args()
 
 
-names = args.input_files
+names = ["boosted.txt", "dpf.txt", "nonprivate.txt", "google.txt"]
 
 if len(names) == 0:
     parser.print_help()
@@ -112,7 +110,7 @@ plot({name : [0, 4] for name in names},
     args.out_basename+"_server.pdf", ylim=200,
     legend=True)
 
-plot({name : [0, 6] for name in names}, 
+plot({name : [0, 6] for name in [names[0],names[1], names[3]]}, 
     ["linear", "linear"],
     ["Time (days)", 'Communication\n(MB, cumulative)'], 
     args.out_basename+"_comm.pdf", ylim=120)
