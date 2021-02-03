@@ -224,6 +224,7 @@ func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
 	}
 }
 
+
 func (c *pirClientPunc) findIndex(i int) (setIdx, posInBlock int) {
 	if i >= c.nRows {
 		return -1, -1
@@ -234,19 +235,25 @@ func (c *pirClientPunc) findIndex(i int) (setIdx, posInBlock int) {
 			return int(setIdx), posInBlock
 		}
 	}
+	var pset PuncturableSet
 	// If set pointer of i is invalid, use this opportunity to upgrade other invalid pointers while doing linear scan
 	for j := range c.sets {
-		pset := c.eval(j)
+		setGen := c.setGenForSet(j)
+		setKeyNoShift := c.sets[j]
+		shift := setKeyNoShift.shift
+		setKeyNoShift.shift = 0
+		setGen.EvalInPlace(setKeyNoShift, &pset)
 
 		for _, v := range pset.elems {
+			shiftedV := int((uint32(v) + shift) % uint32(setGen.univSize))
 			for posInBlock = 0; posInBlock < c.nRowsPerBlock; posInBlock++ {
-				if v+posInBlock == i {
+				if shiftedV+posInBlock == i {
 					return j, posInBlock
 				}
 			}
-			if v < c.nRows && c.idxToSetIdx[v] < 0 {
+			if shiftedV < c.nRows {
 				// upgrade invalid pointer to valid one
-				c.idxToSetIdx[v] = int32(j)
+				c.idxToSetIdx[shiftedV] = int32(j)
 			}
 		}
 	}
@@ -315,8 +322,16 @@ func (c *pirClientPunc) eval(setIdx int) PuncturableSet {
 	} else {
 		return c.setGen.Eval(c.sets[setIdx])
 	}
-
 }
+
+func (c *pirClientPunc) setGenForSet(setIdx int) *SetGenerator {
+	if c.sets[setIdx].id < c.origSetGen.num {
+		return &c.origSetGen
+	} else {
+		return &c.setGen
+	}
+}
+
 func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
 	pset := c.eval(setIdx)
 	for _, idx := range pset.elems {

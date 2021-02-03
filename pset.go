@@ -125,6 +125,19 @@ func (gen *SetGenerator) Eval(key SetKey) PuncturableSet {
 		setSize:  gen.setSize,
 		elems:    make([]int, gen.setSize)}
 
+	gen.EvalInPlace(key, &pset)
+	return pset
+}
+
+
+func (gen *SetGenerator) EvalInPlace(key SetKey, pset *PuncturableSet) {
+	pset.SetKey = key
+	pset.univSize = gen.univSize
+	pset.setSize = gen.setSize
+	if len(pset.elems) != gen.setSize {
+		pset.elems = make([]int, gen.setSize)
+	}
+
 	var block [16]byte
 
 	block[0] = 0xAA
@@ -133,11 +146,12 @@ func (gen *SetGenerator) Eval(key SetKey) PuncturableSet {
 	gen.idGen.Encrypt(pset.seed[:], block[:])
 	gen.baseGen.Eval(pset.seed[:], pset.elems)
 
+	if key.shift == 0 {
+		return
+	}
 	for i := 0; i < len(pset.elems); i++ {
 		pset.elems[i] = int((uint32(pset.elems[i]) + key.shift) % uint32(gen.univSize))
 	}
-
-	return pset
 }
 
 func (gen *SetGenerator) Punc(pset PuncturableSet, idx int) PuncturedSet {
