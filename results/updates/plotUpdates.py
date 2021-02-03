@@ -49,7 +49,8 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
         xs = changes
         ys = cost/10**6
 
-        avg = np.average(ys)
+        avg = np.cumsum(ys)/ range(1,len(ys)+1)
+
         plt.plot(xs[0], ys[0], color=colors[file_num], marker='s',  linestyle = 'None', markersize='6', label='Initial setup')
 
         plt.plot(
@@ -63,7 +64,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
             marker = "X",
             label='Waterfall update')
 
-        plt.axhline(y=avg, color="purple", linestyle='--', linewidth=1, label='Average')
+        plt.plot(xs, avg, color="purple", linestyle='--', linewidth=1, label='Running average')
 
 
         ax.set_yticks([0.0001,0.001,0.01,0.1,1,10])
