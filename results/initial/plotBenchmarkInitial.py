@@ -95,7 +95,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         figlegend1.savefig("legend1.pdf")
 
         figlegend2 = pylab.figure(figsize=(1.52,0.22))
-        figlegend2.legend(handles=handles[3:5], labels=[ "DPF",  "Matrix"], loc="center", ncol=2)
+        figlegend2.legend(handles=handles[3:5], labels=[ "DPF",  "Matrix"], markerfirst=False, loc="center", ncol=2)
         figlegend2.savefig("legend2.pdf")
 
 
