@@ -42,13 +42,18 @@ def plot(file_to_cols, scales, labels, out_name, add_y = 0, legend=False, ylim=N
     dots=["", "", "", ""]
 
     for file_num, filename in enumerate(file_to_cols):
-        results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
+        try:
+            results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename], invalid_raise=True)
+        except:
+            results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, delimiter=',', usecols=file_to_cols[filename])
 
         timestamp = results[results.dtype.names[0]]
         cost = results[results.dtype.names[1]]
         
         xs = timestamp-timestamp[0]
         ys = np.cumsum(cost+add_y)/10**6
+
+        print("Total %s for %s: %d"  % (results.dtype.names[1], filename, ys[-1]))
 
         plt.plot(
             #results[results.dtype.names[0]],

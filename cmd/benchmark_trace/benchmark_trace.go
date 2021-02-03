@@ -57,7 +57,9 @@ func loadTraceFile(filename string) [][]int {
 		if err != nil {
 			log.Fatalf("Bad row #%d deletes: %s", row, trace[row][ColumnQueries])
 		}
-		trace = append(trace, []int{ts, adds, deletes, queries})
+		if adds+deletes+queries > 0 {
+			trace = append(trace, []int{ts, adds, deletes, queries})
+		}
 	}
 
 	return trace
