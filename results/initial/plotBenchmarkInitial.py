@@ -6,11 +6,13 @@ import matplotlib
 matplotlib.use('Agg')
 import math
 import matplotlib.pyplot as plt
+import matplotlib.markers as markers
 import numpy as np
 import os
 import sys
 from matplotlib.ticker import FuncFormatter
 import pylab
+from matplotlib.lines import Line2D
 
 def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False):
 
@@ -37,7 +39,6 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     for file_num, filename in enumerate(file_to_cols):
         pretty_name = os.path.splitext(os.path.basename(filename))[0]
         results = np.genfromtxt(filename, names=True, comments='#', skip_header=1, usecols=file_to_cols[filename])
-        print(results)
 
         online_cost = np.array([results[results.dtype.names[1]]])
         offline_cost = np.array([results[results.dtype.names[2]]])
@@ -47,7 +48,19 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
         for i in xs:
             ys.append(offline_cost/float(i) + online_cost)
 
+        plt.plot(
+            #results[results.dtype.names[0]],
+            #results[col_name], 
+            xs,
+            [online_cost]*len(xs),
+            dots[file_num],
+                linewidth=1,
+            color=colors[file_num],
+            linestyle=linestyles[file_num], 
+            label=filename)
+
         if offline_cost > online_cost*10:
+            plt.plot(xs[0], ys[0], color=colors[file_num], marker=markers.CARETRIGHTBASE,  linestyle = 'None', markersize='6', label='Initial setup')
             plt.plot(
                 #results[results.dtype.names[0]],
                 #results[col_name], 
@@ -61,34 +74,26 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
                 markevery=500,
                 label=filename)
 
-        plt.plot(
-            #results[results.dtype.names[0]],
-            #results[col_name], 
-            xs,
-            [online_cost]*len(xs),
-            dots[file_num],
-                linewidth=1,
-            color=colors[file_num],
-            linestyle=linestyles[file_num], 
-            label=filename)
-
         plt.xlabel(labels[0])
         plt.ylabel(labels[1])
 
     ax.set_yticks([10**i for i in range(1,7)])
-    if legend:
-        all_labels = ax.get_legend_handles_labels()
-        print(all_labels)
-        labels = [all_labels[0], ["Checklist PIR (online)", "Checklist PIR (amortized)","DPF", "Matrix"]]
-        plt.legend(*labels, fontsize=6)
+    
+    # if legend:
+    #     all_labels = ax.get_legend_handles_labels()
+    #     labels = [all_labels[0], prettyLabels]
+    #     plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
     custom_style.save_fig(fig, out_name, [2.3, 1.6])
     if legend:
-        figlegend = pylab.figure(figsize=(1.3,1.1))
-        all_labels = ax.get_legend_handles_labels()
-        labels = [all_labels[0], ["Checklist PIR\n(this work)", "amortized","DPF", "Matrix"]]
-        figlegend.legend(*labels, loc="center")
+        dummy = Line2D([0], [0], linewidth=0, linestyle=None)
+        figlegend = pylab.figure(figsize=(5,0.5))
+        handles, labels = ax.get_legend_handles_labels()
+        new_handles = [dummy, handles[0], dummy, handles[1], dummy, handles[2]] + handles[3:] 
+        pretty_labels = ["",  "online", "Checklist", "offline", "", "amortized", "DPF",  "Matrix"]
+
+        figlegend.legend(handles=new_handles, labels=pretty_labels, loc="center", ncol=4)
         figlegend.savefig("legend.pdf")
 
 
