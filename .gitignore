@@ -42,4 +42,4 @@ compare/fig/__pycache__/
 /sbtunnel
 .ipynb_checkpoints/
 __pycache__
-
+~*.xlsx
