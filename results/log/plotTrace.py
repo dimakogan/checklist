@@ -27,7 +27,7 @@ ALL = 4
 # File names
 filenames = ["boosted.txt", "dpf.txt", "nonprivate.txt", "google.txt"]
 labels = ["Checklist", "DPF", "Non-private", "Non-private"]
-extra_labels = ["Prefix-list update", "Hint update", "Lookup"]
+extra_labels = ["Offline", "Online"]
 
 # Column numbers
 COL_TIMESTAMP = 0
@@ -41,7 +41,7 @@ COL_COMMUNICATION = 6
 
 linestyles = ["solid", "solid", "solid"]
 colors=["red", "blue", "grey", "grey"]
-fill_colors = [plt.get_cmap('Reds')(x) for x in np.linspace(0,0.3,3)]
+fill_colors = [plt.get_cmap('Reds')(x) for x in np.linspace(0,0.3,2)]
 dots=["", "", "", ""]
 
 
@@ -87,11 +87,10 @@ def save(fig, ax, out_name, legend=False):
 
 def legend(ax):
     handles, labels = ax.get_legend_handles_labels()
-    print(handles, labels)
 
     custom_lines = [Line2D([0], [0], color=h.get_color(), lw=2) for h in handles]
-    figlegend1 = pylab.figure(figsize=(3.95,0.22))
-    filled = [Patch(facecolor=fill_colors[i]) for i in [0,1,2]]
+    figlegend1 = pylab.figure(figsize=(2.4,0.22))
+    filled = [Patch(facecolor=fill_colors[i]) for i in [0,1]]
 
     figlegend1.legend(custom_lines[0:1]+filled, labels[0:1]+extra_labels, ncol=4, columnspacing=1, loc="center")
     figlegend1.savefig("legend1.pdf")
@@ -119,37 +118,18 @@ def stackplot(xs, ys):
     # for stack, hatch in zip(stacks, hatches):
     #     stack.set_hatch(hatch)
 
-def read_results(filename):
-    try:
-        return np.genfromtxt(filename, names=True, comments='#', skip_header=1, invalid_raise=True)
-    except:
-        return np.genfromtxt(filename, names=True, comments='#', skip_header=1, delimiter=',')
-
-def cum_cost(filename, col_num):
-    results = read_results(filename)
-    timestamp = results[results.dtype.names[COL_TIMESTAMP]]
-    cost = results[results.dtype.names[col_num]]
-        
-    xs = timestamp-timestamp[0]
-    ys = np.cumsum(cost)
-    return xs, ys
+def read_results(filename, delimiter=None):
+    return np.genfromtxt(filename, names=True, comments='#', skip_header=1, delimiter=delimiter)
 
 def offline_cost(results,col_num):
     return results[results.dtype.names[col_num]]*(results[results.dtype.names[COL_QUERIES]]==0)
 
 
 def stacked(results, col_num):
-    nonprivate = np.cumsum(offline_cost(results[NONPRIVATE], col_num))/10**6
     offline = np.cumsum(offline_cost(results[BOOSTED], col_num))/10**6
     total = np.cumsum(results[BOOSTED][results[BOOSTED].dtype.names[col_num]])/10**6
-    return np.array([nonprivate,offline-nonprivate,total-offline])
+    return np.array([offline,total-offline])
 
-
-def timestamps(filename):
-    results = read_results(filename)
-    timestamp = results[results.dtype.names[COL_TIMESTAMP]] 
-    timestamp = timestamp-timestamp[0]
-    return timestamp
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
 parser.add_argument('-o', 
@@ -161,7 +141,8 @@ args = parser.parse_args()
 
 results = {}
 for i in range(ALL):
-    results[i] = read_results(filenames[i])
+    delim = "," if i == GOOGLE else None
+    results[i] = read_results(filenames[i], delim)
 
 timestamps = results[0][results[0].dtype.names[COL_TIMESTAMP]]
 timestamps -= timestamps[0]
