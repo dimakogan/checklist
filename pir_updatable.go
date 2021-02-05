@@ -596,16 +596,34 @@ func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 	}
 }
 
+type compressedMap struct {
+	Present []byte
+	Keys    []int32
+}
+
+func compressPosMap(k2v map[uint32]int32, valRange int) compressedMap {
+	v2k := make([]int32, valRange)
+	for k, v := range k2v {
+		v2k[v] = int32(k)
+	}
+	present := make([]byte, valRange)
+	keys := make([]int32, 0, len(k2v))
+	for v, k := range v2k {
+		keys = append(keys, k)
+		present[v/8] |= (1 << (v % 8))
+	}
+	return compressedMap{present, keys}
+}
+
 func (c *pirClientUpdatable) StorageNumBytes() int {
 	numBytes := 0
 
-	keyUpdates, isDeletion := opsToKeyUpdates(c.ops)
-	keysBytes, err := SerializedSizeOf(keyUpdates)
+	keysBytes, err := SerializedSizeOf(compressPosMap(c.keyToPos, c.numRows))
 	if err != nil {
+		log.Fatalf("%s", err)
 		return 0
 	}
 	numBytes += keysBytes
-	numBytes += len(isDeletion)
 
 	for _, l := range c.layers {
 		numBytes += l.hintNumBytes

@@ -80,6 +80,7 @@ func main() {
 		"NumQueries",
 		"ServerTime[us]", "ClientTime[us]", "CommBytes", "ClientStorage")
 
+	var storageBytes int
 	for _, config := range TestConfigs() {
 		driver, err := ServerDriver()
 		if err != nil {
@@ -144,6 +145,10 @@ func main() {
 
 			}
 
+			if i%200 == 0 {
+				storageBytes = client.StorageNumBytes()
+			}
+
 			fmt.Printf("%15d%15d%15d%15d%15d%15d%15d%15d\n",
 				ts,
 				numAdds,
@@ -152,7 +157,7 @@ func main() {
 				serverTime.Microseconds(),
 				(clientTime - serverTime).Microseconds(),
 				numBytes,
-				client.StorageNumBytes())
+				storageBytes)
 
 			if *progress {
 				fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numUpdates)
