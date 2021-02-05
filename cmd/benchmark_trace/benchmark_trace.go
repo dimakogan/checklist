@@ -42,20 +42,20 @@ func loadTraceFile(filename string) [][]int {
 	for row := range records {
 		ts, err := strconv.Atoi(records[row][ColumnTimestamp])
 		if err != nil {
-			log.Fatalf("Bad row #%d timestamp: %s", row, trace[row][ColumnTimestamp])
+			log.Fatalf("Bad row #%d timestamp: %s", row, records[row][ColumnTimestamp])
 		}
 
 		adds, err := strconv.Atoi(records[row][ColumnAdds])
 		if err != nil {
-			log.Fatalf("Bad row #%d adds: %s", row, trace[row][ColumnAdds])
+			log.Fatalf("Bad row #%d adds: %s", row, records[row][ColumnAdds])
 		}
 		deletes, err := strconv.Atoi(records[row][ColumnDeletes])
 		if err != nil {
-			log.Fatalf("Bad row #%d deletes: %s", row, trace[row][ColumnDeletes])
+			log.Fatalf("Bad row #%d deletes: %s", row, records[row][ColumnDeletes])
 		}
 		queries, err := strconv.Atoi(records[row][ColumnQueries])
 		if err != nil {
-			log.Fatalf("Bad row #%d deletes: %s", row, trace[row][ColumnQueries])
+			log.Fatalf("Bad row #%d deletes: %s", row, records[row][ColumnQueries])
 		}
 		if adds+deletes+queries > 0 {
 			trace = append(trace, []int{ts, adds, deletes, queries})
@@ -73,12 +73,12 @@ func main() {
 	InitTestFlags()
 
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
-	fmt.Printf("%15s%15s%15s%15s%15s%15s%15s\n",
+	fmt.Printf("%15s%15s%15s%15s%15s%15s%15s%15s\n",
 		"Timestamp",
 		"NumAdds",
 		"NumDeleted",
 		"NumQueries",
-		"ServerTime[us]", "ClientTime[us]", "CommBytes")
+		"ServerTime[us]", "ClientTime[us]", "CommBytes", "ClientStorage")
 
 	for _, config := range TestConfigs() {
 		driver, err := ServerDriver()
@@ -144,14 +144,15 @@ func main() {
 
 			}
 
-			fmt.Printf("%15d%15d%15d%15d%15d%15d%15d\n",
+			fmt.Printf("%15d%15d%15d%15d%15d%15d%15d%15d\n",
 				ts,
 				numAdds,
 				numDeletes,
 				numQueries,
 				serverTime.Microseconds(),
 				(clientTime - serverTime).Microseconds(),
-				numBytes)
+				numBytes,
+				client.StorageNumBytes())
 
 			if *progress {
 				fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numUpdates)
