@@ -1,5 +1,5 @@
 #Original SB trace
-#Timestamp,Adds,Deletes,Queries,ServerTime,ClientTime,Comm
+#Timestamp,NumAdds,NumDeletes,NumQueries,ServerTime,ClientTime,CommBytes
 1608252461,3124860,0,0,0,0,5272661
 1608252482,0,0,1,0,0,360
 1608254245,517,211,0,0,0,3182

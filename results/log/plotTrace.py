@@ -125,10 +125,34 @@ def offline_cost(results,col_num):
     return results[results.dtype.names[col_num]]*(results[results.dtype.names[COL_QUERIES]]==0)
 
 
+def online_cost(results,col_num):
+    return results[results.dtype.names[col_num]]*(results[results.dtype.names[COL_QUERIES]]!=0)
+
+def total_time(results):
+    time = results[results.dtype.names[COL_TIMESTAMP]]
+    return time[-1]-time[0]
+
 def stacked(results, col_num):
     offline = np.cumsum(offline_cost(results[BOOSTED], col_num))/10**6
     total = np.cumsum(results[BOOSTED][results[BOOSTED].dtype.names[col_num]])/10**6
     return np.array([offline,total-offline])
+
+
+def summarize_results(results):
+    f = open("trace_summary.txt", "w")
+    f.truncate()
+    f.write("%15s%15s%15s%15s%15s%15s%15s%15s" % ("Type", "Weeks", "OffServer", "OnServer", "OffClient", "OnClient", "OffComm", "OnComm\n"))
+    for i, result in enumerate(results):
+        f.write("%15s" % filenames[i])
+        f.write("%15.02f" % (total_time(results[i])/86400/7))
+        f.write("%15.02f" % (np.sum(offline_cost(results[i], COL_SERVER_TIME))/10**6 ))
+        f.write("%15.02f" % (np.sum(online_cost(results[i], COL_SERVER_TIME))/10**6 ))
+        f.write("%15.02f" % (np.sum(offline_cost(results[i], COL_CLIENT_TIME))/10**6 ))
+        f.write("%15.02f" % (np.sum(online_cost(results[i], COL_CLIENT_TIME))/10**6 ))
+        f.write("%15.02f" % (np.sum(offline_cost(results[i], COL_COMMUNICATION))/10**6 ))
+        f.write("%15.02f" % (np.sum(online_cost(results[i], COL_COMMUNICATION))/10**6 ))
+        f.write("\n")
+    f.close()
 
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
@@ -147,6 +171,7 @@ for i in range(ALL):
 timestamps = results[0][results[0].dtype.names[COL_TIMESTAMP]]
 timestamps -= timestamps[0]
 
+summarize_results(results)
 
 
 fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=120)
