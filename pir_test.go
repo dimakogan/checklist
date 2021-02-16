@@ -283,7 +283,7 @@ func _TestMessageSizes(t *testing.T) {
 	fmt.Fprintf(os.Stdout, "query size: %d\n", size)
 }
 
-func TestMessageSizesUpdatable(t *testing.T) {
+func _TestMessageSizesUpdatable(t *testing.T) {
 	numRows := 4000000
 	initialSize := 3000000
 	keys := MakeKeys(RandSource(), numRows)
@@ -298,13 +298,6 @@ func TestMessageSizesUpdatable(t *testing.T) {
 
 	for i := 0; i < 50; i++ {
 		server.AddRows(keys[initialSize+i*200:initialSize+(i+1)*200], db[initialSize+i*200:initialSize+(i+1)*200])
-
-		// // interleave deletes from beginning and from new elements
-		// if i%4 == 0 {
-		// 	server.DeleteRows([]uint32{keys[initialSize+i/2]})
-		// } else {
-		// 	server.DeleteRows([]uint32{keys[i*2]})
-		// }
 		assert.NilError(t, client.Update())
 
 		qs, _ := client.query(int(keys[7]))
