@@ -463,7 +463,7 @@ func (c *pirClientUpdatable) updateHint() error {
 				hintResp.BatchResps[l].RowLen = c.rowLen
 				hintResp.BatchResps[l].PirType = c.pirType
 				if c.pirType == Punc && l == len(hintReq.Layers)-1 {
-					hintResp.BatchResps[l].PirType = Matrix
+					hintResp.BatchResps[l].PirType = DPF
 				}
 			} else {
 				hintReq.Layers[l].FirstRow = layer.firstRow
