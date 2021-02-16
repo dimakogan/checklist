@@ -283,22 +283,35 @@ func _TestMessageSizes(t *testing.T) {
 	fmt.Fprintf(os.Stdout, "query size: %d\n", size)
 }
 
-func _TestMessageSizesUpdatable(t *testing.T) {
-	numRows := 3000000
+func TestMessageSizesUpdatable(t *testing.T) {
+	numRows := 4000000
+	initialSize := 3000000
 	keys := MakeKeys(RandSource(), numRows)
 	db := MakeDB(RandSource(), numRows, 32)
 
 	server := NewPirServerUpdatable(RandSource())
-	server.AddRows(keys, db)
+	server.AddRows(keys[0:initialSize], db[0:initialSize])
 
 	client := NewPirClientUpdatable(RandSource(), Punc, [2]PirUpdatableServer{server, server})
 
 	assert.NilError(t, client.Init())
 
-	qs, _ := client.query(int(keys[7]))
-	size, err := SerializedSizeOf(qs[0])
-	if err != nil {
-		log.Fatal(err)
+	for i := 0; i < 50; i++ {
+		server.AddRows(keys[initialSize+i*200:initialSize+(i+1)*200], db[initialSize+i*200:initialSize+(i+1)*200])
+
+		// // interleave deletes from beginning and from new elements
+		// if i%4 == 0 {
+		// 	server.DeleteRows([]uint32{keys[initialSize+i/2]})
+		// } else {
+		// 	server.DeleteRows([]uint32{keys[i*2]})
+		// }
+		assert.NilError(t, client.Update())
+
+		qs, _ := client.query(int(keys[7]))
+		size, err := SerializedSizeOf(qs[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Fprintf(os.Stdout, "updatable request size: %d\n", size)
 	}
-	fmt.Fprintf(os.Stdout, "updatable request size: %d\n", size)
 }
