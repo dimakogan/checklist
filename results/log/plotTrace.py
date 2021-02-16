@@ -174,7 +174,7 @@ timestamps -= timestamps[0]
 summarize_results(results)
 
 
-fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=120)
+fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=90)
 ys = stacked(results, COL_COMMUNICATION)
 stackplot(timestamps, ys)
 for i in [BOOSTED, DPF, GOOGLE]:
