@@ -16,6 +16,7 @@ var pirType string
 var updatable bool
 var serverAddr string
 var useTLS bool
+var usePersistent bool
 var updateSize string
 
 func InitTestFlags() {
@@ -25,7 +26,8 @@ func InitTestFlags() {
 		fmt.Sprintf("Updatable PIR type: [%s] (comma-separated list)", strings.Join(PirTypeStrings(), "|")))
 	flag.BoolVar(&updatable, "updatable", true, "Test Updatable PIR")
 	flag.StringVar(&serverAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
-	flag.BoolVar(&useTLS, "tls", true, "Should use TLS")
+	flag.BoolVar(&useTLS, "tls", false, "Should use TLS")
+	flag.BoolVar(&usePersistent, "persistent", true, "Should use peristent connection to server")
 	flag.StringVar(&updateSize, "updateSize", "1000", "number of rows in each update batch (default: 1000)")
 
 	flag.Parse()
@@ -78,7 +80,7 @@ func TestConfigs() []TestConfig {
 
 func ServerDriver() (PirServerDriver, error) {
 	if serverAddr != "" {
-		return NewPirRpcProxy(serverAddr, useTLS, true)
+		return NewPirRpcProxy(serverAddr, useTLS, usePersistent)
 	} else {
 		return NewPirServerDriver()
 	}

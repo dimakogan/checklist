@@ -1,6 +1,8 @@
 package boosted
 
 import (
+	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"testing"
@@ -68,7 +70,6 @@ func TestPunc(t *testing.T) {
 }
 
 func TestPuncWithBlock(t *testing.T) {
-	*nRowsPerBlock = 10
 	driver, err := ServerDriver()
 	assert.NilError(t, err)
 
@@ -259,3 +260,45 @@ func TestSample(t *testing.T) {
 // 		}
 // 	}
 // }
+
+func _TestMessageSizes(t *testing.T) {
+	numRows := 3000000
+	db := MakeDB(RandSource(), numRows, 32)
+
+	server := NewPirServerPunc(RandSource(), flattenDb(db), numRows, 32)
+
+	client := NewPirClientPunc(RandSource())
+	clientWrapper := NewPIRClient(client,
+		RandSource(),
+		[2]PirServer{server, server})
+
+	assert.NilError(t, clientWrapper.Init())
+
+	qs, _ := client.query(7)
+
+	size, err := SerializedSizeOf(qs[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(os.Stdout, "query size: %d\n", size)
+}
+
+func _TestMessageSizesUpdatable(t *testing.T) {
+	numRows := 3000000
+	keys := MakeKeys(RandSource(), numRows)
+	db := MakeDB(RandSource(), numRows, 32)
+
+	server := NewPirServerUpdatable(RandSource())
+	server.AddRows(keys, db)
+
+	client := NewPirClientUpdatable(RandSource(), Punc, [2]PirUpdatableServer{server, server})
+
+	assert.NilError(t, client.Init())
+
+	qs, _ := client.query(int(keys[7]))
+	size, err := SerializedSizeOf(qs[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(os.Stdout, "updatable request size: %d\n", size)
+}

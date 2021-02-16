@@ -39,11 +39,11 @@ const (
 var pirType b.PirType
 
 func main() {
-	serverAddr := flag.String("s", "localhost:12345", "server address <HOSTNAME>:<PORT>")
+	serverAddr := flag.String("s", "127.0.0.1:12345", "server address <HOSTNAME>:<PORT>")
 	flag.IntVar(&numRows, "n", 10000, "Num DB rows")
 	rowLength := flag.Int("r", 32, "Row length in bytes")
 	numWorkers := flag.Int("w", 2, "Num workers")
-	useTLS := flag.Bool("tls", true, "Should use TLS")
+	useTLS := flag.Bool("tls", false, "Should use TLS")
 	loadTypeStr := flag.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
 	flag.IntVar(&updateSize, "b", 500, "Number of new keys on each key update")
 	usePersistent := flag.Bool("persistent", false, "Should use persistent connections")
@@ -250,7 +250,7 @@ func replayQuery(proxy *b.PirRpcProxy) error {
 		return fmt.Errorf("Failed to replay query number %d to server: %s", idx, err)
 	}
 	if !reflect.DeepEqual(proxy.QueryResps[idx], queryResp) {
-		return fmt.Errorf("Mismatching  response in query number %d", idx)
+		return fmt.Errorf("Mismatching response in query number %d", idx)
 	}
 	return nil
 }

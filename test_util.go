@@ -2,10 +2,11 @@ package boosted
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"math/rand"
+
+	"github.com/ugorji/go/codec"
 )
 
 func RandSource() *rand.Rand {
@@ -61,11 +62,19 @@ type RowIndexVal struct {
 	Value Row
 }
 
+func CodecHandle() codec.Handle {
+	h := codec.BincHandle{}
+	h.StructToArray = true
+	h.OptimumSize = true
+	return &h
+}
+
 func SerializedSizeOf(e interface{}) (int, error) {
-	buf := new(bytes.Buffer)
-	enc := gob.NewEncoder(buf)
-	if err := enc.Encode(e); err != nil {
-		return -1, fmt.Errorf("Failed to Encode: %s", err)
+	var buf bytes.Buffer
+	enc := codec.NewEncoder(&buf, CodecHandle())
+	err := enc.Encode(e)
+	if err != nil {
+		panic(err)
 	}
 	return buf.Len(), nil
 }

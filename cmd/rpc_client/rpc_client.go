@@ -46,6 +46,7 @@ func main() {
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
 	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
+	client.CallAsync = true
 	err = client.Init()
 	if err != nil {
 		log.Fatalf("Failed to Initialize client: %s\n", err)

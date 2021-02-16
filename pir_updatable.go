@@ -277,6 +277,10 @@ type pirClientUpdatable struct {
 	keyToPos         map[uint32]int32
 	layers           []clientLayer
 	servers          [2]PirUpdatableServer
+
+	// For testing
+	smallestLayerSizeOverride int
+	CallAsync                 bool
 }
 
 func NewPirClientUpdatable(source *rand.Rand, pirType PirType, servers [2]PirUpdatableServer) *pirClientUpdatable {
@@ -356,11 +360,14 @@ func (c *pirClientUpdatable) updateKeys() error {
 	return nil
 }
 
-func smallestLayerSize(nRows int) int {
+func (c *pirClientUpdatable) smallestLayerSize(nRows int) int {
+	if c.smallestLayerSizeOverride != 0 {
+		return c.smallestLayerSizeOverride
+	}
 	return 10 * (*SecParam) * (*SecParam)
 }
 
-func (c pirClientUpdatable) LayersMaxSize(nRows int) []int {
+func (c *pirClientUpdatable) LayersMaxSize(nRows int) []int {
 	// if nRows == 0 {
 	// 	return []int{}
 	// }
@@ -368,7 +375,7 @@ func (c pirClientUpdatable) LayersMaxSize(nRows int) []int {
 		return []int{nRows}
 	}
 	maxSize := []int{nRows}
-	smallest := smallestLayerSize(nRows)
+	smallest := c.smallestLayerSize(nRows)
 	for maxSize[len(maxSize)-1] > smallest {
 		maxSize = append(maxSize, maxSize[len(maxSize)-1]/2)
 	}
@@ -497,7 +504,7 @@ func (c *pirClientUpdatable) initHints(resp HintResp) error {
 			return err
 		}
 		c.layers[l].hintNumBytes = offlineBytes
-		NumLayerHintBytes[l] += len(resp.BatchResps[l].Hints) * resp.BatchResps[l].NumRowsPerBlock * resp.BatchResps[l].RowLen
+		NumLayerHintBytes[l] += len(resp.BatchResps[l].Hints) * resp.BatchResps[l].RowLen
 	}
 	return nil
 }
@@ -519,25 +526,30 @@ func (c *pirClientUpdatable) nextTimestamp() int {
 	return c.initialTimestamp + len(c.ops)
 }
 
-func (c pirClientUpdatable) Read(key uint32) (Row, error) {
+func (c *pirClientUpdatable) Read(key uint32) (Row, error) {
 	queryReq, reconstructFunc := c.query(int(key))
 	if reconstructFunc == nil {
 		return nil, fmt.Errorf("Failed to query: %x", key)
 	}
 	responses := make([]QueryResp, 2)
 	errs := make([]error, 2)
-	var wg sync.WaitGroup
-	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
+	if c.CallAsync {
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			errs[Left] = c.servers[Left].Answer(queryReq[Left], &responses[Left])
+		}()
+		go func() {
+			defer wg.Done()
+			errs[Right] = c.servers[Right].Answer(queryReq[Right], &responses[Right])
+		}()
+		wg.Wait()
+	} else {
 		errs[Left] = c.servers[Left].Answer(queryReq[Left], &responses[Left])
-	}()
-	go func() {
-		defer wg.Done()
 		errs[Right] = c.servers[Right].Answer(queryReq[Right], &responses[Right])
-	}()
-	wg.Wait()
+	}
 	if errs[Left] != nil {
 		return nil, errs[Left]
 	}
@@ -550,12 +562,8 @@ func (c pirClientUpdatable) Read(key uint32) (Row, error) {
 
 func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 	req := []QueryReq{
-		{
-			LatestKeyTimestamp: int32(c.nextTimestamp()),
-			BatchReqs:          make([]QueryReq, len(c.layers))},
-		{
-			LatestKeyTimestamp: int32(c.nextTimestamp()),
-			BatchReqs:          make([]QueryReq, len(c.layers))},
+		{LatestKeyTimestamp: int32(c.nextTimestamp())},
+		{LatestKeyTimestamp: int32(c.nextTimestamp())},
 	}
 	var reconstructFunc ReconstructFunc
 
@@ -574,19 +582,17 @@ func (c *pirClientUpdatable) query(i int) ([]QueryReq, ReconstructFunc) {
 		}
 		if layerEnd <= int(pos) && int(pos) < layerEnd+layer.numRows {
 			q, reconstructFunc = layer.pir.query(int(pos) - layerEnd)
-			matchingLayer = l
+			matchingLayer = len(req[Left].BatchReqs)
 		} else {
 			q = layer.pir.dummyQuery()
 		}
+		for s := range []int{Left, Right} {
+			q[s].FirstRow = int32(c.layers[l].firstRow)
+			q[s].NumRows = int32(c.layers[l].numRows)
+			q[s].PirType = c.layers[l].pirType
+			req[s].BatchReqs = append(req[s].BatchReqs, q[s])
+		}
 		layerEnd += layer.numRows
-		req[Left].BatchReqs[l] = q[Left]
-		req[Right].BatchReqs[l] = q[Right]
-		req[Left].BatchReqs[l].FirstRow = int32(c.layers[l].firstRow)
-		req[Right].BatchReqs[l].FirstRow = int32(c.layers[l].firstRow)
-		req[Left].BatchReqs[l].NumRows = int32(c.layers[l].numRows)
-		req[Right].BatchReqs[l].NumRows = int32(c.layers[l].numRows)
-		req[Left].BatchReqs[l].PirType = c.layers[l].pirType
-		req[Right].BatchReqs[l].PirType = c.layers[l].pirType
 	}
 	return req, func(resps []QueryResp) (Row, error) {
 		row, err := reconstructFunc([]QueryResp{

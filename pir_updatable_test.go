@@ -117,6 +117,7 @@ func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
 	servers := [2]PirUpdatableServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 
 	leftServer.AddRows(keys[0:initialSize], db[0:initialSize])
 	rightServer.AddRows(keys[0:initialSize], db[0:initialSize])
@@ -157,6 +158,7 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 	servers := [2]PirUpdatableServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 
 	leftServer.AddRows(keys[0:initialSize], db[0:initialSize])
 	rightServer.AddRows(keys[0:initialSize], db[0:initialSize])
@@ -206,6 +208,7 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	}
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 
 	// Check that reading a deleted element fails
@@ -236,6 +239,7 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 	rightServer.AddRows(keys, db)
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 
 	assert.NilError(t, client.Init())
 
@@ -272,6 +276,7 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	servers := [2]PirUpdatableServer{leftServer, rightServer}
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 
 	leftServer.AddRows(keys[0:initialSize], db[0:initialSize])
 	rightServer.AddRows(keys[0:initialSize], db[0:initialSize])
@@ -337,6 +342,7 @@ func TestPIRUpdatableDeleteAll(t *testing.T) {
 	rightServer.DeleteRows([]uint32{keys[1]})
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 }
 
@@ -363,6 +369,7 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 	}
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 
 	assert.Check(t, len(leftServer.ops) <= len(db)*4)
@@ -384,6 +391,7 @@ func TestPIRUpdatableDefragBetweenUpdates(t *testing.T) {
 	rightServer.AddRows(keys, db)
 
 	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 
 	for i := 0; i < numDeletesAndAdds; i++ {
@@ -413,6 +421,7 @@ func TestPIRServerOverRPC(t *testing.T) {
 	}, nil))
 
 	client := NewPirClientUpdatable(RandSource(), Punc, [2]PirUpdatableServer{driver, driver})
+	client.smallestLayerSizeOverride = 10
 
 	err = client.Init()
 	assert.NilError(t, err)

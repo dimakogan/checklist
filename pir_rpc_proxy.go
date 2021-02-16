@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/rpc"
 	"time"
+
+	"github.com/ugorji/go/codec"
 )
 
 type PirRpcProxy struct {
@@ -49,14 +51,14 @@ func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 	return remote, nil
 }
 
-func NewHTTPRPCClient(serverAddr string) (*rpc.Client, error) {
+func NewTCPRPCClient(serverAddr string) (*rpc.Client, error) {
 	var err error
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	return rpc.NewClient(conn), nil
+	return rpc.NewClientWithCodec(codec.GoRpc.ClientCodec(conn, CodecHandle())), nil
 }
 
 func NewPirRpcProxy(serverAddr string, useTLS bool, usePersistent bool) (*PirRpcProxy, error) {
@@ -74,7 +76,7 @@ func (p *PirRpcProxy) connect() (*rpc.Client, error) {
 	if p.useTLS {
 		return NewHTTPSRPCClient(p.serverAddr)
 	} else {
-		return NewHTTPRPCClient(p.serverAddr)
+		return NewTCPRPCClient(p.serverAddr)
 	}
 }
 

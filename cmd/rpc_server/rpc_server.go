@@ -13,13 +13,14 @@ import (
 	"syscall"
 
 	"github.com/rocketlaunchr/https-go"
+	"github.com/ugorji/go/codec"
 
 	b "github.com/dimakogan/boosted-pir"
 )
 
 func main() {
 	port := flag.Int("p", 12345, "Listening port")
-	useTLS := flag.Bool("tls", true, "Should use TLS")
+	useTLS := flag.Bool("tls", false, "Should use TLS")
 	flag.Parse()
 
 	driver, err := b.NewPirServerDriver()
@@ -55,12 +56,21 @@ func main() {
 			log.Fatal("Failed to http.Serve, %w", err)
 		}
 	} else {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+		serveTCP(server, *port)
+	}
+}
+
+func serveTCP(server *rpc.Server, port int) {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatalf("Failed to listen tcp: %v", err)
+	}
+	log.Printf("Serving RPC server over TCP on port %d\n", port)
+	for {
+		conn, err := ln.Accept()
 		if err != nil {
-			log.Fatalf("Failed to listen tcp: %v", err)
+			log.Fatalf("TCP Accept failed: %+v\n", err)
 		}
-		log.Printf("Serving RPC server over TCP on port %d\n", *port)
-		conn = listener
-		server.Accept(listener)
+		go server.ServeCodec(codec.GoRpc.ServerCodec(conn, b.CodecHandle()))
 	}
 }

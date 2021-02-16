@@ -44,14 +44,13 @@ type HintLayer struct {
 
 //HintResp is a response to a hint request.
 type HintResp struct {
-	PirType         PirType
-	NumRows         int
-	RowLen          int
-	NumRowsPerBlock int
-	SetSize         int
-	SetGenKey       []byte
-	Hints           []Row
-	IsMatrix        bool
+	PirType   PirType
+	NumRows   int
+	RowLen    int
+	SetSize   int
+	SetGenKey []byte
+	Hints     []Row
+	IsMatrix  bool
 
 	// For updatable PIR
 	NumOps int

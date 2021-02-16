@@ -2,7 +2,6 @@ package boosted
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -17,8 +16,6 @@ import (
 	"github.com/lukechampine/fastxor"
 )
 
-var nRowsPerBlock *int = flag.Int("numRowsPerBlock", 1, "Num DB Rows in each block")
-
 type pirClientPunc struct {
 	nRows  int
 	rowLen int
@@ -27,8 +24,7 @@ type pirClientPunc struct {
 
 	sets []SetKey
 
-	nRowsPerBlock int
-	hints         []Row
+	hints []Row
 
 	randSource         *rand.Rand
 	origSetGen, setGen SetGenerator
@@ -41,8 +37,6 @@ type pirServerPunc struct {
 	rowLen int
 
 	numHintsMultiplier int
-	nRowsPerBlock      int
-	blockLen           int
 
 	flatDb []byte
 }
@@ -67,25 +61,17 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
 }
 
 func NewPirServerPunc(source *rand.Rand, flatDb []byte, nRows, rowLen int) pirServerPunc {
-	s := pirServerPunc{
+	return pirServerPunc{
 		flatDb:             flatDb,
 		nRows:              nRows,
 		rowLen:             rowLen,
 		numHintsMultiplier: int(float64(*SecParam) * math.Log(2)),
-		nRowsPerBlock:      *nRowsPerBlock,
 	}
-
-	s.blockLen = s.rowLen * (s.nRowsPerBlock)
-
-	// Make flat DB look cyclical
-	//	copy(s.flatDb[s.nRows*s.rowLen:], s.flatDb[0:s.blockLen])
-
-	return s
 }
 
 func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	setSize := int(math.Round(math.Pow(float64(s.nRows), 0.5)))
-	nHints := s.numHintsMultiplier * s.nRows / (setSize * s.nRowsPerBlock)
+	nHints := s.numHintsMultiplier * s.nRows / setSize
 
 	key := make([]byte, 16)
 	if _, err := io.ReadFull(rand.New(rand.NewSource(req.RandSeed)), key); err != nil {
@@ -93,17 +79,16 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	hints := make([]Row, nHints)
-	hintBuf := make([]byte, s.blockLen*nHints)
+	hintBuf := make([]byte, s.rowLen*nHints)
 	setGen := NewSetGenerator(key, 0, s.nRows, setSize)
 	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
 		setGen.Gen(&pset)
-		hints[i] = Row(hintBuf[s.blockLen*i : s.blockLen*(i+1)])
+		hints[i] = Row(hintBuf[s.rowLen*i : s.rowLen*(i+1)])
 		s.xorRowsFlatSlice(hints[i], pset.elems)
 	}
 	resp.Hints = hints
 	resp.NumRows = s.nRows
-	resp.NumRowsPerBlock = s.nRowsPerBlock
 	resp.RowLen = s.rowLen
 	resp.SetSize = setSize
 	resp.SetGenKey = key
@@ -143,11 +128,11 @@ func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
 	if q.BatchReqs != nil {
 		return s.answerBatch(q.BatchReqs, &resp.BatchResps)
 	}
-	resp.Answer = make(Row, s.blockLen)
+	resp.Answer = make(Row, s.rowLen)
 	//s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
 	psetggm.FastAnswer(q.PuncturedSet.Keys, q.PuncturedSet.Hole, q.PuncturedSet.UnivSize, q.PuncturedSet.SetSize, int(q.PuncturedSet.Shift),
 		s.flatDb, s.rowLen, resp.Answer)
-	resp.ExtraElem = s.flatDb[s.rowLen*q.ExtraElem : s.rowLen*q.ExtraElem+s.blockLen]
+	resp.ExtraElem = s.flatDb[s.rowLen*q.ExtraElem : s.rowLen*q.ExtraElem+s.rowLen]
 
 	// Debug
 	resp.Val = s.dbElem(q.Index)
@@ -175,7 +160,6 @@ func NewPirClientPunc(source *rand.Rand) *pirClientPunc {
 
 func (c *pirClientPunc) initHint(resp *HintResp) error {
 	c.nRows = resp.NumRows
-	c.nRowsPerBlock = resp.NumRowsPerBlock
 	c.rowLen = resp.RowLen
 	c.setSize = resp.SetSize
 	c.hints = resp.Hints
@@ -224,16 +208,13 @@ func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
 	}
 }
 
-
-func (c *pirClientPunc) findIndex(i int) (setIdx, posInBlock int) {
+func (c *pirClientPunc) findIndex(i int) (setIdx int) {
 	if i >= c.nRows {
-		return -1, -1
+		return -1
 	}
 
-	for posInBlock = 0; posInBlock < c.nRowsPerBlock; posInBlock++ {
-		if setIdx := c.idxToSetIdx[MathMod(i-posInBlock, c.nRows)]; setIdx >= 0 {
-			return int(setIdx), posInBlock
-		}
+	if setIdx := c.idxToSetIdx[MathMod(i, c.nRows)]; setIdx >= 0 {
+		return int(setIdx)
 	}
 	var pset PuncturableSet
 	// If set pointer of i is invalid, use this opportunity to upgrade other invalid pointers while doing linear scan
@@ -246,24 +227,22 @@ func (c *pirClientPunc) findIndex(i int) (setIdx, posInBlock int) {
 
 		for _, v := range pset.elems {
 			shiftedV := int((uint32(v) + shift) % uint32(setGen.univSize))
-			for posInBlock = 0; posInBlock < c.nRowsPerBlock; posInBlock++ {
-				if shiftedV+posInBlock == i {
-					return j, posInBlock
-				}
+			if shiftedV == i {
+				return j
 			}
+
 			if shiftedV < c.nRows {
 				// upgrade invalid pointer to valid one
 				c.idxToSetIdx[shiftedV] = int32(j)
 			}
 		}
 	}
-	return -1, -1
+	return -1
 }
 
 type puncQueryCtx struct {
-	posInBlock int
-	randCase   int
-	setIdx     int
+	randCase int
+	setIdx   int
 }
 
 func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
@@ -273,11 +252,11 @@ func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
 
 	var ctx puncQueryCtx
 
-	if ctx.setIdx, ctx.posInBlock = c.findIndex(i); ctx.setIdx < 0 {
+	if ctx.setIdx = c.findIndex(i); ctx.setIdx < 0 {
 		return nil, nil
 	}
 	origI := i
-	i = MathMod(i-ctx.posInBlock, c.nRows)
+	i = MathMod(i, c.nRows)
 
 	pset := c.eval(ctx.setIdx)
 
@@ -384,7 +363,7 @@ func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []QueryResp) (Row, er
 		xorInto(out, resp[Right].Answer)
 		xorInto(out, resp[Left].ExtraElem)
 	}
-	return out[ctx.posInBlock*c.rowLen : (ctx.posInBlock+1)*c.rowLen], nil
+	return out, nil
 }
 
 func (c *pirClientPunc) NumCovered() int {
