@@ -7,6 +7,7 @@ import (
 	"math/rand"
 
 	"github.com/dimakogan/boosted-pir/psetggm"
+	sb "github.com/dimakogan/boosted-pir/safebrowsing"
 	"github.com/dimakogan/dpf-go/dpf"
 )
 
@@ -105,7 +106,9 @@ type KeyUpdatesResp struct {
 	InitialTimestamp int32
 	DefragTimestamp  int
 
-	Keys []uint32
+	Keys     []uint32
+	KeysRice *sb.RiceDeltaEncoding
+
 	//Bit vector
 	IsDeletion []byte
 	RowLen     int

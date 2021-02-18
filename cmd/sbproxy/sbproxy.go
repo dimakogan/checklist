@@ -38,13 +38,13 @@ type sbproxy struct {
 
 func NewSBProxy(serverAddr string) *sbproxy {
 	addrs := strings.Split(serverAddr, ",")
-	rpcLeft, err := boosted.NewPirRpcProxy(addrs[0], true, true)
+	rpcLeft, err := boosted.NewPirRpcProxy(addrs[0], false, true)
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %s", addrs[0], err)
 	}
 	var rpcRight *boosted.PirRpcProxy
 	if len(addrs) > 1 {
-		rpcRight, err = boosted.NewPirRpcProxy(addrs[1], true, true)
+		rpcRight, err = boosted.NewPirRpcProxy(addrs[1], false, true)
 		if err != nil {
 			log.Fatalf("Failed to connect to %s: %s", addrs[1], err)
 		}
@@ -165,7 +165,11 @@ func (proxy *sbproxy) handleFetch(w http.ResponseWriter, req *http.Request) {
 		listUp.Additions = make([]*ThreatEntrySet, 1)
 		listUp.Additions[0] = new(ThreatEntrySet)
 		listUp.Additions[0].CompressionType = CompressionType_RICE
-		listUp.Additions[0].RiceHashes = RiceEncodedHashes(proxy.pirClient.Keys())
+		listUp.Additions[0].RiceHashes, err = boosted.RiceEncodedHashes(proxy.pirClient.Keys())
+		if err != nil {
+			log.Printf("Can't Rice-encode hashes: %v", err)
+			return
+		}
 		listUp.Additions[0].RawHashes = new(RawHashes)
 		listUp.Additions[0].RawHashes.PrefixSize = 0
 		listUp.Additions[0].RawHashes.RawHashes = make([]byte, 0)

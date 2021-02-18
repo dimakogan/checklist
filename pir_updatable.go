@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sort"
 	"sync"
 
 	"github.com/elliotchance/orderedmap"
@@ -103,9 +104,25 @@ func (s *pirServerUpdatable) AddRows(keys []uint32, rows []Row) {
 		s.kv.Set(keys[i], rows[i])
 	}
 
+	sort.Slice(ops, func(i, j int) bool { return ops[i].Key < ops[j].Key })
+
 	s.ops = append(s.ops, ops...)
 	s.numRows += len(rows)
-	s.flatDb = append(s.flatDb, flattenDb(rows)...)
+	s.flatDb = append(s.flatDb, opsToFlatDB(ops)...)
+}
+
+func opsToFlatDB(ops []dbOp) []byte {
+	rowLen := len(ops[0].data)
+	flatDb := make([]byte, rowLen*len(ops))
+
+	for i, v := range ops {
+		if len(v.data) != rowLen {
+			fmt.Printf("Got row[%v] %v %v\n", i, len(v.data), rowLen)
+			panic("Database rows must all be of the same length")
+		}
+		copy(flatDb[i*rowLen:], v.data[:])
+	}
+	return flatDb
 }
 
 func (s *pirServerUpdatable) DeleteRows(keys []uint32) {
@@ -179,7 +196,10 @@ func (s pirServerUpdatable) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) 
 		return nil
 	}
 
-	resp.Keys, resp.IsDeletion = opsToKeyUpdates(s.ops[firstPos:])
+	var err error
+	if opsToKeyUpdates(s.ops[firstPos:], resp) != nil {
+		return fmt.Errorf("Failed to convert ops to keys: %v", err)
+	}
 	resp.InitialTimestamp = int32(s.initialTimestamp + firstPos)
 	return nil
 }
@@ -204,16 +224,23 @@ func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
 	return nil
 }
 
-func opsToKeyUpdates(ops []dbOp) (Keys []uint32, IsDeletion []byte) {
+func opsToKeyUpdates(ops []dbOp, keyUpdate *KeyUpdatesResp) error {
 	keys := make([]uint32, len(ops))
-	isDeletion := make([]uint8, (len(keys)-1)/8+1)
+	keyUpdate.IsDeletion = make([]uint8, (len(keys)-1)/8+1)
 	for j := range keys {
 		keys[j] = ops[j].Key
 		if ops[j].Delete {
-			isDeletion[j/8] |= (1 << (j % 8))
+			keyUpdate.IsDeletion[j/8] |= (1 << (j % 8))
 		}
 	}
-	return keys, isDeletion
+	if sort.SliceIsSorted(keys, func(i, j int) bool { return keys[i] < keys[j] }) {
+		var err error
+		keyUpdate.KeysRice, err = EncodeRiceIntegers(keys)
+		return err
+	} else {
+		keyUpdate.Keys = keys
+		return nil
+	}
 }
 
 func (s pirServerUpdatable) Answer(req QueryReq, resp *QueryResp) error {
@@ -330,12 +357,22 @@ func (c *pirClientUpdatable) updateKeys() error {
 		c.keyToPos = make(map[uint32]int32)
 		c.layers = c.freshLayers(0)
 	}
+	var keys []uint32
+	if keyResp.KeysRice != nil {
+		var err error
+		keys, err = DecodeRiceIntegers(keyResp.KeysRice)
+		if err != nil {
+			return fmt.Errorf("Failed to Rice-decode key updates: %v", err)
+		}
+	} else {
+		keys = keyResp.Keys
+	}
 
-	newOps := make([]dbOp, len(keyResp.Keys))
-	for i := range keyResp.Keys {
+	newOps := make([]dbOp, len(keys))
+	for i := range keys {
 		isDelete := (keyResp.IsDeletion[i/8] & (1 << (i % 8))) != 0
 		newOps[i] = dbOp{
-			Key:    keyResp.Keys[i],
+			Key:    keys[i],
 			Delete: isDelete,
 		}
 	}
