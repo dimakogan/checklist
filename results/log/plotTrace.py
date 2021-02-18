@@ -133,8 +133,10 @@ def total_time(results):
     return time[-1]-time[0]
 
 def stacked(results, col_num):
+    nonprivate = np.cumsum(offline_cost(results[NONPRIVATE], col_num))/10**6
     offline = np.cumsum(offline_cost(results[BOOSTED], col_num))/10**6
     total = np.cumsum(results[BOOSTED][results[BOOSTED].dtype.names[col_num]])/10**6
+#    return np.array([nonprivate,offline-nonprivate,total-offline])
     return np.array([offline,total-offline])
 
 
@@ -152,6 +154,12 @@ def summarize_results(results):
         f.write("%15.02f" % (np.sum(offline_cost(results[i], COL_COMMUNICATION))/10**6 ))
         f.write("%15.02f" % (np.sum(online_cost(results[i], COL_COMMUNICATION))/10**6 ))
         f.write("\n")
+
+    initial_size = results[0][results[0].dtype.names[COL_ADDS]][0]
+    added = np.sum(results[0][results[0].dtype.names[COL_ADDS]][1:])
+    removed = np.sum(results[0][results[0].dtype.names[COL_DELETES]])
+    f.write("\n# Starting size: %d, total added: %d, total removed: %d, final size: %d" %
+        (initial_size, added, removed, initial_size+added-removed))
     f.close()
 
 
@@ -174,7 +182,7 @@ timestamps -= timestamps[0]
 summarize_results(results)
 
 
-fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=90)
+fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=75)
 ys = stacked(results, COL_COMMUNICATION)
 stackplot(timestamps, ys)
 for i in [BOOSTED, DPF, GOOGLE]:
