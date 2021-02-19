@@ -40,11 +40,11 @@ func computeAllowedLoss(chunkSize int, numHintsMultiplier int) int {
 	p := math.Exp(-float64(numHintsMultiplier))
 	// Starting overall block size for search
 	B := int(float64(q) / (1 - p))
-	for errBits < *SecParam {
+	for errBits < SecParam {
 		B += 1
 		// upper bound on the error: Pr[#Erasures >= B - q + 1]
 		errBits = int(-math.Log2(prAtLeastChernoff(p, B, B-q+1)))
-		if B > *SecParam*q {
+		if B > SecParam*q {
 			log.Fatalf("Something wierd, block size B=lam*q is not enough B=%d,q=%d, errBits: %d", B, q, errBits)
 		}
 	}

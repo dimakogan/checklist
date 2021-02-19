@@ -69,45 +69,40 @@ func runPirErasure(b *testing.B, config TestConfig, chunkSize int) {
 }
 
 func BenchmarkPirErasure(b *testing.B) {
-	for _, config := range TestConfigs() {
-		for _, cs := range chunkSizes {
-			runPirErasure(b, config, cs)
-		}
+	for _, cs := range chunkSizes {
+		runPirErasure(b, config.TestConfig, cs)
 	}
 }
 
 func BenchmarkPirErasureClient(b *testing.B) {
 	randSource := rand.New(rand.NewSource(12345))
-	for _, config := range TestConfigs() {
-		db := MakeDB(randSource, config.NumRows, config.RowLen)
-		server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
-		assert.NilError(b, err)
+	db := MakeDB(randSource, config.NumRows, config.RowLen)
+	server, err := NewPirServerErasure(randSource, db, DEFAULT_CHUNK_SIZE)
+	assert.NilError(b, err)
 
-		var mutex sync.Mutex
-		pauseServer := pauseTimingServer{
-			PirServer: server,
-			mutex:     &mutex,
-		}
-
-		client := NewPIRClient(
-			NewPirClientErasure(randSource, DEFAULT_CHUNK_SIZE),
-			randSource,
-			[2]PirServer{&pauseServer, &pauseServer})
-		err = client.Init()
-		assert.NilError(b, client.Init())
-
-		b.Run(
-			fmt.Sprintf("n=%d,r=%d", config.NumRows, config.RowLen),
-			func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					pauseServer.b = b
-					val, err := client.Read(5)
-					assert.NilError(b, err)
-					assert.DeepEqual(b, val, db[5])
-				}
-			})
+	var mutex sync.Mutex
+	pauseServer := pauseTimingServer{
+		PirServer: server,
+		mutex:     &mutex,
 	}
 
+	client := NewPIRClient(
+		NewPirClientErasure(randSource, DEFAULT_CHUNK_SIZE),
+		randSource,
+		[2]PirServer{&pauseServer, &pauseServer})
+	err = client.Init()
+	assert.NilError(b, client.Init())
+
+	b.Run(
+		fmt.Sprintf("n=%d,r=%d", config.NumRows, config.RowLen),
+		func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				pauseServer.b = b
+				val, err := client.Read(5)
+				assert.NilError(b, err)
+				assert.DeepEqual(b, val, db[5])
+			}
+		})
 }
 
 type benchmarkServer struct {

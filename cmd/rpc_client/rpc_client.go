@@ -1,11 +1,9 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
 	"time"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -14,38 +12,25 @@ import (
 )
 
 func main() {
-	numQueries := flag.Int("q", 10000, "Number of queries to do")
-	latenciesFile := flag.String("latenciesFile", "", "Latencies output filename")
-	server1Addr := flag.String("s1", "localhost:12345", "server address <HOSTNAME>:<PORT>")
-	server2Addr := flag.String("s2", "localhost:12345", "server address <HOSTNAME>:<PORT>")
-	useTLS := flag.Bool("tls", true, "Should use TLS")
-	usePersistent := flag.Bool("persistent", false, "Should use persistent connectoin")
-	pirTypeStr := flag.String("t", "Punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
-
-	flag.Parse()
-
-	pirType, err := b.PirTypeString(*pirTypeStr)
-	if err != nil {
-		log.Fatalf("Bad PirType: %s", *pirTypeStr)
-	}
+	config := b.NewConfig().WithClientFlags()
+	numQueries := config.FlagSet.Int("q", 10000, "Number of queries to do")
+	latenciesFile := config.FlagSet.String("latenciesFile", "", "Latencies output filename")
+	config.Parse()
 
 	latencies := make([]int64, 0)
 
-	fmt.Printf("Connecting to %s...", *server1Addr)
-	proxyLeft, err := b.NewPirRpcProxy(*server1Addr, *useTLS, *usePersistent)
+	proxyLeft, err := config.ServerDriver()
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
 
-	fmt.Printf("Connecting to %s...", *server2Addr)
-	proxyRight, err := b.NewPirRpcProxy(*server2Addr, *useTLS, *usePersistent)
+	proxyRight, err := config.Server2Driver()
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
-	fmt.Printf("[OK]\n")
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
-	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
+	client := b.NewPirClientUpdatable(b.RandSource(), config.PirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
 	client.CallAsync = true
 	err = client.Init()
 	if err != nil {

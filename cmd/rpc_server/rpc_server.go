@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -19,36 +18,25 @@ import (
 )
 
 func main() {
-	port := flag.Int("p", 12345, "Listening port")
-	useTLS := flag.Bool("tls", false, "Should use TLS")
-	flag.Parse()
-
+	config := b.NewConfig().WithServerFlags()
 	driver, err := b.NewPirServerDriver()
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
 	}
-
-	var conn io.Closer
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		conn.Close()
-	}()
 
 	server := rpc.NewServer()
 	if err := server.RegisterName("PirServerDriver", driver); err != nil {
 		log.Fatalf("Failed to register PIRServer, %s", err)
 	}
 
-	if *useTLS {
+	if config.UseTLS {
 		// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
 		server.HandleHTTP("/", "/debug")
 
-		log.Printf("Serving RPC server over HTTPS on port %d\n", *port)
+		log.Printf("Serving RPC server over HTTPS on port %d\n", config.Port)
 		// Use self-signed certificate
-		httpServer, _ := https.Server(fmt.Sprintf("%d", *port), https.GenerateOptions{Host: "checklist.app"})
-		conn = httpServer
+		httpServer, _ := https.Server(fmt.Sprintf("%d", config.Port), https.GenerateOptions{Host: "checklist.app", ECDSACurve: "P256"})
+		closeOnSignal(httpServer)
 		err = httpServer.ListenAndServeTLS("", "")
 		if err == http.ErrServerClosed {
 			log.Println("Server shutdown")
@@ -56,7 +44,7 @@ func main() {
 			log.Fatal("Failed to http.Serve, %w", err)
 		}
 	} else {
-		serveTCP(server, *port)
+		serveTCP(server, config.Port)
 	}
 }
 
@@ -66,6 +54,7 @@ func serveTCP(server *rpc.Server, port int) {
 		log.Fatalf("Failed to listen tcp: %v", err)
 	}
 	log.Printf("Serving RPC server over TCP on port %d\n", port)
+	closeOnSignal(ln)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -73,4 +62,13 @@ func serveTCP(server *rpc.Server, port int) {
 		}
 		go server.ServeCodec(codec.GoRpc.ServerCodec(conn, b.CodecHandle()))
 	}
+}
+
+func closeOnSignal(conn io.Closer) {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		conn.Close()
+	}()
 }

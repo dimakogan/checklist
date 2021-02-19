@@ -409,7 +409,7 @@ func TestPIRUpdatableDefragBetweenUpdates(t *testing.T) {
 }
 
 func TestPIRServerOverRPC(t *testing.T) {
-	driver, err := ServerDriver()
+	driver, err := config.ServerDriver()
 	assert.NilError(t, err)
 
 	assert.NilError(t, driver.Configure(TestConfig{

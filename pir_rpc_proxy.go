@@ -28,6 +28,8 @@ type PirRpcProxy struct {
 }
 
 func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
+	fmt.Printf("Connecting to %s over HTTPS...", serverAddr)
+
 	config := tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -48,15 +50,19 @@ func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("[OK]\n")
 	return remote, nil
 }
 
 func NewTCPRPCClient(serverAddr string) (*rpc.Client, error) {
+	fmt.Printf("Connecting to %s over TCP...", serverAddr)
+
 	var err error
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("[OK]\n")
 
 	return rpc.NewClientWithCodec(codec.GoRpc.ClientCodec(conn, CodecHandle())), nil
 }
@@ -143,7 +149,11 @@ func (p *PirRpcProxy) Configure(config TestConfig, none *int) error {
 		}
 		defer remote.Close()
 	}
-	return remote.Call("PirServerDriver.Configure", config, none)
+	var non int
+	if none == nil {
+		none = &non
+	}
+	return remote.Call("PirServerDriver.Configure", config, &none)
 }
 
 func (p *PirRpcProxy) AddRows(numRows int, none *int) error {
@@ -154,6 +164,10 @@ func (p *PirRpcProxy) AddRows(numRows int, none *int) error {
 			return err
 		}
 		defer remote.Close()
+	}
+	var non int
+	if none == nil {
+		none = &non
 	}
 	return remote.Call("PirServerDriver.AddRows", numRows, none)
 }
@@ -166,6 +180,10 @@ func (p *PirRpcProxy) DeleteRows(numRows int, none *int) error {
 			return err
 		}
 		defer remote.Close()
+	}
+	var non int
+	if none == nil {
+		none = &non
 	}
 	return remote.Call("PirServerDriver.DeleteRows", numRows, none)
 }

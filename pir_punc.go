@@ -65,7 +65,7 @@ func NewPirServerPunc(source *rand.Rand, flatDb []byte, nRows, rowLen int) pirSe
 		flatDb:             flatDb,
 		nRows:              nRows,
 		rowLen:             rowLen,
-		numHintsMultiplier: int(float64(*SecParam) * math.Log(2)),
+		numHintsMultiplier: int(float64(SecParam) * math.Log(2)),
 	}
 }
 

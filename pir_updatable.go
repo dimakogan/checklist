@@ -401,7 +401,7 @@ func (c *pirClientUpdatable) smallestLayerSize(nRows int) int {
 	if c.smallestLayerSizeOverride != 0 {
 		return c.smallestLayerSizeOverride
 	}
-	return 10 * (*SecParam) * (*SecParam)
+	return 10 * SecParam * SecParam
 }
 
 func (c *pirClientUpdatable) LayersMaxSize(nRows int) []int {

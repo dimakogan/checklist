@@ -10,8 +10,10 @@ import (
 	"gotest.tools/assert"
 )
 
+var config *Configurator
+
 func TestMain(m *testing.M) {
-	InitTestFlags()
+	config = NewConfig().WithClientFlags().Parse()
 	os.Exit(m.Run())
 }
 func TestPIRPunc(t *testing.T) {
@@ -38,7 +40,7 @@ func TestPIRPunc(t *testing.T) {
 }
 
 func TestPunc(t *testing.T) {
-	driver, err := ServerDriver()
+	driver, err := config.ServerDriver()
 	assert.NilError(t, err)
 
 	presetRow := make(Row, 32)
@@ -70,7 +72,7 @@ func TestPunc(t *testing.T) {
 }
 
 func TestPuncWithBlock(t *testing.T) {
-	driver, err := ServerDriver()
+	driver, err := config.ServerDriver()
 	assert.NilError(t, err)
 
 	presetRow := make(Row, 32)
@@ -102,7 +104,7 @@ func TestPuncWithBlock(t *testing.T) {
 }
 
 func TestMatrix(t *testing.T) {
-	driver, err := ServerDriver()
+	driver, err := config.ServerDriver()
 	assert.NilError(t, err)
 
 	assert.NilError(t, driver.Configure(TestConfig{
@@ -124,7 +126,7 @@ func TestMatrix(t *testing.T) {
 }
 
 func TestDPF(t *testing.T) {
-	driver, err := ServerDriver()
+	driver, err := config.ServerDriver()
 	assert.NilError(t, err)
 
 	assert.NilError(t, driver.Configure(TestConfig{

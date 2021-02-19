@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -50,20 +49,12 @@ func readBlockedURLs(blockListFile string, config *b.TestConfig) {
 }
 
 func main() {
-	port := flag.Int("p", 12345, "Listening port")
-	useTLS := false
-	blockList := flag.String("f", "", "URL block list file")
-	b.InitTestFlags()
-	flag.Parse()
-
-	configs := b.TestConfigs()
-	if len(configs) != 1 {
-		log.Fatalf("Too many config options: %v\n", configs)
-	}
-	config := configs[0]
+	config := b.NewConfig().WithServerFlags()
+	blockList := config.FlagSet.String("f", "", "URL block list file")
+	config.Parse()
 
 	if len(*blockList) != 0 {
-		readBlockedURLs(*blockList, &config)
+		readBlockedURLs(*blockList, &config.TestConfig)
 	}
 
 	config.NumRows = len(config.PresetRows)
@@ -73,7 +64,7 @@ func main() {
 		log.Fatalf("Failed to create server: %s", err)
 	}
 
-	err = driver.Configure(config, nil)
+	err = driver.Configure(config.TestConfig, nil)
 	if err != nil {
 		log.Fatalf("Failed to configure server: %s\n", err)
 	}
@@ -90,13 +81,13 @@ func main() {
 	if err := server.RegisterName("PirServerDriver", driver); err != nil {
 		log.Fatalf("Failed to register PIRServer, %s", err)
 	}
-	if useTLS {
+	if config.UseTLS {
 		// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
 		server.HandleHTTP("/", "/debug")
 
-		log.Printf("Serving RPC server over HTTPS on port %d\n", *port)
+		log.Printf("Serving RPC server over HTTPS on port %d\n", config.Port)
 		// Use self-signed certificate
-		httpServer, _ := https.Server(fmt.Sprintf("%d", *port), https.GenerateOptions{Host: "checklist.app"})
+		httpServer, _ := https.Server(fmt.Sprintf("%d", config.Port), https.GenerateOptions{Host: "checklist.app"})
 		conn = httpServer
 		err = httpServer.ListenAndServeTLS("", "")
 		if err == http.ErrServerClosed {
@@ -105,7 +96,7 @@ func main() {
 			log.Fatal("Failed to http.Serve, %w", err)
 		}
 	} else {
-		serveTCP(server, *port)
+		serveTCP(server, config.Port)
 	}
 }
 

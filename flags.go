@@ -6,81 +6,103 @@ import (
 	"log"
 	"math"
 	"os"
-	"strconv"
 	"strings"
 )
 
-var numRows string
-var rowLen string
-var pirType string
-var updatable bool
-var serverAddr string
-var useTLS bool
-var usePersistent bool
-var updateSize string
+type Configurator struct {
+	TestConfig
 
-func InitTestFlags() {
-	flag.StringVar(&numRows, "numRows", "10000", "Num DB Rows (comma-separated list)")
-	flag.StringVar(&rowLen, "rowLen", "32", "Row length in bytes (comma-separated list)")
-	flag.StringVar(&pirType, "pirType", Punc.String(),
-		fmt.Sprintf("Updatable PIR type: [%s] (comma-separated list)", strings.Join(PirTypeStrings(), "|")))
-	flag.BoolVar(&updatable, "updatable", true, "Test Updatable PIR")
-	flag.StringVar(&serverAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
-	flag.BoolVar(&useTLS, "tls", false, "Should use TLS")
-	flag.BoolVar(&usePersistent, "persistent", true, "Should use peristent connection to server")
-	flag.StringVar(&updateSize, "updateSize", "1000", "number of rows in each update batch (default: 1000)")
+	UseTLS bool
 
-	flag.Parse()
+	// For client
+	ServerAddr    string
+	ServerAddr2   string
+	UsePersistent bool
 
-	fmt.Fprintf(os.Stderr, "# TestConfig: %v\n", TestConfigs())
+	// For server
+	Port int
+
+	// For benchmarks
+	CpuProfile string
+	NumUpdates int
+	Progress   bool
+	TraceFile  string
+
+	pirTypeStr string
+
+	FlagSet *flag.FlagSet
 }
 
-func TestConfigs() []TestConfig {
-	var configs []TestConfig
-	numRowsStr := strings.Split(numRows, ",")
-	dbRowLenStr := strings.Split(rowLen, ",")
-	pirTypeStrs := strings.Split(pirType, ",")
-	updateSizeStrs := strings.Split(updateSize, ",")
+func NewConfig() *Configurator {
+	c := new(Configurator)
+	c.FlagSet = flag.CommandLine
+	c.FlagSet.IntVar(&c.NumRows, "numRows", 10000, "Num DB Rows")
+	c.FlagSet.IntVar(&c.RowLen, "rowLen", 32, "Row length in bytes")
+	c.FlagSet.StringVar(&c.pirTypeStr, "pirType", Punc.String(),
+		fmt.Sprintf("Updatable PIR type: [%s]", strings.Join(PirTypeStrings(), "|")))
+	c.FlagSet.BoolVar(&c.Updatable, "updatable", true, "Test Updatable PIR")
+	c.FlagSet.IntVar(&c.UpdateSize, "updateSize", 500, "number of rows in each update batch (default: 500)")
+	return c
+}
 
-	for _, nStr := range numRowsStr {
-		n, err := strconv.Atoi(nStr)
-		if err != nil {
-			log.Fatalf("Bad numRows: %s\n", nStr)
-		}
-		for _, rowLenStr := range dbRowLenStr {
-			recSize, err := strconv.Atoi(rowLenStr)
-			if err != nil {
-				log.Fatalf("Bad rowLen: %s\n", rowLenStr)
-			}
+func (c *Configurator) WithClientFlags() *Configurator {
+	c.FlagSet.StringVar(&c.ServerAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
+	c.FlagSet.StringVar(&c.ServerAddr2, "serverAddr2", "", "<HOSTNAME>:<PORT> of server for RPC test")
+	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
+	c.FlagSet.BoolVar(&c.UsePersistent, "persistent", true, "Should use peristent connection to server")
+	return c
+}
 
-			for _, pirTypeStr := range pirTypeStrs {
-				pirType, err := PirTypeString(pirTypeStr)
-				if err != nil {
-					log.Fatalf("Bad PirType: %s\n", pirTypeStr)
-				}
-				config := TestConfig{NumRows: n, RowLen: recSize, PirType: pirType, Updatable: updatable}
-				if pirType == Perm {
-					config.NumRows = 1 << int(math.Ceil(math.Log2(float64(config.NumRows))))
-				}
-				for _, updateSizeStr := range updateSizeStrs {
-					updateSize, err := strconv.Atoi(updateSizeStr)
-					if err != nil {
-						log.Fatalf("Bad updateSize: %s\n", updateSizeStr)
-					}
-					config.UpdateSize = updateSize
-					configs = append(configs, config)
-				}
-			}
-		}
+func (c *Configurator) WithServerFlags() *Configurator {
+	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
+	c.FlagSet.IntVar(&c.Port, "p", 12345, "Listening port")
+	return c
+}
 
+func (c *Configurator) WithBenchmarkFlags() *Configurator {
+	c.FlagSet.StringVar(&c.CpuProfile, "cpuprofile", "", "write cpu profile to `file`")
+	c.FlagSet.BoolVar(&c.Progress, "progress", true, "Show benchmarks progress")
+	c.FlagSet.IntVar(&c.NumUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
+	c.FlagSet.StringVar(&c.TraceFile, "trace", "trace.txt", "input trace file")
+	return c
+}
+
+func (c *Configurator) Parse() *Configurator {
+	if c.FlagSet.Parsed() {
+		return c
+	}
+	if err := c.FlagSet.Parse(os.Args[1:]); err != nil {
+		log.Fatalf("%v", err)
+	}
+	var err error
+	c.PirType, err = PirTypeString(c.pirTypeStr)
+	if err != nil {
+		log.Fatalf("Bad PirType: %s\n", c.pirTypeStr)
+	}
+	if c.PirType == Perm {
+		c.NumRows = 1 << int(math.Ceil(math.Log2(float64(c.NumRows))))
 	}
 
-	return configs
+	return c
 }
 
-func ServerDriver() (PirServerDriver, error) {
-	if serverAddr != "" {
-		return NewPirRpcProxy(serverAddr, useTLS, usePersistent)
+func (c *Configurator) ServerDriver() (PirServerDriver, error) {
+	c.Parse()
+
+	if c.ServerAddr != "" {
+		return NewPirRpcProxy(c.ServerAddr, c.UseTLS, c.UsePersistent)
+	} else {
+		return NewPirServerDriver()
+	}
+}
+
+func (c *Configurator) Server2Driver() (PirServerDriver, error) {
+	c.Parse()
+
+	if c.ServerAddr2 != "" {
+		return NewPirRpcProxy(c.ServerAddr2, c.UseTLS, c.UsePersistent)
+	} else if c.ServerAddr != "" {
+		return NewPirRpcProxy(c.ServerAddr, c.UseTLS, c.UsePersistent)
 	} else {
 		return NewPirServerDriver()
 	}

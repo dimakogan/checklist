@@ -1,7 +1,6 @@
 package boosted
 
 import (
-	"flag"
 	"fmt"
 	"math"
 	"math/rand"
@@ -11,7 +10,10 @@ import (
 	"github.com/dimakogan/dpf-go/dpf"
 )
 
-var SecParam = flag.Int("secParam", 128, "Security Parameter (in bits)")
+const (
+	// SecParam is the security parameter in bits.
+	SecParam = 128
+)
 
 //go:generate enumer -type=PirType
 type PirType int

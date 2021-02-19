@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -10,7 +9,6 @@ import (
 	"os/signal"
 	"reflect"
 	"runtime/pprof"
-	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -24,8 +22,6 @@ import (
 
 // Number of different records to read to avoid caching effects.
 var NumDifferentReads = 100
-var numRows int
-var updateSize int
 
 //go:generate enumer -type=LoadType
 type LoadType int
@@ -39,29 +35,20 @@ const (
 var pirType b.PirType
 
 func main() {
-	serverAddr := flag.String("s", "127.0.0.1:12345", "server address <HOSTNAME>:<PORT>")
-	flag.IntVar(&numRows, "n", 10000, "Num DB rows")
-	rowLength := flag.Int("r", 32, "Row length in bytes")
-	numWorkers := flag.Int("w", 2, "Num workers")
-	useTLS := flag.Bool("tls", false, "Should use TLS")
-	loadTypeStr := flag.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
-	flag.IntVar(&updateSize, "b", 500, "Number of new keys on each key update")
-	usePersistent := flag.Bool("persistent", false, "Should use persistent connections")
-	pirTypeStr := flag.String("t", "punc", fmt.Sprintf("PIR type: [%s]", strings.Join(b.PirTypeStrings(), "|")))
-	clientProf := flag.String("clientprof", "", "Profile Client filename")
-	hintProf := flag.String("hintprof", "", "Profile Server.Hint filename")
-	answerProf := flag.String("answerprof", "", "Profile Server.Answer filename")
-	updatable := flag.Bool("updatable", true, "Use Updatable PIR")
-
-	flag.Parse()
+	config := b.NewConfig().WithClientFlags()
+	numWorkers := config.FlagSet.Int("w", 2, "Num workers")
+	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
+	clientProf := config.FlagSet.String("clientprof", "", "Profile Client filename")
+	hintProf := config.FlagSet.String("hintprof", "", "Profile Server.Hint filename")
+	answerProf := config.FlagSet.String("answerprof", "", "Profile Server.Answer filename")
+	config.Parse()
 
 	loadType, err := LoadTypeString(*loadTypeStr)
 	if err != nil {
 		log.Fatalf("Bad LoadType: %s\n", loadTypeStr)
 	}
 
-	fmt.Printf("Connecting to %s...", *serverAddr)
-	proxy, err := b.NewPirRpcProxy(*serverAddr, *useTLS, *usePersistent)
+	proxy, err := b.NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -70,11 +57,11 @@ func main() {
 	fmt.Printf("Setting up remote DB...")
 	var none int
 
-	config := b.TestConfig{NumRows: numRows, RowLen: *rowLength, Updatable: *updatable, RandSeed: 678}
+	config.RandSeed = 678
 
 	for i := 0; i < NumDifferentReads; i++ {
-		idx := i % numRows
-		value := make([]byte, *rowLength)
+		idx := i % config.NumRows
+		value := make([]byte, config.RowLen)
 		rand.Read(value)
 		config.PresetRows = append(config.PresetRows, b.RowIndexVal{
 			Index: idx,
@@ -82,12 +69,8 @@ func main() {
 			Value: value})
 	}
 
-	pirType, err = b.PirTypeString(*pirTypeStr)
-	if err != nil {
-		log.Fatalf("Bad PirType: %s", *pirTypeStr)
-	}
-	client := b.NewPirClientUpdatable(b.RandSource(), pirType, [2]b.PirUpdatableServer{proxy, proxy})
-	err = proxy.Configure(config, &none)
+	client := b.NewPirClientUpdatable(b.RandSource(), config.PirType, [2]b.PirUpdatableServer{proxy, proxy})
+	err = proxy.Configure(config.TestConfig, &none)
 	if err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
@@ -97,7 +80,7 @@ func main() {
 	var sizes []int
 	var probs []float64
 	if loadType == Hint {
-		sizes = client.LayersMaxSize(numRows)
+		sizes = client.LayersMaxSize(config.NumRows)
 		probs = make([]float64, len(sizes))
 		probs[len(probs)-1] = 1.0
 		overflowSize := 2 * sizes[len(sizes)-1]
@@ -172,11 +155,11 @@ func main() {
 				start := time.Now()
 				switch loadType {
 				case Answer:
-					err = replayQuery(proxy)
+					err = replayQuery(config, proxy)
 				case Hint:
-					err = replayHint(proxy, sizes, probs)
+					err = replayHint(config, proxy, sizes, probs)
 				case KeyUpdate:
-					err = replayKeyUpdate(proxy)
+					err = replayKeyUpdate(config, proxy)
 				}
 
 				elapsed := time.Since(start)
@@ -242,7 +225,7 @@ func main() {
 	}
 }
 
-func replayQuery(proxy *b.PirRpcProxy) error {
+func replayQuery(config *b.Configurator, proxy *b.PirRpcProxy) error {
 	idx := rand.Intn(len(proxy.QueryReqs))
 	var queryResp b.QueryResp
 	err := proxy.Answer(proxy.QueryReqs[idx], &queryResp)
@@ -255,10 +238,10 @@ func replayQuery(proxy *b.PirRpcProxy) error {
 	return nil
 }
 
-func replayKeyUpdate(proxy *b.PirRpcProxy) error {
+func replayKeyUpdate(config *b.Configurator, proxy *b.PirRpcProxy) error {
 	keyReq := b.KeyUpdatesReq{
 		DefragTimestamp: math.MaxInt32,
-		NextTimestamp:   int32(numRows - updateSize),
+		NextTimestamp:   int32(config.NumRows - config.UpdateSize),
 	}
 	//fmt.Printf("Using size: %d\n", layerSize)
 	var keyResp b.KeyUpdatesResp
@@ -266,8 +249,8 @@ func replayKeyUpdate(proxy *b.PirRpcProxy) error {
 	if err != nil {
 		return fmt.Errorf("Failed to replay key update request %v, %s", keyReq, err)
 	}
-	if len(keyResp.Keys) != updateSize {
-		return fmt.Errorf("Invalid size of key update, expected: %d, got: %d", numRows, len(keyResp.Keys))
+	if len(keyResp.Keys) != config.UpdateSize {
+		return fmt.Errorf("Invalid size of key update, expected: %d, got: %d", config.NumRows, len(keyResp.Keys))
 	}
 	return nil
 }
@@ -281,9 +264,9 @@ func randSize(sizes []int, probs []float64) int {
 	return sizes[bucket]
 }
 
-func replayHint(proxy *b.PirRpcProxy, sizes []int, probs []float64) error {
+func replayHint(config *b.Configurator, proxy *b.PirRpcProxy, sizes []int, probs []float64) error {
 	layerSize := randSize(sizes, probs)
-	firstRow := rand.Intn(numRows - layerSize + 1)
+	firstRow := rand.Intn(config.NumRows - layerSize + 1)
 	hintReq := b.HintReq{
 		RandSeed:        42,
 		DefragTimestamp: math.MaxInt32,
