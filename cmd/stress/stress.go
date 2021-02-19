@@ -48,6 +48,7 @@ func main() {
 		log.Fatalf("Bad LoadType: %s\n", loadTypeStr)
 	}
 
+	fmt.Printf("Connecting to %s (TLS: %b)...", config.ServerAddr, config.UseTLS)
 	proxy, err := b.NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
