@@ -49,7 +49,7 @@ func (c *Configurator) WithClientFlags() *Configurator {
 	c.FlagSet.StringVar(&c.ServerAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 	c.FlagSet.StringVar(&c.ServerAddr2, "serverAddr2", "", "<HOSTNAME>:<PORT> of server for RPC test")
 	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
-	c.FlagSet.BoolVar(&c.UsePersistent, "persistent", true, "Should use peristent connection to server")
+	c.FlagSet.BoolVar(&c.UsePersistent, "persistent", false, "Should use peristent connection to server")
 	return c
 }
 
