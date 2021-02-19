@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	config := b.NewConfig().WithServerFlags()
+	config := b.NewConfig().WithServerFlags().Parse()
 	driver, err := b.NewPirServerDriver()
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
