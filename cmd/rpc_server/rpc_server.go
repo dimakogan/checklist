@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"syscall"
 
 	"github.com/rocketlaunchr/https-go"
@@ -27,6 +28,18 @@ func main() {
 	server := rpc.NewServer()
 	if err := server.RegisterName("PirServerDriver", driver); err != nil {
 		log.Fatalf("Failed to register PIRServer, %s", err)
+	}
+
+	if config.CpuProfile != "" {
+		f, err := os.Create(config.CpuProfile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	if config.UseTLS {
@@ -58,7 +71,8 @@ func serveTCP(server *rpc.Server, port int) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Fatalf("TCP Accept failed: %+v\n", err)
+			log.Printf("TCP Accept failed: %+v\n", err)
+			return
 		}
 		go server.ServeCodec(codec.GoRpc.ServerCodec(conn, b.CodecHandle()))
 	}
