@@ -12,7 +12,8 @@ import (
 type Configurator struct {
 	TestConfig
 
-	UseTLS bool
+	UseTLS     bool
+	CpuProfile string
 
 	// For client
 	ServerAddr    string
@@ -23,7 +24,6 @@ type Configurator struct {
 	Port int
 
 	// For benchmarks
-	CpuProfile string
 	NumUpdates int
 	Progress   bool
 	TraceFile  string
@@ -42,6 +42,7 @@ func NewConfig() *Configurator {
 		fmt.Sprintf("Updatable PIR type: [%s]", strings.Join(PirTypeStrings(), "|")))
 	c.FlagSet.BoolVar(&c.Updatable, "updatable", true, "Test Updatable PIR")
 	c.FlagSet.IntVar(&c.UpdateSize, "updateSize", 500, "number of rows in each update batch (default: 500)")
+	c.FlagSet.StringVar(&c.CpuProfile, "cpuprofile", "", "write cpu profile to `file`")
 	return c
 }
 
@@ -60,7 +61,6 @@ func (c *Configurator) WithServerFlags() *Configurator {
 }
 
 func (c *Configurator) WithBenchmarkFlags() *Configurator {
-	c.FlagSet.StringVar(&c.CpuProfile, "cpuprofile", "", "write cpu profile to `file`")
 	c.FlagSet.BoolVar(&c.Progress, "progress", true, "Show benchmarks progress")
 	c.FlagSet.IntVar(&c.NumUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 	c.FlagSet.StringVar(&c.TraceFile, "trace", "trace.txt", "input trace file")
