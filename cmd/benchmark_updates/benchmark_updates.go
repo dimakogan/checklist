@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -21,17 +20,8 @@ func main() {
 	var ep ErrorPrinter
 	config := NewConfig().WithClientFlags().WithBenchmarkFlags().Parse()
 
-	if config.CpuProfile != "" {
-		f, err := os.Create(config.CpuProfile)
-		if err != nil {
-			log.Fatal("could not create CPU profile: ", err)
-		}
-		defer f.Close() // error handling omitted for example
-		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal("could not start CPU profile: ", err)
-		}
-		defer pprof.StopCPUProfile()
-	}
+	prof := NewCPUProfiler(config.CpuProfile)
+	defer prof.Close()
 
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	fmt.Printf("%15s%22s%22s%22s%15s%22s%22s%15s\n",

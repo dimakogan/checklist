@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
-	"runtime/pprof"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -38,7 +37,6 @@ func main() {
 	config := b.NewConfig().WithClientFlags()
 	numWorkers := config.FlagSet.Int("w", 2, "Num workers")
 	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
-	clientProf := config.FlagSet.String("clientprof", "", "Profile Client filename")
 	hintProf := config.FlagSet.String("hintprof", "", "Profile Server.Hint filename")
 	answerProf := config.FlagSet.String("answerprof", "", "Profile Server.Answer filename")
 	config.Parse()
@@ -179,23 +177,10 @@ func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		var f *os.File
-		if len(*clientProf) > 0 {
-			f, err = os.Create(*clientProf)
-			if err != nil {
-				log.Fatal("could not create CPU profile: ", err)
-			}
-			if err := pprof.StartCPUProfile(f); err != nil {
-				log.Fatal("could not start CPU profile: ", err)
-			}
-		}
+		prof := b.NewCPUProfiler(config.CpuProfile)
+		defer prof.Close()
 
 		<-c
-
-		if f != nil {
-			pprof.StopCPUProfile()
-			f.Close()
-		}
 
 		if len(*answerProf) > 0 {
 			var profOut string
