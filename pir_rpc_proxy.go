@@ -1,9 +1,8 @@
 package boosted
 
 import (
-	"bufio"
+	"bytes"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -27,28 +26,78 @@ type PirRpcProxy struct {
 	QueryResps   []QueryResp
 }
 
-func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
+type httpPostCodec struct {
+	http        *http.Client
+	requestPath string
+	encoder     *codec.Encoder
+	decoder     *codec.Decoder
+	bodyReader  chan (io.ReadCloser)
+	bodyCloser  io.Closer
+}
+
+func newHttpPostCodec(serverAddr string) *httpPostCodec {
 	config := tls.Config{
 		InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", serverAddr, &config)
-	if err != nil {
-		return nil, fmt.Errorf("client: dial: %s", err)
+
+	http := &http.Client{
+		Transport: &http.Transport{
+			DialTLS: func(network, addr string) (net.Conn, error) {
+				return tls.Dial("tcp", addr, &config)
+			},
+		},
 	}
 
-	io.WriteString(conn, "CONNECT "+rpc.DefaultRPCPath+" HTTP/1.0\n\n")
+	return &httpPostCodec{
+		http:        http,
+		requestPath: "https://" + serverAddr + rpc.DefaultRPCPath,
+		encoder:     codec.NewEncoderBytes(nil, CodecHandle()),
+		decoder:     codec.NewDecoder(nil, CodecHandle()),
+		bodyReader:  make(chan io.ReadCloser),
+	}
+}
 
-	// Require successful HTTP response
-	// before switching to RPC protocol.
-	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return nil, errors.New("unexpected HTTP response: " + resp.Status)
-	}
-	remote := rpc.NewClient(conn)
+func (c *httpPostCodec) WriteRequest(req *rpc.Request, body interface{}) error {
+	var reqBuf []byte
+	c.encoder.ResetBytes(&reqBuf)
+	err := c.encoder.Encode(req)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("encoder WriteRequest header failed: %v", err)
 	}
-	return remote, nil
+	err = c.encoder.Encode(body)
+	if err != nil {
+		return fmt.Errorf("encoder WriteRequest body failed: %v", err)
+	}
+	resp, err := c.http.Post(c.requestPath, "application/octet-stream", bytes.NewBuffer(reqBuf))
+	if err != nil {
+		return fmt.Errorf("failed HTTP Get: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed HTTP Get: %v", resp.StatusCode)
+	}
+	c.bodyReader <- resp.Body
+	return err
+}
+
+func (c *httpPostCodec) ReadResponseHeader(header *rpc.Response) error {
+	respBody := <-c.bodyReader
+	c.decoder.Reset(respBody)
+	c.bodyCloser = respBody
+	return c.decoder.Decode(header)
+}
+
+func (c *httpPostCodec) ReadResponseBody(body interface{}) error {
+	defer c.bodyCloser.Close()
+	return c.decoder.Decode(body)
+}
+
+func (c *httpPostCodec) Close() error {
+	c.http.CloseIdleConnections()
+	return nil
+}
+
+func NewHTTPSRPCClient(serverAddr string) (*rpc.Client, error) {
+	return rpc.NewClientWithCodec(newHttpPostCodec(serverAddr)), nil
 }
 
 func NewTCPRPCClient(serverAddr string) (*rpc.Client, error) {

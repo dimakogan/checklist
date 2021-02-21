@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -74,21 +75,37 @@ func main() {
 	defer prof.Close()
 
 	if config.UseTLS {
-		// registers an HTTP handler for RPC messages on rpcPath, and a debugging handler on debugPath
-		server.HandleHTTP("/", "/debug")
-
-		log.Printf("Serving RPC server over HTTPS on port %d\n", config.Port)
-		// Use self-signed certificate
-		httpServer, _ := https.Server(fmt.Sprintf("%d", config.Port), https.GenerateOptions{Host: "checklist.app", ECDSACurve: "P256"})
-		closeOnSignal(httpServer)
-		err = httpServer.ListenAndServeTLS("", "")
-		if err == http.ErrServerClosed {
-			log.Println("Server shutdown")
-		} else if err != nil {
-			log.Fatal("Failed to http.Serve, %w", err)
-		}
+		serveHTTPS2(server, config.Port)
 	} else {
 		serveTCP(server, config.Port)
+	}
+}
+
+func serveHTTPS2(server *rpc.Server, port int) {
+	log.Printf("Serving RPC server over HTTPS on port %d\n", port)
+
+	httpServer, _ := https.Server(fmt.Sprintf("%d", port), https.GenerateOptions{Host: "checklist.app", ECDSACurve: "P256"})
+	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == rpc.DefaultRPCPath {
+			w.Header().Set("Content-type", "application/octet-stream")
+			server.ServeRequest(
+				codec.GoRpc.ServerCodec(
+					&struct {
+						io.ReadCloser
+						io.Writer
+					}{
+						ReadCloser: ioutil.NopCloser(r.Body),
+						Writer:     w,
+					},
+					b.CodecHandle()))
+		}
+	})
+	closeOnSignal(httpServer)
+	err := httpServer.ListenAndServeTLS("", "")
+	if err == http.ErrServerClosed {
+		log.Println("Server shutdown")
+	} else if err != nil {
+		log.Fatal("Failed to http.Serve, %w", err)
 	}
 }
 
