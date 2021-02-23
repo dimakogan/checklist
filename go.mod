@@ -13,6 +13,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rocketlaunchr/https-go v0.0.0-20200218083740-ba6c48f29f4d
 	github.com/ugorji/go/codec v1.2.4
+	github.com/zserge/metric v0.1.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	gotest.tools v2.2.0+incompatible
 )

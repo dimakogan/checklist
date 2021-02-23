@@ -1,7 +1,11 @@
 package main
 
 import (
+	"expvar"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -12,8 +16,7 @@ import (
 	. "github.com/dimakogan/boosted-pir"
 
 	"github.com/paulbellamy/ratecounter"
-
-	"log"
+	"github.com/zserge/metric"
 )
 
 // Number of different records to read to avoid caching effects.
@@ -34,10 +37,79 @@ type stresser interface {
 	request(proxy *PirRpcProxy) error
 }
 
+type workerCtx struct {
+	startTime       time.Time
+	inShutdown      bool
+	totalNumQueries uint64
+	numWorkers      int
+	wg              sync.WaitGroup
+
+	log string
+
+	reqs                            *ratecounter.RateCounter
+	latency                         *ratecounter.AvgRateCounter
+	reqsMet, latencyMet, workersMet metric.Metric
+}
+
+func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Fatalf("Worker panic: %v", r)
+		}
+	}()
+	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	if err != nil {
+		log.Fatal("Connection error: ", err)
+	}
+	for {
+		if ctx.inShutdown {
+			ctx.wg.Done()
+			return
+		}
+		var err error
+		start := time.Now()
+		err = stresser.request(proxy)
+		elapsed := time.Since(start).Milliseconds()
+		ctx.reqs.Incr(1)
+		ctx.latency.Incr(elapsed)
+		ctx.reqsMet.Add(1)
+		ctx.latencyMet.Add(float64(elapsed))
+		atomic.AddUint64(&ctx.totalNumQueries, 1)
+
+		if err != nil {
+			log.Fatalf("Failed to replay query: %v", err)
+		}
+
+	}
+}
+
+func liveMonitor(ctx *workerCtx) {
+	expvar.Publish("requests", ctx.reqsMet)
+	expvar.Publish("latency", ctx.latencyMet)
+	expvar.Publish("workers", ctx.workersMet)
+	http.Handle("/debug/metrics", metric.Handler(metric.Exposed))
+	go http.ListenAndServe(":8080", nil)
+
+	for {
+		if ctx.inShutdown {
+			break
+		}
+		time.Sleep(time.Second)
+		fmt.Printf("\rWorkers: %d, Current rate: %.02f QPS, overall rate (over %s): %.02f, average latency: %.02f ms          ",
+			ctx.numWorkers,
+			float64(ctx.reqs.Rate()),
+			time.Since(ctx.startTime).String(),
+			float64(ctx.totalNumQueries)/time.Since(ctx.startTime).Seconds(),
+			float64(ctx.latency.Rate()))
+		ctx.log += fmt.Sprintf("%d,%d,%d,%.02f\n", int(time.Since(ctx.startTime).Seconds()), ctx.numWorkers, ctx.totalNumQueries, ctx.latency.Rate())
+	}
+}
+
 func main() {
 	config := NewConfig().WithClientFlags()
 	numWorkers := config.FlagSet.Int("w", 2, "Num workers")
 	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
+	outFile := config.FlagSet.String("o", "", "output filename for stats")
 	// config.FlagSet.String("recordTo", "", "File to store recorded requests at.")
 	config.Parse()
 
@@ -70,45 +142,24 @@ func main() {
 	}
 
 	proxy.Close()
-	// We're recording marks-per-1second
-	counter := ratecounter.NewRateCounter(10 * time.Second)
-	startTime := time.Now()
-	var totalNumQueries, totalLatency uint64
+	ctx := workerCtx{
+		startTime: time.Now(),
+		// We're recording marks-per-10second
+		reqs:       ratecounter.NewRateCounter(time.Second),
+		latency:    ratecounter.NewAvgRateCounter(time.Second),
+		reqsMet:    metric.NewCounter("1m1s", "5m10s"),
+		latencyMet: metric.NewGauge("1m1s", "5m10s"),
+		workersMet: metric.NewCounter("1m1s", "5m10s"),
+	}
 
-	inShutdown := false
-	var wg sync.WaitGroup
-	wg.Add(*numWorkers)
+	go liveMonitor(&ctx)
+
+	ctx.wg.Add(*numWorkers)
+	ctx.numWorkers = *numWorkers
+	ctx.workersMet.Add(float64(*numWorkers))
 
 	for i := 0; i < *numWorkers; i++ {
-		go func(idx int) {
-			defer func() {
-				if r := recover(); r != nil {
-					log.Fatalf("Worker panic: %v", r)
-				}
-			}()
-			proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
-			if err != nil {
-				log.Fatal("Connection error: ", err)
-			}
-			for {
-				if inShutdown {
-					wg.Done()
-					return
-				}
-				var err error
-				start := time.Now()
-				err = stresser.request(proxy)
-				elapsed := time.Since(start)
-				atomic.AddUint64(&totalLatency, uint64(elapsed))
-
-				if err != nil {
-					log.Fatalf("Failed to replay query: %v", err)
-				}
-
-				counter.Incr(1)
-				atomic.AddUint64(&totalNumQueries, 1)
-			}
-		}(i)
+		go workerFunc(config, stresser, &ctx)
 	}
 
 	c := make(chan os.Signal)
@@ -117,21 +168,26 @@ func main() {
 		prof := NewProfiler(config.CpuProfile)
 		defer prof.Close()
 		<-c
-		inShutdown = true
-		wg.Wait()
+		ctx.inShutdown = true
+		ctx.wg.Wait()
+
+		if *outFile != "" {
+			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency\n"+ctx.log), 0644)
+		}
 		os.Exit(0)
 	}()
 
 	for {
-		var avgLatency uint64
-		if totalNumQueries > 0 {
-			avgLatency = totalLatency / totalNumQueries
+		time.Sleep(15 * time.Second)
+		if *outFile != "" {
+			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency\n"+ctx.log), 0644)
 		}
-		time.Sleep(time.Second)
-		fmt.Printf("\rCurrent rate: %.02f QPS, overall rate (over %s): %.02f, average latency: %.02f ms          ",
-			float64(counter.Rate())/10,
-			time.Since(startTime).String(),
-			float64(totalNumQueries)/time.Since(startTime).Seconds(),
-			float64(avgLatency)/1000000)
+		addWorkers := ctx.numWorkers / 2
+		ctx.wg.Add(addWorkers)
+		ctx.workersMet.Add(float64(addWorkers))
+		for i := 0; i < addWorkers; i++ {
+			go workerFunc(config, stresser, &ctx)
+		}
+		ctx.numWorkers += addWorkers
 	}
 }
