@@ -4,19 +4,13 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
-	"net/rpc"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
-	"github.com/rocketlaunchr/https-go"
-	"github.com/ugorji/go/codec"
+	"github.com/dimakogan/boosted-pir/rpc"
 
 	b "github.com/dimakogan/boosted-pir"
 	sb "github.com/dimakogan/boosted-pir/safebrowsing"
@@ -66,71 +60,30 @@ func main() {
 		log.Fatalf("Failed to create server: %s", err)
 	}
 
-	server := rpc.NewServer()
+	server, err := rpc.NewServer(config.Port, config.UseTLS)
+	if err != nil {
+		log.Fatalf("Failed to create server: %s", err)
+	}
 	if err := server.RegisterName("PirServerDriver", driver); err != nil {
 		log.Fatalf("Failed to register PIRServer, %s", err)
 	}
 
-	prof := b.NewCPUProfiler(config.CpuProfile)
-	defer prof.Close()
-
-	if config.UseTLS {
-		serveHTTPS2(server, config.Port)
-	} else {
-		serveTCP(server, config.Port)
-	}
-}
-
-func serveHTTPS2(server *rpc.Server, port int) {
-	log.Printf("Serving RPC server over HTTPS on port %d\n", port)
-
-	httpServer, _ := https.Server(fmt.Sprintf("%d", port), https.GenerateOptions{Host: "checklist.app", ECDSACurve: "P256"})
-	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == rpc.DefaultRPCPath {
-			w.Header().Set("Content-type", "application/octet-stream")
-			server.ServeRequest(
-				codec.GoRpc.ServerCodec(
-					&struct {
-						io.ReadCloser
-						io.Writer
-					}{
-						ReadCloser: ioutil.NopCloser(r.Body),
-						Writer:     w,
-					},
-					b.CodecHandle()))
-		}
-	})
-	closeOnSignal(httpServer)
-	err := httpServer.ListenAndServeTLS("", "")
-	if err == http.ErrServerClosed {
-		log.Println("Server shutdown")
-	} else if err != nil {
-		log.Fatal("Failed to http.Serve, %w", err)
-	}
-}
-
-func serveTCP(server *rpc.Server, port int) {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("Failed to listen tcp: %v", err)
-	}
-	log.Printf("Serving RPC server over TCP on port %d\n", port)
-	closeOnSignal(ln)
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("TCP Accept failed: %+v\n", err)
-			return
-		}
-		go server.ServeCodec(codec.GoRpc.ServerCodec(conn, b.CodecHandle()))
-	}
-}
-
-func closeOnSignal(conn io.Closer) {
+	var inShutdown bool
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		conn.Close()
+		inShutdown = true
+		server.Close()
 	}()
+
+	prof := b.NewProfiler(config.CpuProfile)
+	defer prof.Close()
+
+	err = server.Serve()
+	if err != nil && !inShutdown {
+		log.Fatalf("Failed to serve: %s", err)
+	} else {
+		fmt.Printf("Shutting down")
+	}
 }

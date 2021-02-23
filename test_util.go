@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 
+	"github.com/dimakogan/boosted-pir/rpc"
 	"github.com/ugorji/go/codec"
 )
 
@@ -62,16 +63,9 @@ type RowIndexVal struct {
 	Value Row
 }
 
-func CodecHandle() codec.Handle {
-	h := codec.BincHandle{}
-	h.StructToArray = true
-	h.OptimumSize = true
-	return &h
-}
-
 func SerializedSizeOf(e interface{}) (int, error) {
 	var buf bytes.Buffer
-	enc := codec.NewEncoder(&buf, CodecHandle())
+	enc := codec.NewEncoder(&buf, rpc.CodecHandle())
 	err := enc.Encode(e)
 	if err != nil {
 		panic(err)

@@ -23,7 +23,7 @@ func main() {
 
 	config := NewConfig().WithClientFlags().WithBenchmarkFlags().Parse()
 
-	prof := NewCPUProfiler(config.CpuProfile)
+	prof := NewProfiler(config.CpuProfile)
 	defer prof.Close()
 
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))

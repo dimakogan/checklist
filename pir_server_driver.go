@@ -1,11 +1,9 @@
 package boosted
 
 import (
-	"bytes"
 	"encoding/gob"
 	"fmt"
 	"math/rand"
-	"runtime/pprof"
 	"time"
 )
 
@@ -18,8 +16,6 @@ type PirServerDriver interface {
 	AddRows(numRows int, none *int) error
 	DeleteRows(numRows int, none *int) error
 
-	StartCpuProfile(int, *int) error
-	StopCpuProfile(none int, out *string) error
 	ResetMetrics(none int, none2 *int) error
 	GetOfflineTimer(none int, out *time.Duration) error
 	GetOnlineTimer(none int, out *time.Duration) error
@@ -35,8 +31,6 @@ type pirServerDriver struct {
 
 	randSource *rand.Rand
 	updatable  bool
-
-	profBuf bytes.Buffer
 
 	// For profiling
 	hintTime, answerTime      time.Duration
@@ -174,17 +168,6 @@ func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
 
 func (driver *pirServerDriver) NumRows(none int, out *int) error {
 	return driver.PirDB.NumRows(none, out)
-}
-
-func (driver *pirServerDriver) StartCpuProfile(int, *int) error {
-	driver.profBuf.Reset()
-	return pprof.StartCPUProfile(&driver.profBuf)
-}
-
-func (driver *pirServerDriver) StopCpuProfile(none int, out *string) error {
-	pprof.StopCPUProfile()
-	*out = driver.profBuf.String()
-	return nil
 }
 
 func (driver *pirServerDriver) GetOfflineTimer(none int, out *time.Duration) error {
