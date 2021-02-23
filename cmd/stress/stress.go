@@ -41,14 +41,15 @@ type workerCtx struct {
 	startTime       time.Time
 	inShutdown      bool
 	totalNumQueries uint64
+	totalNumErrors  uint64
 	numWorkers      int
 	wg              sync.WaitGroup
 
 	log string
 
-	reqs                            *ratecounter.RateCounter
-	latency                         *ratecounter.AvgRateCounter
-	reqsMet, latencyMet, workersMet metric.Metric
+	reqs, errors                            *ratecounter.RateCounter
+	latency                                 *ratecounter.AvgRateCounter
+	reqsMet, errMet, latencyMet, workersMet metric.Metric
 }
 
 func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
@@ -69,17 +70,19 @@ func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
 		var err error
 		start := time.Now()
 		err = stresser.request(proxy)
+		if err != nil {
+			ctx.errors.Incr(1)
+			ctx.errMet.Add(1)
+			atomic.AddUint64(&ctx.totalNumErrors, 1)
+			continue
+		}
+
 		elapsed := time.Since(start).Milliseconds()
 		ctx.reqs.Incr(1)
 		ctx.latency.Incr(elapsed)
 		ctx.reqsMet.Add(1)
 		ctx.latencyMet.Add(float64(elapsed))
 		atomic.AddUint64(&ctx.totalNumQueries, 1)
-
-		if err != nil {
-			log.Fatalf("Failed to replay query: %v", err)
-		}
-
 	}
 }
 
@@ -87,6 +90,7 @@ func liveMonitor(ctx *workerCtx) {
 	expvar.Publish("requests", ctx.reqsMet)
 	expvar.Publish("latency", ctx.latencyMet)
 	expvar.Publish("workers", ctx.workersMet)
+	expvar.Publish("errors", ctx.errMet)
 	http.Handle("/debug/metrics", metric.Handler(metric.Exposed))
 	go http.ListenAndServe(":8080", nil)
 
@@ -95,13 +99,14 @@ func liveMonitor(ctx *workerCtx) {
 			break
 		}
 		time.Sleep(time.Second)
-		fmt.Printf("\rWorkers: %d, Current rate: %.02f QPS, overall rate (over %s): %.02f, average latency: %.02f ms          ",
+		fmt.Printf("\rWorkers: %d, Current rate: %d QPS, overall rate (over %s): %.02f, average latency: %.02f ms, errors: %d          ",
 			ctx.numWorkers,
-			float64(ctx.reqs.Rate()),
+			ctx.reqs.Rate(),
 			time.Since(ctx.startTime).String(),
 			float64(ctx.totalNumQueries)/time.Since(ctx.startTime).Seconds(),
-			float64(ctx.latency.Rate()))
-		ctx.log += fmt.Sprintf("%d,%d,%d,%.02f\n", int(time.Since(ctx.startTime).Seconds()), ctx.numWorkers, ctx.totalNumQueries, ctx.latency.Rate())
+			float64(ctx.latency.Rate()),
+			ctx.errors.Rate())
+		ctx.log += fmt.Sprintf("%d,%d,%d,%.02f,%d\n", int(time.Since(ctx.startTime).Seconds()), ctx.numWorkers, ctx.totalNumQueries, ctx.latency.Rate(), ctx.totalNumErrors)
 	}
 }
 
@@ -146,8 +151,10 @@ func main() {
 		startTime: time.Now(),
 		// We're recording marks-per-10second
 		reqs:       ratecounter.NewRateCounter(time.Second),
+		errors:     ratecounter.NewRateCounter(time.Second),
 		latency:    ratecounter.NewAvgRateCounter(time.Second),
 		reqsMet:    metric.NewCounter("1m1s", "5m10s"),
+		errMet:     metric.NewCounter("1m1s", "5m10s"),
 		latencyMet: metric.NewGauge("1m1s", "5m10s"),
 		workersMet: metric.NewCounter("1m1s", "5m10s"),
 	}
@@ -172,7 +179,7 @@ func main() {
 		ctx.wg.Wait()
 
 		if *outFile != "" {
-			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency\n"+ctx.log), 0644)
+			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency,Errors\n"+ctx.log), 0644)
 		}
 		os.Exit(0)
 	}()
@@ -180,7 +187,7 @@ func main() {
 	for {
 		time.Sleep(15 * time.Second)
 		if *outFile != "" {
-			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency\n"+ctx.log), 0644)
+			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency,Errors\n"+ctx.log), 0644)
 		}
 		addWorkers := ctx.numWorkers / 2
 		ctx.wg.Add(addWorkers)
