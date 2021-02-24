@@ -115,7 +115,7 @@ func runWorkers(config *Configurator, stresser stresser, ctx *workerCtx, numInit
 		if ctx.inShutdown {
 			break
 		}
-		addWorkers := ctx.numWorkers / 2
+		addWorkers := numInitial
 		ctx.wg.Add(addWorkers)
 		ctx.workersMet.Add(float64(addWorkers))
 		for i := 0; i < addWorkers; i++ {
