@@ -64,7 +64,8 @@ func main() {
 		start := time.Now()
 		_, err := client.Read(key)
 		if err != nil {
-			log.Fatalf("Failed to read key %d: %v", key, err)
+			fmt.Printf("Failed to read key %d: %v", key, err)
+			continue
 		}
 		latencies = append(latencies, requestTime{start, time.Now()})
 	}

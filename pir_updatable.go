@@ -674,3 +674,7 @@ func (c *pirClientUpdatable) StorageNumBytes() int {
 
 	return numBytes
 }
+
+func (c *pirClientUpdatable) NumLayers() int {
+	return len(c.layers)
+}

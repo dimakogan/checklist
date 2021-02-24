@@ -15,6 +15,9 @@ type answerStresser struct {
 }
 
 func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStresser {
+	totalNumRows := config.NumRows
+	config.NumRows = config.NumRows * 2 / 3
+
 	for i := 0; i < NumDifferentReads; i++ {
 		idx := i % config.NumRows
 		value := make([]byte, config.RowLen)
@@ -39,6 +42,20 @@ func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStr
 		log.Fatalf("Failed to Initialize client: %s\n", err)
 	}
 	fmt.Printf("[OK]\n")
+
+	fmt.Printf("Adding more rows...")
+	for config.NumRows < totalNumRows {
+		toAdd := ((totalNumRows-config.NumRows)/2 + 1)
+		if err = proxy.AddRows(toAdd, nil); err != nil {
+			log.Fatalf("failed to add %d rows: %s", toAdd, err)
+		}
+		config.NumRows += toAdd
+		if err = client.Update(); err != nil {
+			log.Fatalf("failed to update hint after adding %d rows: %s", toAdd, err)
+		}
+	}
+
+	fmt.Printf("[OK] (num layers: %d)\n", client.NumLayers())
 
 	fmt.Printf("Caching responses...")
 	proxy.StartRecording()
