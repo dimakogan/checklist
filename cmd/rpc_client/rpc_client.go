@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	b "github.com/dimakogan/boosted-pir"
@@ -11,13 +14,16 @@ import (
 	"log"
 )
 
+type requestTime struct {
+	start, end time.Time
+}
+
 func main() {
 	config := b.NewConfig().WithClientFlags()
-	numQueries := config.FlagSet.Int("q", 10000, "Number of queries to do")
 	latenciesFile := config.FlagSet.String("latenciesFile", "", "Latencies output filename")
 	config.Parse()
 
-	latencies := make([]int64, 0)
+	latencies := make([]requestTime, 0)
 
 	proxyLeft, err := config.ServerDriver()
 	if err != nil {
@@ -41,22 +47,33 @@ func main() {
 	keys := client.Keys()
 	fmt.Printf("Got %d keys from server\n", len(keys))
 
-	for i := 0; i < *numQueries; i++ {
+	inShutdown := false
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		inShutdown = true
+	}()
+
+	for {
+		if inShutdown {
+			break
+		}
 		key := keys[rand.Intn(len(keys))]
 		start := time.Now()
 		_, err := client.Read(key)
 		if err != nil {
 			log.Fatalf("Failed to read key %d: %v", key, err)
 		}
-		latencies = append(latencies, time.Since(start).Microseconds())
+		latencies = append(latencies, requestTime{start, time.Now()})
 	}
-
-	if len(*latenciesFile) > 0 {
-		lOut, _ := os.Create(*latenciesFile)
+	if *latenciesFile != "" {
+		log := "Time,Latency\n"
 		for _, l := range latencies {
-			lOut.WriteString(fmt.Sprintf("%d\n", l))
+			log += fmt.Sprintf("%d,%d\n", l.start.Unix(), l.end.Sub(l.start).Milliseconds())
 		}
-		lOut.Close()
+		ioutil.WriteFile(*latenciesFile, []byte(log), 0644)
 	}
 
 	fmt.Printf("Completed %d queries\n", len(latencies))

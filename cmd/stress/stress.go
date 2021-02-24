@@ -3,7 +3,6 @@ package main
 import (
 	"expvar"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -40,16 +39,29 @@ type stresser interface {
 type workerCtx struct {
 	startTime       time.Time
 	inShutdown      bool
+	sleepMsec       int
 	totalNumQueries uint64
 	totalNumErrors  uint64
 	numWorkers      int
 	wg              sync.WaitGroup
 
-	log string
-
 	reqs, errors                            *ratecounter.RateCounter
 	latency                                 *ratecounter.AvgRateCounter
 	reqsMet, errMet, latencyMet, workersMet metric.Metric
+}
+
+func initContext() *workerCtx {
+	return &workerCtx{
+		startTime: time.Now(),
+		// We're recording marks-per-10second
+		reqs:       ratecounter.NewRateCounter(time.Second),
+		errors:     ratecounter.NewRateCounter(time.Second),
+		latency:    ratecounter.NewAvgRateCounter(time.Second),
+		reqsMet:    metric.NewCounter("1m1s", "5m10s"),
+		errMet:     metric.NewCounter("1m1s", "5m10s"),
+		latencyMet: metric.NewGauge("1m1s", "5m10s"),
+		workersMet: metric.NewCounter("1m1s", "5m10s"),
+	}
 }
 
 func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
@@ -83,16 +95,55 @@ func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
 		ctx.reqsMet.Add(1)
 		ctx.latencyMet.Add(float64(elapsed))
 		atomic.AddUint64(&ctx.totalNumQueries, 1)
+		time.Sleep(time.Duration(ctx.sleepMsec) * time.Millisecond)
 	}
 }
 
-func liveMonitor(ctx *workerCtx) {
+func runWorkers(config *Configurator, stresser stresser, ctx *workerCtx, numInitial int, incInterval int) {
+	ctx.wg.Add(numInitial)
+	ctx.numWorkers = numInitial
+	ctx.workersMet.Add(float64(numInitial))
+
+	for i := 0; i < numInitial; i++ {
+		go workerFunc(config, stresser, ctx)
+	}
+	if incInterval == 0 {
+		return
+	}
+	for {
+		time.Sleep(time.Duration(incInterval) * time.Second)
+		if ctx.inShutdown {
+			break
+		}
+		addWorkers := ctx.numWorkers / 2
+		ctx.wg.Add(addWorkers)
+		ctx.workersMet.Add(float64(addWorkers))
+		for i := 0; i < addWorkers; i++ {
+			go workerFunc(config, stresser, ctx)
+		}
+		ctx.numWorkers += addWorkers
+	}
+}
+
+func liveMonitor(ctx *workerCtx, outFile string) {
 	expvar.Publish("requests", ctx.reqsMet)
 	expvar.Publish("latency", ctx.latencyMet)
 	expvar.Publish("workers", ctx.workersMet)
 	expvar.Publish("errors", ctx.errMet)
 	http.Handle("/debug/metrics", metric.Handler(metric.Exposed))
 	go http.ListenAndServe(":8080", nil)
+
+	var f *os.File
+	var err error
+	if outFile != "" {
+		f, err = os.OpenFile(outFile, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("failed to create output file: %s", err)
+		}
+		defer f.Close()
+	}
+
+	fmt.Fprintf(f, "Seconds,Workers,Queries,Latency,Errors\n")
 
 	for {
 		if ctx.inShutdown {
@@ -106,13 +157,18 @@ func liveMonitor(ctx *workerCtx) {
 			float64(ctx.totalNumQueries)/time.Since(ctx.startTime).Seconds(),
 			float64(ctx.latency.Rate()),
 			ctx.errors.Rate())
-		ctx.log += fmt.Sprintf("%d,%d,%d,%.02f,%d\n", int(time.Since(ctx.startTime).Seconds()), ctx.numWorkers, ctx.totalNumQueries, ctx.latency.Rate(), ctx.totalNumErrors)
+		if f != nil {
+			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d\n", time.Now().Unix(), ctx.numWorkers, ctx.totalNumQueries, ctx.latency.Rate(), ctx.totalNumErrors)
+		}
 	}
+	ctx.wg.Wait()
 }
 
 func main() {
 	config := NewConfig().WithClientFlags()
 	numWorkers := config.FlagSet.Int("w", 2, "Num workers")
+	incInterval := config.FlagSet.Int("i", 0, "Interval to increment num workers")
+	sleepMsec := config.FlagSet.Int("s", 500, "milliseconds to sleep between requests")
 	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
 	outFile := config.FlagSet.String("o", "", "output filename for stats")
 	// config.FlagSet.String("recordTo", "", "File to store recorded requests at.")
@@ -147,27 +203,10 @@ func main() {
 	}
 
 	proxy.Close()
-	ctx := workerCtx{
-		startTime: time.Now(),
-		// We're recording marks-per-10second
-		reqs:       ratecounter.NewRateCounter(time.Second),
-		errors:     ratecounter.NewRateCounter(time.Second),
-		latency:    ratecounter.NewAvgRateCounter(time.Second),
-		reqsMet:    metric.NewCounter("1m1s", "5m10s"),
-		errMet:     metric.NewCounter("1m1s", "5m10s"),
-		latencyMet: metric.NewGauge("1m1s", "5m10s"),
-		workersMet: metric.NewCounter("1m1s", "5m10s"),
-	}
+	ctx := initContext()
+	ctx.sleepMsec = *sleepMsec
 
-	go liveMonitor(&ctx)
-
-	ctx.wg.Add(*numWorkers)
-	ctx.numWorkers = *numWorkers
-	ctx.workersMet.Add(float64(*numWorkers))
-
-	for i := 0; i < *numWorkers; i++ {
-		go workerFunc(config, stresser, &ctx)
-	}
+	go runWorkers(config, stresser, ctx, *numWorkers, *incInterval)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -176,25 +215,7 @@ func main() {
 		defer prof.Close()
 		<-c
 		ctx.inShutdown = true
-		ctx.wg.Wait()
-
-		if *outFile != "" {
-			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency,Errors\n"+ctx.log), 0644)
-		}
-		os.Exit(0)
 	}()
 
-	for {
-		time.Sleep(15 * time.Second)
-		if *outFile != "" {
-			ioutil.WriteFile(*outFile, []byte("Seconds,Workers,Queries,Latency,Errors\n"+ctx.log), 0644)
-		}
-		addWorkers := ctx.numWorkers / 2
-		ctx.wg.Add(addWorkers)
-		ctx.workersMet.Add(float64(addWorkers))
-		for i := 0; i < addWorkers; i++ {
-			go workerFunc(config, stresser, &ctx)
-		}
-		ctx.numWorkers += addWorkers
-	}
+	liveMonitor(ctx, *outFile)
 }
