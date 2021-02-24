@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -22,8 +21,6 @@ func main() {
 	config := b.NewConfig().WithClientFlags()
 	latenciesFile := config.FlagSet.String("latenciesFile", "", "Latencies output filename")
 	config.Parse()
-
-	latencies := make([]requestTime, 0)
 
 	proxyLeft, err := config.ServerDriver()
 	if err != nil {
@@ -56,25 +53,49 @@ func main() {
 		inShutdown = true
 	}()
 
+	latencies := make(chan (requestTime), 1000)
+
+	go func() {
+		for {
+			if inShutdown {
+				break
+			}
+			key := keys[rand.Intn(len(keys))]
+			start := time.Now()
+			_, err := client.Read(key)
+			if err != nil {
+				fmt.Printf("Failed to read key %d: %v", key, err)
+				continue
+			}
+			latencies <- requestTime{start, time.Now()}
+		}
+	}()
+
+	var f *os.File
+	if *latenciesFile != "" {
+		f, err = os.OpenFile(*latenciesFile, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("failed to create output file: %s", err)
+		}
+		fmt.Fprintf(f, "Seconds,Latency\n")
+		defer f.Close()
+	}
+
 	for {
+		time.Sleep(5 * time.Second)
 		if inShutdown {
 			break
 		}
-		key := keys[rand.Intn(len(keys))]
-		start := time.Now()
-		_, err := client.Read(key)
-		if err != nil {
-			fmt.Printf("Failed to read key %d: %v", key, err)
-			continue
+		var totalLatency, num int64
+		for l := range latencies {
+			latency := l.end.Sub(l.start).Milliseconds()
+			totalLatency += latency
+			num++
+			if f != nil {
+				fmt.Fprintf(f, "%d,%d\n", l.start.Unix(), latency)
+			}
 		}
-		latencies = append(latencies, requestTime{start, time.Now()})
-	}
-	if *latenciesFile != "" {
-		log := "Time,Latency\n"
-		for _, l := range latencies {
-			log += fmt.Sprintf("%d,%d\n", l.start.Unix(), l.end.Sub(l.start).Milliseconds())
-		}
-		ioutil.WriteFile(*latenciesFile, []byte(log), 0644)
+		fmt.Printf("Avg latency: %d msec      \r", totalLatency/num)
 	}
 
 	fmt.Printf("Completed %d queries\n", len(latencies))

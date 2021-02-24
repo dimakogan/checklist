@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -99,29 +101,23 @@ func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
 	}
 }
 
-func runWorkers(config *Configurator, stresser stresser, ctx *workerCtx, numInitial int, incInterval int) {
-	ctx.wg.Add(numInitial)
-	ctx.numWorkers = numInitial
-	ctx.workersMet.Add(float64(numInitial))
+func runWorkers(config *Configurator, stresser stresser, ctx *workerCtx, numWorkers []int, incInterval int) {
+	for _, w := range numWorkers {
+		toAdd := w - ctx.numWorkers
+		ctx.wg.Add(toAdd)
+		ctx.workersMet.Add(float64(toAdd))
+		ctx.numWorkers = w
 
-	for i := 0; i < numInitial; i++ {
-		go workerFunc(config, stresser, ctx)
-	}
-	if incInterval == 0 {
-		return
-	}
-	for {
+		for i := 0; i < toAdd; i++ {
+			go workerFunc(config, stresser, ctx)
+		}
+		if incInterval == 0 {
+			return
+		}
 		time.Sleep(time.Duration(incInterval) * time.Second)
 		if ctx.inShutdown {
 			break
 		}
-		addWorkers := numInitial
-		ctx.wg.Add(addWorkers)
-		ctx.workersMet.Add(float64(addWorkers))
-		for i := 0; i < addWorkers; i++ {
-			go workerFunc(config, stresser, ctx)
-		}
-		ctx.numWorkers += addWorkers
 	}
 }
 
@@ -166,7 +162,7 @@ func liveMonitor(ctx *workerCtx, outFile string) {
 
 func main() {
 	config := NewConfig().WithClientFlags()
-	numWorkers := config.FlagSet.Int("w", 2, "Num workers")
+	numWorkers := config.FlagSet.String("w", "2", "Num workers (sequence)")
 	incInterval := config.FlagSet.Int("i", 0, "Interval to increment num workers")
 	sleepMsec := config.FlagSet.Int("s", 500, "milliseconds to sleep between requests")
 	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
@@ -174,9 +170,19 @@ func main() {
 	// config.FlagSet.String("recordTo", "", "File to store recorded requests at.")
 	config.Parse()
 
+	numWorkersSeq := []int{}
+	wstrs := strings.Split(*numWorkers, ",")
+	for _, wstr := range wstrs {
+		if w, err := strconv.Atoi(wstr); err != nil {
+			log.Fatalf("Invalid num workers value: %s", wstr)
+		} else {
+			numWorkersSeq = append(numWorkersSeq, w)
+		}
+	}
+
 	loadType, err := LoadTypeString(*loadTypeStr)
 	if err != nil {
-		log.Fatalf("Bad LoadType: %s\n", loadTypeStr)
+		log.Fatalf("Bad LoadType: %s\n", *loadTypeStr)
 	}
 
 	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
@@ -206,7 +212,7 @@ func main() {
 	ctx := initContext()
 	ctx.sleepMsec = *sleepMsec
 
-	go runWorkers(config, stresser, ctx, *numWorkers, *incInterval)
+	go runWorkers(config, stresser, ctx, numWorkersSeq, *incInterval)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
