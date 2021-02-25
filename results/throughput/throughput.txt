@@ -1,14 +1,14 @@
 KeyUpdate
 =========
-B=500 - TLS: 730 QPS, TCP: 7500 QPS, Persistent TCP: 25200 QPS
-B=4000 - TLS: 620 QPS, TCP: 3100 QPS, Persistent TCP: 5500 QPS
+B=500 - TLS: 4200 QPS, TCP: 7500 QPS, Persistent TCP: 25200 QPS
+B=4000 - TLS: - QPS, TCP: 3100 QPS, Persistent TCP: 5500 QPS
 
 
 Answer
 ======
-NonPrivate - TLS: 835 QPS, TCP: 8600 QPS, Persistent TCP: 44500 QPS,
-DPF - TLS: 180 QPS, TCP: 228 QPS, Persistent TCP: 232 QPS
-Checklist - TLS: 790 QPS, TCP: 7300 QPS, Persistent TCP: 19400 QPS
+NonPrivate - TLS: 4800 QPS, TCP: 8600 QPS, Persistent TCP: 44500 QPS,
+DPF - TLS: 225 QPS, TCP: 228 QPS, Persistent TCP: 232 QPS
+Checklist - TLS: 2900 QPS, TCP: 7300 QPS, Persistent TCP: 19400 QPS
 
 Hint
 ====
