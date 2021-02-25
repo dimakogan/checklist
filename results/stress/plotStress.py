@@ -51,7 +51,7 @@ def init_plot(ylabel, scales=['linear', 'linear'], ylim=None):
     if scales[0] == 'linear':
         ax.set_xticks([1000*i for i in range(6)])
     if scales[1] == 'linear':
-        ax.set_yticks([40*i for i in range(8)])
+        ax.set_yticks([60*i for i in range(8)])
         ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
  
     plt.xlabel("Throughput (requests/second)")
@@ -151,21 +151,22 @@ for i in [0,1,2]:
         # if len(window_throughput)>0 and tp < window_throughput[-1]*1.01:
         #     continue
         ls = window2latencies[w]
-        l90 = np.percentile(ls, 90)
-        lavg = np.average(ls)
+        l90 = int(np.percentile(ls, 90))
+        lavg = int(np.average(ls))
 
         if l90 > 500:
             continue
 
-        while len(window_throughput)>0 and (l90 < window_90th_latency[-1]):
+        while len(window_throughput)>0 and (l90 <= window_90th_latency[-1]):
             window_throughput = window_throughput[:-1]
             window_avg_latency = window_avg_latency[:-1]
             window_90th_latency = window_90th_latency[:-1]
 
-        window_throughput += [int(tp)]
-        window_90th_latency += [int(l90)]
-        window_avg_latency += [int(lavg)]
-        print(f"{i}, {w}, {tp}, {l90}")
+        window_throughput += [tp]
+        window_90th_latency += [l90]
+        window_avg_latency += [lavg]
+#        print(f"{i}, {w}, {tp}, {l90}")
+
     plt.plot(
         window_throughput,
         window_90th_latency,
