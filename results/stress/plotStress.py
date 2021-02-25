@@ -146,21 +146,21 @@ for i in [0,1,2]:
     window_throughput = []
     for w in sorted(window2latencies.keys()):
         tp = window2throughput[w]
-        # if len(window_throughput)>0 and tp < window_throughput[-1]:
+        if len(window_throughput)>0 and tp < window_throughput[-1]:
+            continue
+        # if len(window_throughput)>0 and tp < window_throughput[-1]*1.01:
         #     continue
-        if len(window_throughput)>0 and tp < window_throughput[-1]*1.01:
-            break
         ls = window2latencies[w]
         l90 = np.percentile(ls, 90)
         lavg = np.average(ls)
 
-        if l90 > 200:
-            break
+        if l90 > 500:
+            continue
 
-        # if len(window_throughput)>0 and ((l90 < window_90th_latency[-1]) or (lavg < window_avg_latency[-1])):
-        #     window_throughput = window_throughput[:-1]
-        #     window_avg_latency = window_avg_latency[:-1]
-        #     window_90th_latency = window_90th_latency[:-1]
+        while len(window_throughput)>0 and (l90 < window_90th_latency[-1]):
+            window_throughput = window_throughput[:-1]
+            window_avg_latency = window_avg_latency[:-1]
+            window_90th_latency = window_90th_latency[:-1]
 
         window_throughput += [int(tp)]
         window_90th_latency += [int(l90)]
