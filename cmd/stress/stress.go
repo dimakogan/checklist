@@ -197,6 +197,10 @@ func main() {
 	if err := proxy.Configure(config.TestConfig, nil); err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
+	var numRows int
+	if err = proxy.NumRows(0, &numRows); err != nil || numRows < config.NumRows*99/100 {
+		log.Fatalf("Invalid number of rows on server: %d", numRows)
+	}
 	fmt.Printf("[OK]\n")
 	var stresser stresser
 	switch loadType {

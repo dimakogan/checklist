@@ -58,6 +58,7 @@ func main() {
 	go func() {
 		for {
 			if inShutdown {
+				close(latencies)
 				break
 			}
 			key := keys[rand.Intn(len(keys))]
@@ -81,22 +82,10 @@ func main() {
 		defer f.Close()
 	}
 
-	for {
-		time.Sleep(5 * time.Second)
-		if inShutdown {
-			break
+	for l := range latencies {
+		latency := l.end.Sub(l.start).Milliseconds()
+		if f != nil {
+			fmt.Fprintf(f, "%d,%d\n", l.start.Unix(), latency)
 		}
-		var totalLatency, num int64
-		for l := range latencies {
-			latency := l.end.Sub(l.start).Milliseconds()
-			totalLatency += latency
-			num++
-			if f != nil {
-				fmt.Fprintf(f, "%d,%d\n", l.start.Unix(), latency)
-			}
-		}
-		fmt.Printf("Avg latency: %d msec      \r", totalLatency/num)
 	}
-
-	fmt.Printf("Completed %d queries\n", len(latencies))
 }

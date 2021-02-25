@@ -25,8 +25,8 @@ func (s *keyUpdateStresser) request(proxy *PirRpcProxy) error {
 	if err != nil {
 		return fmt.Errorf("Failed to replay key update request %v, %s", keyReq, err)
 	}
-	if len(keyResp.Keys) != s.updateSize {
-		return fmt.Errorf("Invalid size of key update, expected: %d, got: %d", s.numRows, len(keyResp.Keys))
+	if len(keyResp.Keys) != s.updateSize && int(keyResp.KeysRice.NumEntries)+1 != s.updateSize {
+		return fmt.Errorf("Invalid size of key update, expected: %d, got: %d", s.updateSize, len(keyResp.Keys))
 	}
 	return nil
 }

@@ -55,7 +55,7 @@ func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStr
 		}
 	}
 
-	fmt.Printf("[OK] (num layers: %d)\n", client.NumLayers())
+	fmt.Printf("[OK] (num rows: %d, num layers: %d)\n", config.NumRows, client.NumLayers())
 
 	fmt.Printf("Caching responses...")
 	proxy.StartRecording()
