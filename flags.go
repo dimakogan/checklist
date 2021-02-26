@@ -63,6 +63,7 @@ func (c *Config) AddBenchmarkFlags() *Config {
 	c.FlagSet.BoolVar(&c.Progress, "progress", true, "Show benchmarks progress")
 	c.FlagSet.IntVar(&c.NumUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 	c.FlagSet.StringVar(&c.TraceFile, "trace", "trace.txt", "input trace file")
+	c.MeasureBandwidth = true
 	return c
 }
 

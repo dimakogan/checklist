@@ -55,63 +55,74 @@ func NewPirServerDriver() (*pirServerDriver, error) {
 }
 
 func (driver *pirServerDriver) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
-	reqSize, err := SerializedSizeOf(req)
-	if err != nil {
-		return err
+	if driver.config.MeasureBandwidth {
+		reqSize, err := SerializedSizeOf(req)
+		if err != nil {
+			return err
+		}
+		driver.offlineBytes += reqSize
 	}
-	driver.offlineBytes += reqSize
 
 	start := time.Now()
-	if err = driver.server.KeyUpdates(req, resp); err != nil {
+	if err := driver.server.KeyUpdates(req, resp); err != nil {
 		return err
 	}
 	driver.hintTime += time.Since(start)
 
-	respSize, err := SerializedSizeOf(resp)
-	if err != nil {
-		return err
+	if driver.config.MeasureBandwidth {
+		respSize, err := SerializedSizeOf(resp)
+		if err != nil {
+			return err
+		}
+		driver.offlineBytes += respSize
 	}
-	driver.offlineBytes += respSize
 	return nil
 }
 
 func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
-	reqSize, err := SerializedSizeOf(req)
-	if err != nil {
-		return err
+	if driver.config.MeasureBandwidth {
+		reqSize, err := SerializedSizeOf(req)
+		if err != nil {
+			return err
+		}
+		driver.offlineBytes += reqSize
 	}
-	driver.offlineBytes += reqSize
 
 	start := time.Now()
-	if err = driver.PirDB.Hint(req, resp); err != nil {
+	if err := driver.PirDB.Hint(req, resp); err != nil {
 		return err
 	}
 	driver.hintTime += time.Since(start)
 
-	respSize, err := SerializedSizeOf(resp)
-	if err != nil {
-		return err
+	if driver.config.MeasureBandwidth {
+		respSize, err := SerializedSizeOf(resp)
+		if err != nil {
+			return err
+		}
+		driver.offlineBytes += respSize
 	}
-	driver.offlineBytes += respSize
 	return nil
 }
 
 func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
-	reqSize, err := SerializedSizeOf(q)
-	if err != nil {
-		return err
+	if driver.config.MeasureBandwidth {
+		reqSize, err := SerializedSizeOf(q)
+		if err != nil {
+			return err
+		}
+		driver.onlineBytes += reqSize
 	}
-	driver.onlineBytes += reqSize
 
 	start := time.Now()
-	err = driver.PirDB.Answer(q, resp)
-	driver.answerTime += time.Since(start)
-
-	respSize, err := SerializedSizeOf(resp)
-	if err != nil {
+	if err := driver.PirDB.Answer(q, resp); err != nil {
 		return err
 	}
-	driver.onlineBytes += respSize
+	driver.answerTime += time.Since(start)
+
+	if driver.config.MeasureBandwidth {
+		respSize, _ := SerializedSizeOf(resp)
+		driver.onlineBytes += respSize
+	}
 	return nil
 }
 

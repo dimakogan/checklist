@@ -51,6 +51,8 @@ type TestConfig struct {
 	PresetRows []RowIndexVal
 
 	RandSeed int64
+
+	MeasureBandwidth bool
 }
 
 func (c TestConfig) String() string {
