@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type Configurator struct {
+type Config struct {
 	TestConfig
 
 	UseTLS     bool
@@ -33,8 +33,7 @@ type Configurator struct {
 	FlagSet *flag.FlagSet
 }
 
-func NewConfig() *Configurator {
-	c := new(Configurator)
+func (c *Config) AddPirFlags() *Config {
 	c.FlagSet = flag.CommandLine
 	c.FlagSet.IntVar(&c.NumRows, "numRows", 10000, "Num DB Rows")
 	c.FlagSet.IntVar(&c.RowLen, "rowLen", 32, "Row length in bytes")
@@ -46,7 +45,7 @@ func NewConfig() *Configurator {
 	return c
 }
 
-func (c *Configurator) WithClientFlags() *Configurator {
+func (c *Config) AddClientFlags() *Config {
 	c.FlagSet.StringVar(&c.ServerAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 	c.FlagSet.StringVar(&c.ServerAddr2, "serverAddr2", "", "<HOSTNAME>:<PORT> of server for RPC test")
 	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
@@ -54,20 +53,20 @@ func (c *Configurator) WithClientFlags() *Configurator {
 	return c
 }
 
-func (c *Configurator) WithServerFlags() *Configurator {
+func (c *Config) AddServerFlags() *Config {
 	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
 	c.FlagSet.IntVar(&c.Port, "p", 12345, "Listening port")
 	return c
 }
 
-func (c *Configurator) WithBenchmarkFlags() *Configurator {
+func (c *Config) AddBenchmarkFlags() *Config {
 	c.FlagSet.BoolVar(&c.Progress, "progress", true, "Show benchmarks progress")
 	c.FlagSet.IntVar(&c.NumUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 	c.FlagSet.StringVar(&c.TraceFile, "trace", "trace.txt", "input trace file")
 	return c
 }
 
-func (c *Configurator) Parse() *Configurator {
+func (c *Config) Parse() *Config {
 	if c.FlagSet.Parsed() {
 		return c
 	}
@@ -86,7 +85,7 @@ func (c *Configurator) Parse() *Configurator {
 	return c
 }
 
-func (c *Configurator) ServerDriver() (PirServerDriver, error) {
+func (c *Config) ServerDriver() (PirServerDriver, error) {
 	c.Parse()
 
 	if c.ServerAddr != "" {
@@ -96,7 +95,7 @@ func (c *Configurator) ServerDriver() (PirServerDriver, error) {
 	}
 }
 
-func (c *Configurator) Server2Driver() (PirServerDriver, error) {
+func (c *Config) Server2Driver() (PirServerDriver, error) {
 	c.Parse()
 
 	if c.ServerAddr2 != "" {

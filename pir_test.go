@@ -10,10 +10,10 @@ import (
 	"gotest.tools/assert"
 )
 
-var config *Configurator
+var config *Config
 
 func TestMain(m *testing.M) {
-	config = NewConfig().WithClientFlags().Parse()
+	config = new(Config).AddPirFlags().AddClientFlags().Parse()
 	os.Exit(m.Run())
 }
 func TestPIRPunc(t *testing.T) {

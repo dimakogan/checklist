@@ -18,7 +18,7 @@ type requestTime struct {
 }
 
 func main() {
-	config := b.NewConfig().WithClientFlags()
+	config := new(b.Config).AddPirFlags().AddClientFlags()
 	latenciesFile := config.FlagSet.String("latenciesFile", "", "Latencies output filename")
 	config.Parse()
 

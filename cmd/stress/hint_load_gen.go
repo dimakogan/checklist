@@ -8,13 +8,14 @@ import (
 	. "github.com/dimakogan/boosted-pir"
 )
 
-type hintStresser struct {
+type hintLoadGen struct {
 	numRows int
 	sizes   []int
 	probs   []float64
+	pirType PirType
 }
 
-func initHintStresser(config *Configurator, proxy *PirRpcProxy) *hintStresser {
+func initHintLoadGen(config *Config, proxy *PirRpcProxy) *hintLoadGen {
 	sizes := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{proxy, proxy}).LayersMaxSize(config.NumRows)
 	probs := make([]float64, len(sizes))
 	probs[len(probs)-1] = 1.0
@@ -26,10 +27,10 @@ func initHintStresser(config *Configurator, proxy *PirRpcProxy) *hintStresser {
 		overflowSize = (c + 1) * overflowSize
 	}
 	fmt.Printf("Using layer sizes %v with probabilities %v\n", sizes, probs)
-	return &hintStresser{config.NumRows, sizes, probs}
+	return &hintLoadGen{config.NumRows, sizes, probs, config.PirType}
 }
 
-func (s *hintStresser) randSize() int {
+func (s *hintLoadGen) randSize() int {
 	p := rand.Float64()
 	bucket := 0
 	for p > s.probs[bucket] {
@@ -38,13 +39,13 @@ func (s *hintStresser) randSize() int {
 	return s.sizes[bucket]
 }
 
-func (s *hintStresser) request(proxy *PirRpcProxy) error {
+func (s *hintLoadGen) request(proxy *PirRpcProxy) error {
 	layerSize := s.randSize()
 	firstRow := rand.Intn(s.numRows - layerSize + 1)
 	hintReq := HintReq{
 		RandSeed:        42,
 		DefragTimestamp: math.MaxInt32,
-		Layers:          []HintLayer{{FirstRow: firstRow, NumRows: layerSize, PirType: pirType}},
+		Layers:          []HintLayer{{FirstRow: firstRow, NumRows: layerSize, PirType: s.pirType}},
 	}
 	//fmt.Printf("Using size: %d\n", layerSize)
 	var hintResp HintResp
@@ -56,6 +57,7 @@ func (s *hintStresser) request(proxy *PirRpcProxy) error {
 		return fmt.Errorf("Failed to replay hint request, 0 subresponses: %v", hintReq)
 	}
 	if hintResp.BatchResps[0].NumRows != layerSize {
+		fmt.Printf("%+v\n", hintResp.BatchResps[0])
 		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.BatchResps[0].NumRows)
 	}
 	return nil

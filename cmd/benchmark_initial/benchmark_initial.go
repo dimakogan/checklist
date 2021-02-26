@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	config := NewConfig().WithClientFlags().WithBenchmarkFlags().Parse()
+	config := new(Config).AddPirFlags().AddClientFlags().AddBenchmarkFlags().Parse()
 
 	var ep ErrorPrinter
 

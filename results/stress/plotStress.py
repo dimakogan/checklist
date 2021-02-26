@@ -90,7 +90,6 @@ def read_results(filename):
 
 
 fig, ax = init_plot('Latency (msec)', scales=["linear", "linear"])
-#fig, ax = plt.subplots()
 
 for i in [0,1,2]:
     throughput = read_results(throughput_filenames[i])
@@ -144,12 +143,7 @@ for i in [0,1,2]:
     window_avg_latency = []
     window_90th_latency = []
     window_throughput = []
-    for w in sorted(window2latencies.keys()):
-        tp = window2throughput[w]
-        if len(window_throughput)>0 and tp < window_throughput[-1]:
-            continue
-        # if len(window_throughput)>0 and tp < window_throughput[-1]*1.01:
-        #     continue
+    for w, tp  in sorted(window2throughput.items(), key=lambda item: item[1]):
         ls = window2latencies[w]
         l90 = int(np.percentile(ls, 90))
         lavg = int(np.average(ls))

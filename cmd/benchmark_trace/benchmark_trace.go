@@ -65,7 +65,7 @@ func main() {
 	var ep ErrorPrinter
 	var numUpdates int
 
-	config := NewConfig().WithClientFlags().WithBenchmarkFlags().Parse()
+	config := new(Config).AddPirFlags().AddClientFlags().AddBenchmarkFlags().Parse()
 
 	fmt.Printf("# %s %s\n", path.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	fmt.Printf("%15s%15s%15s%15s%15s%15s%15s%15s\n",

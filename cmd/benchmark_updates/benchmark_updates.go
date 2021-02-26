@@ -18,7 +18,7 @@ func main() {
 	NumLayerHintBytes = make(map[int]int)
 
 	var ep ErrorPrinter
-	config := NewConfig().WithClientFlags().WithBenchmarkFlags().Parse()
+	config := new(Config).AddPirFlags().AddClientFlags().AddBenchmarkFlags().Parse()
 
 	prof := NewProfiler(config.CpuProfile)
 	defer prof.Close()

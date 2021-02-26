@@ -6,15 +6,15 @@ import (
 	"math/rand"
 	"reflect"
 
-	b "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir"
 )
 
-type answerStresser struct {
-	reqs  []b.QueryReq
-	resps []b.QueryResp
+type answerLoadGen struct {
+	reqs  []QueryReq
+	resps []QueryResp
 }
 
-func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStresser {
+func initAnswerLoadGen(config *Config, proxy *PirRpcProxy) *answerLoadGen {
 	totalNumRows := config.NumRows
 	config.NumRows = config.NumRows * 2 / 3
 
@@ -22,7 +22,7 @@ func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStr
 		idx := i % config.NumRows
 		value := make([]byte, config.RowLen)
 		rand.Read(value)
-		config.PresetRows = append(config.PresetRows, b.RowIndexVal{
+		config.PresetRows = append(config.PresetRows, RowIndexVal{
 			Index: idx,
 			Key:   rand.Uint32(),
 			Value: value})
@@ -33,7 +33,7 @@ func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStr
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
 
-	client := b.NewPirClientUpdatable(b.RandSource(), config.PirType, [2]b.PirUpdatableServer{proxy, proxy})
+	client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{proxy, proxy})
 	client.CallAsync = false
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
@@ -70,23 +70,23 @@ func initAnswerStresser(config *b.Configurator, proxy *b.PirRpcProxy) *answerStr
 		}
 	}
 	ireqs := proxy.StopRecording()
-	reqs := make([]b.QueryReq, 0, len(ireqs))
-	resps := make([]b.QueryResp, 0, len(ireqs))
+	reqs := make([]QueryReq, 0, len(ireqs))
+	resps := make([]QueryResp, 0, len(ireqs))
 	for i := range ireqs {
-		reqs = append(reqs, ireqs[i].ReqBody.(b.QueryReq))
-		resps = append(resps, *(ireqs[i].RespBody.(*b.QueryResp)))
+		reqs = append(reqs, ireqs[i].ReqBody.(QueryReq))
+		resps = append(resps, *(ireqs[i].RespBody.(*QueryResp)))
 	}
 	if len(reqs) == 0 {
 		log.Fatalf("Failed to cache any requests")
 	}
 	fmt.Printf("(%d #cached) [OK]\n", len(reqs))
 
-	return &answerStresser{reqs: reqs, resps: resps}
+	return &answerLoadGen{reqs: reqs, resps: resps}
 }
 
-func (s *answerStresser) request(proxy *b.PirRpcProxy) error {
+func (s *answerLoadGen) request(proxy *PirRpcProxy) error {
 	idx := rand.Intn(len(s.reqs))
-	var queryResp b.QueryResp
+	var queryResp QueryResp
 	err := proxy.Answer(s.reqs[idx], &queryResp)
 	if err != nil {
 		return fmt.Errorf("Failed to replay query number %d to server: %s", idx, err)

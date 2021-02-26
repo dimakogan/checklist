@@ -32,107 +32,185 @@ const (
 	KeyUpdate
 )
 
-var pirType PirType
-
-type stresser interface {
+type loadGen interface {
 	request(proxy *PirRpcProxy) error
 }
 
-type workerCtx struct {
-	startTime       time.Time
-	inShutdown      bool
-	sleepMsec       int
-	totalNumQueries uint64
-	totalNumErrors  uint64
-	numWorkers      int
-	wg              sync.WaitGroup
+type testConfig struct {
+	Config
 
+	loadType      LoadType
+	numWorkersSeq []int
+	incInterval   int
+	sleepMsec     int
+	outFile       string
+}
+
+type stressTest struct {
+	testConfig
+
+	// State
+	load          loadGen
+	inShutdown    bool
+	curNumWorkers int
+	wg            sync.WaitGroup
+
+	// Monitoring
+	startTime                               time.Time
 	reqs, errors                            *ratecounter.RateCounter
 	latency                                 *ratecounter.AvgRateCounter
 	reqsMet, errMet, latencyMet, workersMet metric.Metric
+	totalNumQueries                         uint64
+	totalNumErrors                          uint64
 }
 
-func initContext() *workerCtx {
-	return &workerCtx{
-		startTime: time.Now(),
-		// We're recording marks-per-10second
-		reqs:       ratecounter.NewRateCounter(time.Second),
-		errors:     ratecounter.NewRateCounter(time.Second),
-		latency:    ratecounter.NewAvgRateCounter(time.Second),
-		reqsMet:    metric.NewCounter("1m1s", "5m10s"),
-		errMet:     metric.NewCounter("1m1s", "5m10s"),
-		latencyMet: metric.NewGauge("1m1s", "5m10s"),
-		workersMet: metric.NewCounter("1m1s", "5m10s"),
+func parseFlags(config *testConfig) {
+	config.AddPirFlags().AddClientFlags()
+	config.FlagSet.IntVar(&config.incInterval, "i", 0, "Interval to increment num workers")
+	config.FlagSet.IntVar(&config.sleepMsec, "s", 500, "milliseconds to sleep between requests")
+	config.FlagSet.StringVar(&config.outFile, "o", "", "output filename for stats")
+
+	numWorkersStr := config.FlagSet.String("w", "2", "Num workers (sequence)")
+	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
+
+	config.Parse()
+
+	wstrs := strings.Split(*numWorkersStr, ",")
+	for _, wstr := range wstrs {
+		if w, err := strconv.Atoi(wstr); err != nil {
+			log.Fatalf("Invalid num workers value: %s", wstr)
+		} else {
+			config.numWorkersSeq = append(config.numWorkersSeq, w)
+		}
+	}
+	var err error
+	config.loadType, err = LoadTypeString(*loadTypeStr)
+	if err != nil {
+		log.Fatalf("Bad LoadType: %s\n", *loadTypeStr)
 	}
 }
 
-func workerFunc(config *Configurator, stresser stresser, ctx *workerCtx) {
+func initMonitoring(test *stressTest) {
+	test.startTime = time.Now()
+	// We're recording marks-per-10second
+	test.reqs = ratecounter.NewRateCounter(time.Second)
+	test.errors = ratecounter.NewRateCounter(time.Second)
+	test.latency = ratecounter.NewAvgRateCounter(time.Second)
+	test.reqsMet = metric.NewCounter("1m1s", "5m10s")
+	test.errMet = metric.NewCounter("1m1s", "5m10s")
+	test.latencyMet = metric.NewGauge("1m1s", "5m10s")
+	test.workersMet = metric.NewCounter("1m1s", "5m10s")
+}
+
+func (t *stressTest) onCompletedReq(latency int64) {
+	t.reqs.Incr(1)
+	t.latency.Incr(latency)
+	t.reqsMet.Add(1)
+	t.latencyMet.Add(float64(latency))
+	atomic.AddUint64(&t.totalNumQueries, 1)
+}
+
+func (t *stressTest) onError() {
+	t.errors.Incr(1)
+	t.errMet.Add(1)
+	atomic.AddUint64(&t.totalNumErrors, 1)
+}
+
+func initTest() *stressTest {
+	test := stressTest{}
+	parseFlags(&test.testConfig)
+	initMonitoring(&test)
+	fmt.Printf("Connecting to %s (TLS: %t)...", test.ServerAddr, test.UseTLS)
+	proxy, err := NewPirRpcProxy(test.ServerAddr, test.UseTLS, test.UsePersistent)
+	if err != nil {
+		log.Fatal("Connection error: ", err)
+	}
+	fmt.Printf("[OK]\n")
+
+	fmt.Printf("Setting up remote DB...")
+	test.RandSeed = 678
+	if err := proxy.Configure(test.TestConfig, nil); err != nil {
+		log.Fatalf("Failed to Configure: %s\n", err)
+	}
+	var numRows int
+	if err = proxy.NumRows(0, &numRows); err != nil || numRows < test.NumRows*99/100 {
+		log.Fatalf("Invalid number of rows on server: %d", numRows)
+	}
+	fmt.Printf("[OK]\n")
+	switch test.loadType {
+	case Hint:
+		test.load = initHintLoadGen(&test.Config, proxy)
+	case Answer:
+		test.load = initAnswerLoadGen(&test.Config, proxy)
+	case KeyUpdate:
+		test.load = initKeyUpdateLoadGen(&test.Config, proxy)
+	}
+
+	proxy.Close()
+
+	return &test
+}
+
+func (t *stressTest) workerFunc() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Fatalf("Worker panic: %v", r)
 		}
 	}()
-	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	proxy, err := NewPirRpcProxy(t.ServerAddr, t.UseTLS, t.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
 	for {
-		if ctx.inShutdown {
-			ctx.wg.Done()
+		if t.inShutdown {
+			t.wg.Done()
 			return
 		}
 		var err error
 		start := time.Now()
-		err = stresser.request(proxy)
+		err = t.load.request(proxy)
 		if err != nil {
-			ctx.errors.Incr(1)
-			ctx.errMet.Add(1)
-			atomic.AddUint64(&ctx.totalNumErrors, 1)
+			t.onError()
 			continue
 		}
 
-		elapsed := time.Since(start).Milliseconds()
-		ctx.reqs.Incr(1)
-		ctx.latency.Incr(elapsed)
-		ctx.reqsMet.Add(1)
-		ctx.latencyMet.Add(float64(elapsed))
-		atomic.AddUint64(&ctx.totalNumQueries, 1)
-		time.Sleep(time.Duration(ctx.sleepMsec) * time.Millisecond)
+		t.onCompletedReq(time.Since(start).Milliseconds())
+		time.Sleep(time.Duration(t.sleepMsec) * time.Millisecond)
 	}
 }
 
-func runWorkers(config *Configurator, stresser stresser, ctx *workerCtx, numWorkers []int, incInterval int) {
-	for _, w := range numWorkers {
-		toAdd := w - ctx.numWorkers
-		ctx.wg.Add(toAdd)
-		ctx.workersMet.Add(float64(toAdd))
-		ctx.numWorkers = w
+func (t *stressTest) runWorkers() {
+	for _, w := range t.numWorkersSeq {
+		toAdd := w - t.curNumWorkers
+		t.wg.Add(toAdd)
+		t.workersMet.Add(float64(toAdd))
+		t.curNumWorkers = w
 
 		for i := 0; i < toAdd; i++ {
-			go workerFunc(config, stresser, ctx)
+			go t.workerFunc()
 		}
-		if incInterval == 0 {
+		if t.incInterval == 0 {
 			return
 		}
-		time.Sleep(time.Duration(incInterval) * time.Second)
-		if ctx.inShutdown {
+		time.Sleep(time.Duration(t.incInterval) * time.Second)
+		if t.inShutdown {
 			break
 		}
 	}
 }
 
-func liveMonitor(ctx *workerCtx, outFile string) {
-	expvar.Publish("requests", ctx.reqsMet)
-	expvar.Publish("latency", ctx.latencyMet)
-	expvar.Publish("workers", ctx.workersMet)
-	expvar.Publish("errors", ctx.errMet)
+func (t *stressTest) liveMonitor() {
+	expvar.Publish("requests", t.reqsMet)
+	expvar.Publish("latency", t.latencyMet)
+	expvar.Publish("workers", t.workersMet)
+	expvar.Publish("errors", t.errMet)
 	http.Handle("/debug/metrics", metric.Handler(metric.Exposed))
 	go http.ListenAndServe(":8080", nil)
 
 	var f *os.File
 	var err error
-	if outFile != "" {
-		f, err = os.OpenFile(outFile, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	if t.outFile != "" {
+		f, err = os.OpenFile(t.outFile, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatalf("failed to create output file: %s", err)
 		}
@@ -142,90 +220,39 @@ func liveMonitor(ctx *workerCtx, outFile string) {
 	fmt.Fprintf(f, "Seconds,Workers,Queries,Latency,Errors\n")
 
 	for {
-		if ctx.inShutdown {
+		if t.inShutdown {
 			break
 		}
 		time.Sleep(time.Second)
 		fmt.Printf("\rWorkers: %d, Current rate: %d QPS, overall rate (over %s): %.02f, average latency: %.02f ms, errors: %d          ",
-			ctx.numWorkers,
-			ctx.reqs.Rate(),
-			time.Since(ctx.startTime).String(),
-			float64(ctx.totalNumQueries)/time.Since(ctx.startTime).Seconds(),
-			float64(ctx.latency.Rate()),
-			ctx.errors.Rate())
+			t.curNumWorkers,
+			t.reqs.Rate(),
+			time.Since(t.startTime).String(),
+			float64(t.totalNumQueries)/time.Since(t.startTime).Seconds(),
+			float64(t.latency.Rate()),
+			t.errors.Rate())
 		if f != nil {
-			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d\n", time.Now().Unix(), ctx.numWorkers, ctx.totalNumQueries, ctx.latency.Rate(), ctx.totalNumErrors)
+			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d\n", time.Now().Unix(), t.curNumWorkers, t.totalNumQueries, t.latency.Rate(), t.totalNumErrors)
 		}
 	}
-	ctx.wg.Wait()
+	t.wg.Wait()
 }
 
-func main() {
-	config := NewConfig().WithClientFlags()
-	numWorkers := config.FlagSet.String("w", "2", "Num workers (sequence)")
-	incInterval := config.FlagSet.Int("i", 0, "Interval to increment num workers")
-	sleepMsec := config.FlagSet.Int("s", 500, "milliseconds to sleep between requests")
-	loadTypeStr := config.FlagSet.String("l", Answer.String(), "load type: Answer|Hint|KeyUpdate")
-	outFile := config.FlagSet.String("o", "", "output filename for stats")
-	// config.FlagSet.String("recordTo", "", "File to store recorded requests at.")
-	config.Parse()
-
-	numWorkersSeq := []int{}
-	wstrs := strings.Split(*numWorkers, ",")
-	for _, wstr := range wstrs {
-		if w, err := strconv.Atoi(wstr); err != nil {
-			log.Fatalf("Invalid num workers value: %s", wstr)
-		} else {
-			numWorkersSeq = append(numWorkersSeq, w)
-		}
-	}
-
-	loadType, err := LoadTypeString(*loadTypeStr)
-	if err != nil {
-		log.Fatalf("Bad LoadType: %s\n", *loadTypeStr)
-	}
-
-	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
-	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
-	if err != nil {
-		log.Fatal("Connection error: ", err)
-	}
-	fmt.Printf("[OK]\n")
-
-	fmt.Printf("Setting up remote DB...")
-	config.RandSeed = 678
-	if err := proxy.Configure(config.TestConfig, nil); err != nil {
-		log.Fatalf("Failed to Configure: %s\n", err)
-	}
-	var numRows int
-	if err = proxy.NumRows(0, &numRows); err != nil || numRows < config.NumRows*99/100 {
-		log.Fatalf("Invalid number of rows on server: %d", numRows)
-	}
-	fmt.Printf("[OK]\n")
-	var stresser stresser
-	switch loadType {
-	case Hint:
-		stresser = initHintStresser(config, proxy)
-	case Answer:
-		stresser = initAnswerStresser(config, proxy)
-	case KeyUpdate:
-		stresser = initKeyUpdateStresser(config, proxy)
-	}
-
-	proxy.Close()
-	ctx := initContext()
-	ctx.sleepMsec = *sleepMsec
-
-	go runWorkers(config, stresser, ctx, numWorkersSeq, *incInterval)
-
+func (t *stressTest) notifyOnSignal() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		prof := NewProfiler(config.CpuProfile)
+		prof := NewProfiler(t.CpuProfile)
 		defer prof.Close()
 		<-c
-		ctx.inShutdown = true
+		t.inShutdown = true
 	}()
+}
 
-	liveMonitor(ctx, *outFile)
+func main() {
+	t := initTest()
+
+	go t.runWorkers()
+	t.notifyOnSignal()
+	t.liveMonitor()
 }

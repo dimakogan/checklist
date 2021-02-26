@@ -45,7 +45,7 @@ func readBlockedURLs(blockListFile string, config *b.TestConfig) {
 }
 
 func main() {
-	config := b.NewConfig().WithServerFlags()
+	config := new(b.Config).AddPirFlags().AddServerFlags()
 	blockList := config.FlagSet.String("f", "", "URL block list file")
 	config.Parse()
 

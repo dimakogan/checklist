@@ -7,15 +7,15 @@ import (
 	. "github.com/dimakogan/boosted-pir"
 )
 
-type keyUpdateStresser struct {
+type keyUpdateLoadGen struct {
 	numRows, updateSize int
 }
 
-func initKeyUpdateStresser(config *Configurator, proxy *PirRpcProxy) *keyUpdateStresser {
-	return &keyUpdateStresser{config.NumRows, config.UpdateSize}
+func initKeyUpdateLoadGen(config *Config, proxy *PirRpcProxy) *keyUpdateLoadGen {
+	return &keyUpdateLoadGen{config.NumRows, config.UpdateSize}
 }
 
-func (s *keyUpdateStresser) request(proxy *PirRpcProxy) error {
+func (s *keyUpdateLoadGen) request(proxy *PirRpcProxy) error {
 	keyReq := KeyUpdatesReq{
 		DefragTimestamp: math.MaxInt32,
 		NextTimestamp:   int32(s.numRows - s.updateSize),
