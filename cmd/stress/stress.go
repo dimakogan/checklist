@@ -52,6 +52,7 @@ type stressTest struct {
 	// State
 	load          loadGen
 	inShutdown    bool
+	addingWorkers bool
 	curNumWorkers int
 	wg            sync.WaitGroup
 
@@ -120,6 +121,7 @@ func initTest() *stressTest {
 	test := stressTest{}
 	parseFlags(&test.testConfig)
 	initMonitoring(&test)
+	test.addingWorkers = true
 	fmt.Printf("Connecting to %s (TLS: %t)...", test.ServerAddr, test.UseTLS)
 	proxy, err := NewPirRpcProxy(test.ServerAddr, test.UseTLS, test.UsePersistent)
 	if err != nil {
@@ -181,6 +183,7 @@ func (t *stressTest) workerFunc() {
 
 func (t *stressTest) runWorkers() {
 	for _, w := range t.numWorkersSeq {
+		t.addingWorkers = true
 		toAdd := w - t.curNumWorkers
 		t.wg.Add(toAdd)
 		t.workersMet.Add(float64(toAdd))
@@ -189,6 +192,7 @@ func (t *stressTest) runWorkers() {
 		for i := 0; i < toAdd; i++ {
 			go t.workerFunc()
 		}
+		t.addingWorkers = false
 		if t.incInterval == 0 {
 			return
 		}
@@ -231,6 +235,10 @@ func (t *stressTest) liveMonitor() {
 			float64(t.totalNumQueries)/time.Since(t.startTime).Seconds(),
 			float64(t.latency.Rate()),
 			t.errors.Rate())
+
+		if t.addingWorkers {
+			continue
+		}
 		if f != nil {
 			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d\n", time.Now().Unix(), t.curNumWorkers, t.totalNumQueries, t.latency.Rate(), t.totalNumErrors)
 		}
