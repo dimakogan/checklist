@@ -26,8 +26,8 @@ ALL = 3
 WINDOW_SIZE_SEC = 5
 
 # File names
-throughput_filenames = ["boosted2.txt", "dpf3.txt", "nonprivate3.txt"]
-latency_filenames = ["boosted_latency2.txt", "dpf_latencies3.txt", "nonprivate_latency3.txt"]
+throughput_filenames = ["boosted.txt", "dpf.txt", "nonprivate.txt"]
+latency_filenames = ["boosted_latency.txt", "dpf_latency.txt", "nonprivate_latency.txt"]
 labels = ["Checklist", "DPF", "Non-private"]
 
 skip = [2,4,3]
