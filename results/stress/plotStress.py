@@ -88,11 +88,11 @@ def plot(xs, ys, color, label, dots=""):
 
 def save(fig, ax, out_name, legend=False):
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [2.3, 1.6])
+    custom_style.save_fig(fig, out_name, [3.125, 1.8])
 
 
 def legend(ax):
-    plt.legend(fontsize=6, bbox_to_anchor=(0.1,0.5))
+    plt.legend(fontsize=8, loc='upper left')#, bbox_to_anchor=(0.4,0.5))
 
 
 def read_results(filename):
