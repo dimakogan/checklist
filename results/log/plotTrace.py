@@ -162,6 +162,50 @@ def summarize_results(results):
         (initial_size, added, removed, initial_size+added-removed))
     f.close()
 
+def bar_plot(results):
+    compared = [NONPRIVATE, DPF, BOOSTED]
+
+    fig, ax = plt.subplots()
+    initial = [offline_cost(results[i], COL_COMMUNICATION)[0]/10**6 for i in range(len(results))]
+    X = np.arange(2)
+
+    timestamps = [results[i][results[i].dtype.names[COL_TIMESTAMP]] for i in range(len(results))]
+    days = [(timestamps[i][-1]-timestamps[i][0])/86400.0 for i in range(len(results))]
+
+    running = [np.sum(results[i][results[i].dtype.names[COL_COMMUNICATION]][1:])/10**6*(30/days[i]) for i in range(len(results))]
+
+    nonp = ax.bar([0.1,1.1], [initial[NONPRIVATE], running[NONPRIVATE]], 0.25, color=colors[NONPRIVATE], label=labels[NONPRIVATE])
+    dpf = ax.bar([0.35,1.35], [initial[DPF], running[DPF]], 0.25, color=colors[DPF], label=labels[DPF])
+    boosted = ax.bar([0.6,1.6], [initial[BOOSTED], running[BOOSTED]], 0.25, color=colors[BOOSTED], label=labels[BOOSTED])
+
+    def autolabel(rects):
+        """
+        Attach a text label above each bar displaying its height
+        """
+        for rect in rects:
+            height = rect.get_height()
+            ax.text(rect.get_x() + rect.get_width()/2., 1.05*height,
+                    '%.01f' % height,
+                    ha='center', va='bottom')
+
+    autolabel(nonp)
+    autolabel(dpf)
+    autolabel(boosted)
+    
+    ax.set_xticks([0.35, 1.35])
+    ax.set_xticklabels(['Initial', 'Monthly'])
+    ax.tick_params(length=0)
+    ax.legend(labels=[labels[i] for i in compared], ncol=3, fontsize=7, loc=9,  bbox_to_anchor=(0.4, 1.3), columnspacing=1)
+
+    plt.ylabel("Communication (MB)")
+
+
+    f = FuncFormatter(lambda x, pos: int(x))
+    ax.yaxis.set_major_formatter(f)
+    custom_style.remove_chart_junk(plt, ax, grid=True)
+    fig.set_size_inches([2.5,1.85])
+    fig.tight_layout()
+    fig.savefig("comm_bars.pdf", dpi=600, bbox_inches='tight', pad_inches = 0)
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
 parser.add_argument('-o', 
@@ -181,6 +225,7 @@ timestamps -= timestamps[0]
 
 summarize_results(results)
 
+bar_plot(results)
 
 fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=75)
 ys = stacked(results, COL_COMMUNICATION)
