@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import (MultipleLocator, MaxNLocator, ScalarFormatter, FuncFormatter)
 import pylab
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
@@ -26,9 +26,11 @@ ALL = 3
 WINDOW_SIZE_SEC = 5
 
 # File names
-throughput_filenames = ["boosted.txt", "dpf.txt", "nonprivate.txt"]
-latency_filenames = ["boosted_latency.txt", "dpf_latency.txt", "nonprivate_latency.txt"]
+throughput_filenames = ["boosted2.txt", "dpf3.txt", "nonprivate3.txt"]
+latency_filenames = ["boosted_latency2.txt", "dpf_latencies3.txt", "nonprivate_latency3.txt"]
 labels = ["Checklist", "DPF", "Non-private"]
+
+skip = [2,4,3]
 
 # Column names
 # Seconds,Workers,Queries,Latency,Errors
@@ -53,13 +55,21 @@ def init_plot(ylabel, scales=['linear', 'linear'], ylim=None):
     if scales[1] == 'linear':
         ax.set_yticks([60*i for i in range(8)])
         ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
+
+    if scales[0] == 'log':
+        ax.set_xticks([40,200,1000,5000])
+        ax.xaxis.set_major_formatter(ScalarFormatter())
+        #ax.xaxis.set_minor_locator(MaxNLocator(1))
+        #ax.xaxis.set_minor_formatter(ScalarFormatter())
+        plt.minorticks_off()
+
  
     plt.xlabel("Throughput (requests/second)")
     plt.ylabel("Latency (msec)")
-    # if scales[1] == 'linear':
-    #     ax.set_ylim(bottom=0)
-    # if ylim:
-    #     ax.set_ylim(top=ylim)
+    if scales[1] == 'linear':
+        ax.set_ylim(bottom=60)
+        if ylim:
+            ax.set_ylim(top=ylim)
 
     return fig, ax
 
@@ -89,7 +99,7 @@ def read_results(filename):
     return np.genfromtxt(filename, names=True, comments='#', delimiter=',')
 
 
-fig, ax = init_plot('Latency (msec)', scales=["linear", "linear"])
+fig, ax = init_plot('Latency (msec)', scales=["log", "linear"], ylim=250)
 
 for i in [0,1,2]:
     throughput = read_results(throughput_filenames[i])
@@ -143,33 +153,53 @@ for i in [0,1,2]:
     window_avg_latency = []
     window_90th_latency = []
     window_throughput = []
+    plotted_windows = []
     for w, tp  in sorted(window2throughput.items(), key=lambda item: item[1]):
         ls = window2latencies[w]
         l90 = int(np.percentile(ls, 90))
         lavg = int(np.average(ls))
+        tp = int(tp)
 
-        if l90 > 500:
+        if lavg > 230:
             continue
 
-        while len(window_throughput)>0 and (l90 <= window_90th_latency[-1]):
+        # if len(window_throughput)>0 and tp < window_throughput[-1]:
+        #     continue
+
+        while len(window_throughput)>0 and w < plotted_windows[-1]*1.1 and (lavg <= window_avg_latency[-1]):
+            plotted_windows = plotted_windows[:-1]
             window_throughput = window_throughput[:-1]
             window_avg_latency = window_avg_latency[:-1]
             window_90th_latency = window_90th_latency[:-1]
 
+        plotted_windows += [w]
         window_throughput += [tp]
         window_90th_latency += [l90]
         window_avg_latency += [lavg]
-#        print(f"{i}, {w}, {tp}, {l90}")
+        # print(f"{i}, {w}, {tp}, {l90}")
 
+    print("Windows for " + labels[i] + ": " + str([(plotted_windows[j],window_throughput[j],window_avg_latency[j]) for j in range(len(plotted_windows))]))
     plt.plot(
-        window_throughput,
-        window_90th_latency,
+        window_throughput[skip[i]:],
+        window_avg_latency[skip[i]:],
         # dots,
         marker='o',
-        # markersize=2,
+        markersize=2,
         linewidth=1,
         color=colors[i],
         label=labels[i])
+
+    # plt.plot(
+    #     window_throughput,
+    #     window_90th_latency,
+    #     # dots,
+    #     marker='o',
+    #     markersize=1,
+    #     linestyle="--",
+    #     linewidth=0.5,
+    #     color=colors[i],
+    #     label=labels[i]+" (90%)")
+
 
 legend(ax)
 save(fig, ax, "stress.pdf")
