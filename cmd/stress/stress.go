@@ -91,16 +91,16 @@ func parseFlags(config *testConfig) {
 	}
 }
 
-func initMonitoring(test *stressTest) {
-	test.startTime = time.Now()
+func (t *stressTest) initMonitoring() {
+	t.startTime = time.Now()
 	// We're recording marks-per-10second
-	test.reqs = ratecounter.NewRateCounter(time.Second)
-	test.errors = ratecounter.NewRateCounter(time.Second)
-	test.latency = ratecounter.NewAvgRateCounter(time.Second)
-	test.reqsMet = metric.NewCounter("1m1s", "5m10s")
-	test.errMet = metric.NewCounter("1m1s", "5m10s")
-	test.latencyMet = metric.NewGauge("1m1s", "5m10s")
-	test.workersMet = metric.NewCounter("1m1s", "5m10s")
+	t.reqs = ratecounter.NewRateCounter(time.Second)
+	t.errors = ratecounter.NewRateCounter(time.Second)
+	t.latency = ratecounter.NewAvgRateCounter(time.Second)
+	t.reqsMet = metric.NewCounter("1m1s", "5m10s")
+	t.errMet = metric.NewCounter("1m1s", "5m10s")
+	t.latencyMet = metric.NewGauge("1m1s", "5m10s")
+	t.workersMet = metric.NewCounter("1m1s", "5m10s")
 }
 
 func (t *stressTest) onCompletedReq(latency int64) {
@@ -120,7 +120,6 @@ func (t *stressTest) onError() {
 func initTest() *stressTest {
 	test := stressTest{}
 	parseFlags(&test.testConfig)
-	initMonitoring(&test)
 	test.addingWorkers = true
 	fmt.Printf("Connecting to %s (TLS: %t)...", test.ServerAddr, test.UseTLS)
 	proxy, err := NewPirRpcProxy(test.ServerAddr, test.UseTLS, test.UsePersistent)
@@ -149,6 +148,8 @@ func initTest() *stressTest {
 	}
 
 	proxy.Close()
+
+	test.initMonitoring()
 
 	return &test
 }
@@ -259,7 +260,6 @@ func (t *stressTest) notifyOnSignal() {
 
 func main() {
 	t := initTest()
-
 	go t.runWorkers()
 	t.notifyOnSignal()
 	t.liveMonitor()
