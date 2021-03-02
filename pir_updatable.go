@@ -175,9 +175,6 @@ func defrag(ops []dbOp, endDefrag int) (newOps []dbOp, numRemoved int) {
 	return newOps, numRemoved
 }
 
-var NumLayerActivations map[int]int
-var NumLayerHintBytes map[int]int
-
 func (s pirServerUpdatable) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
 	resp.DefragTimestamp = s.defragTimestamp
 	resp.RowLen = s.rowLen
@@ -205,20 +202,15 @@ func (s pirServerUpdatable) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) 
 }
 
 func (s pirServerUpdatable) Hint(req HintReq, resp *HintResp) error {
-	clientSrc := rand.New(rand.NewSource(req.RandSeed))
-
 	if int(req.DefragTimestamp) < s.defragTimestamp {
 		return fmt.Errorf("Defragged since last key updates")
 	}
 
-	resp.BatchResps = make([]HintResp, len(req.Layers))
-	for l, layer := range req.Layers {
-		if layer.PirType != None {
-			layerFlatDb := s.flatDb[layer.FirstRow*s.rowLen : (layer.FirstRow+layer.NumRows)*s.rowLen]
-			pir := NewPirServerByType(layer.PirType, s.randSource, layerFlatDb, layer.NumRows, s.rowLen)
-			pir.Hint(HintReq{RandSeed: int64(clientSrc.Uint64())}, &resp.BatchResps[l])
-			resp.BatchResps[l].PirType = layer.PirType
-		}
+	if req.PirType != None {
+		layerFlatDb := s.flatDb[req.FirstRow*s.rowLen : (req.FirstRow+req.NumRows)*s.rowLen]
+		pir := NewPirServerByType(req.PirType, s.randSource, layerFlatDb, req.NumRows, s.rowLen)
+		pir.Hint(req, resp)
+		resp.PirType = req.PirType
 	}
 
 	return nil
@@ -332,13 +324,6 @@ func (c *pirClientUpdatable) Keys() []uint32 {
 }
 
 func (c *pirClientUpdatable) Update() error {
-	if err := c.updateKeys(); err != nil {
-		return err
-	}
-	return c.updateHint()
-}
-
-func (c *pirClientUpdatable) updateKeys() error {
 	nextTimestamp := c.nextTimestamp()
 	keyReq := KeyUpdatesReq{
 		DefragTimestamp: int32(c.defragTimestamp),
@@ -348,6 +333,18 @@ func (c *pirClientUpdatable) updateKeys() error {
 	if err := c.servers[Left].KeyUpdates(keyReq, &keyResp); err != nil {
 		return err
 	}
+
+	var newOps []dbOp
+	var err error
+	if newOps, err = c.processKeyUpdate(&keyResp); err != nil {
+		return err
+	}
+	c.updatePositionMap(len(c.ops) - len(newOps))
+	latestLayer := c.updateLayers(newOps)
+	return c.initLayerHint(latestLayer)
+}
+
+func (c *pirClientUpdatable) processKeyUpdate(keyResp *KeyUpdatesResp) ([]dbOp, error) {
 	c.rowLen = keyResp.RowLen
 	if keyResp.ShouldDeleteHistory {
 		c.ops = []dbOp{}
@@ -362,7 +359,7 @@ func (c *pirClientUpdatable) updateKeys() error {
 		var err error
 		keys, err = DecodeRiceIntegers(keyResp.KeysRice)
 		if err != nil {
-			return fmt.Errorf("Failed to Rice-decode key updates: %v", err)
+			return nil, fmt.Errorf("Failed to Rice-decode key updates: %v", err)
 		}
 	} else {
 		keys = keyResp.Keys
@@ -389,12 +386,7 @@ func (c *pirClientUpdatable) updateKeys() error {
 	} else {
 		c.ops = append(c.ops, newOps...)
 	}
-
-	c.updatePositionMap(len(c.ops) - len(newOps))
-
-	c.updateLayers(newOps)
-
-	return nil
+	return newOps, nil
 }
 
 func (c *pirClientUpdatable) smallestLayerSize(nRows int) int {
@@ -430,26 +422,10 @@ func (c *pirClientUpdatable) freshLayers(numRows int) []clientLayer {
 		layers[i].maxSize = maxSizes[i]
 	}
 
-	initDebugCounters(len(layers))
 	return layers
 }
 
-func initDebugCounters(numLayers int) {
-	if NumLayerActivations == nil {
-		NumLayerActivations = make(map[int]int)
-		NumLayerHintBytes = make(map[int]int)
-	}
-	for i := 0; i < numLayers; i++ {
-		if _, ok := NumLayerActivations[i]; !ok {
-			NumLayerActivations[i] = 0
-		}
-		if _, ok := NumLayerHintBytes[i]; !ok {
-			NumLayerHintBytes[i] = 0
-		}
-	}
-}
-
-func (c *pirClientUpdatable) updateLayers(ops []dbOp) {
+func (c *pirClientUpdatable) updateLayers(ops []dbOp) int {
 	numNewRows := 0
 	for _, op := range ops {
 		if !op.Delete {
@@ -474,75 +450,69 @@ func (c *pirClientUpdatable) updateLayers(ops []dbOp) {
 		i = 0
 	}
 	if len(c.layers) == 0 {
-		return
+		return -1
 	}
-	c.layers[i].numOps = numNewOps
-	c.layers[i].numRows = numNewRows
-	c.layers[i].firstRow = c.numRows - numNewRows
-	c.layers[i].pir = nil
-	return
+	layer := &c.layers[i]
+	layer.numOps = numNewOps
+	layer.numRows = numNewRows
+	layer.firstRow = c.numRows - numNewRows
+	layer.pir = nil
+	return i
 }
 
-func (c *pirClientUpdatable) updateHint() error {
-	hintReq := HintReq{
-		Layers:          make([]HintLayer, len(c.layers)),
-		DefragTimestamp: int32(c.defragTimestamp),
-		RandSeed:        int64(c.randSource.Uint64())}
-	hintResp := HintResp{
-		BatchResps: make([]HintResp, len(hintReq.Layers)),
-	}
+// Debug
+var RequestedHintNumRows []int
 
-	needServer := false
-	for l, layer := range c.layers {
-		if layer.numRows != 0 && layer.pir == nil {
-			if c.pirType != Punc || l == len(hintReq.Layers)-1 {
-				hintResp.BatchResps[l].NumRows = layer.numRows
-				hintResp.BatchResps[l].RowLen = c.rowLen
-				hintResp.BatchResps[l].PirType = c.pirType
-				if c.pirType == Punc && l == len(hintReq.Layers)-1 {
-					hintResp.BatchResps[l].PirType = DPF
-				}
-			} else {
-				hintReq.Layers[l].FirstRow = layer.firstRow
-				hintReq.Layers[l].NumRows = layer.numRows
-				hintReq.Layers[l].PirType = Punc
-				needServer = true
-			}
+func (c *pirClientUpdatable) initLayerHint(layerNum int) error {
+	if layerNum < 0 || c.layers[layerNum].numRows == 0 {
+		return nil
+	}
+	layer := &c.layers[layerNum]
+	var hintResp HintResp
+	if layerNum == len(c.layers)-1 {
+		pirType := c.pirType
+		if c.pirType == Punc {
+			pirType = DPF
 		}
-	}
+		hintResp = HintResp{
+			NumRows: layer.numRows,
+			RowLen:  c.rowLen,
+			PirType: pirType,
+		}
+	} else {
+		hintReq := HintReq{
+			RandSeed:        int64(c.randSource.Uint64()),
+			DefragTimestamp: int32(c.defragTimestamp),
+			FirstRow:        layer.firstRow,
+			NumRows:         layer.numRows,
+			PirType:         Punc,
+		}
 
-	if needServer {
+		// Debug
+		if RequestedHintNumRows != nil {
+			RequestedHintNumRows = append(RequestedHintNumRows, layer.numRows)
+		}
 		if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
 			return err
 		}
 	}
 
-	if err := c.initHints(hintResp); err != nil {
-		return err
-	}
-
-	return nil
+	return c.initHint(layer, &hintResp)
 }
 
-func (c *pirClientUpdatable) initHints(resp HintResp) error {
-	for l, subResp := range resp.BatchResps {
-		if subResp.PirType == None {
-			continue
-		}
-		c.layers[l].pir = NewPirClientByType(subResp.PirType, c.randSource)
-		c.layers[l].pirType = subResp.PirType
-		err := c.layers[l].pir.initHint(&subResp)
-		if err != nil {
-			return err
-		}
-		// Debug
-		offlineBytes, err := SerializedSizeOf(subResp)
-		if err != nil {
-			return err
-		}
-		c.layers[l].hintNumBytes = offlineBytes
-		NumLayerHintBytes[l] += len(resp.BatchResps[l].Hints) * resp.BatchResps[l].RowLen
+func (c *pirClientUpdatable) initHint(layer *clientLayer, resp *HintResp) error {
+	layer.pir = NewPirClientByType(resp.PirType, c.randSource)
+	layer.pirType = resp.PirType
+	err := layer.pir.initHint(resp)
+	if err != nil {
+		return err
 	}
+	// Debug
+	offlineBytes, err := SerializedSizeOf(resp)
+	if err != nil {
+		return err
+	}
+	layer.hintNumBytes = offlineBytes
 	return nil
 }
 

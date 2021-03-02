@@ -24,9 +24,10 @@ type Config struct {
 	Port int
 
 	// For benchmarks
-	NumUpdates int
-	Progress   bool
-	TraceFile  string
+	NumUpdates           int
+	Progress             bool
+	TraceFile            string
+	HintSizesOutFilename string
 
 	pirTypeStr string
 
@@ -63,6 +64,7 @@ func (c *Config) AddBenchmarkFlags() *Config {
 	c.FlagSet.BoolVar(&c.Progress, "progress", true, "Show benchmarks progress")
 	c.FlagSet.IntVar(&c.NumUpdates, "numUpdates", 0, "number of update batches (default: numRows/updateSize)")
 	c.FlagSet.StringVar(&c.TraceFile, "trace", "trace.txt", "input trace file")
+	c.FlagSet.StringVar(&c.HintSizesOutFilename, "outHintSize", "", "output file for requested hint sizes")
 	c.MeasureBandwidth = true
 	return c
 }

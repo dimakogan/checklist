@@ -36,13 +36,9 @@ type HintReq struct {
 
 	// For PirUpdatable
 	DefragTimestamp int32
-	Layers          []HintLayer
-}
-
-type HintLayer struct {
-	FirstRow int
-	NumRows  int
-	PirType  PirType
+	FirstRow        int
+	NumRows         int
+	PirType         PirType
 }
 
 //HintResp is a response to a hint request.
@@ -54,11 +50,6 @@ type HintResp struct {
 	SetGenKey []byte
 	Hints     []Row
 	IsMatrix  bool
-
-	// For updatable PIR
-	NumOps int
-
-	BatchResps []HintResp
 }
 
 //QueryReq is a PIR query from a client to a server.

@@ -45,7 +45,9 @@ func (s *hintLoadGen) request(proxy *PirRpcProxy) error {
 	hintReq := HintReq{
 		RandSeed:        42,
 		DefragTimestamp: math.MaxInt32,
-		Layers:          []HintLayer{{FirstRow: firstRow, NumRows: layerSize, PirType: s.pirType}},
+		FirstRow:        firstRow,
+		NumRows:         layerSize,
+		PirType:         s.pirType,
 	}
 	//fmt.Printf("Using size: %d\n", layerSize)
 	var hintResp HintResp
@@ -53,12 +55,9 @@ func (s *hintLoadGen) request(proxy *PirRpcProxy) error {
 	if err != nil {
 		return fmt.Errorf("Failed to replay hint request %v, %s", hintReq, err)
 	}
-	if len(hintResp.BatchResps) < 1 {
-		return fmt.Errorf("Failed to replay hint request, 0 subresponses: %v", hintReq)
-	}
-	if hintResp.BatchResps[0].NumRows != layerSize {
-		fmt.Printf("%+v\n", hintResp.BatchResps[0])
-		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.BatchResps[0].NumRows)
+	if hintResp.NumRows != layerSize {
+		fmt.Printf("%+v\n", hintResp)
+		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.NumRows)
 	}
 	return nil
 }

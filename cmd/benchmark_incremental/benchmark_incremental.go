@@ -16,9 +16,6 @@ import (
 )
 
 func main() {
-	NumLayerActivations = make(map[int]int)
-	NumLayerHintBytes = make(map[int]int)
-
 	var ep ErrorPrinter
 
 	config := new(Config).AddPirFlags().AddClientFlags().AddBenchmarkFlags().Parse()
@@ -110,7 +107,4 @@ func main() {
 		serverOnlineTime.Microseconds()/int64(numBatches),
 		(clientReadTime-serverOnlineTime).Microseconds()/int64(numBatches),
 		onlineBytes/numBatches)
-
-	fmt.Fprintf(os.Stderr, "# NumLayerActivations: %v\n", NumLayerActivations)
-	fmt.Fprintf(os.Stderr, "# NumLayerHintBytes: %v\n", NumLayerHintBytes)
 }

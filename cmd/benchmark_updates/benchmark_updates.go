@@ -14,9 +14,6 @@ import (
 )
 
 func main() {
-	NumLayerActivations = make(map[int]int)
-	NumLayerHintBytes = make(map[int]int)
-
 	var ep ErrorPrinter
 	config := new(Config).AddPirFlags().AddClientFlags().AddBenchmarkFlags().Parse()
 
@@ -91,7 +88,4 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, config.NumUpdates)
 		}
 	}
-
-	fmt.Fprintf(os.Stderr, "# NumLayerActivations: %v\n", NumLayerActivations)
-	fmt.Fprintf(os.Stderr, "# NumLayerHintBytes: %v\n", NumLayerHintBytes)
 }

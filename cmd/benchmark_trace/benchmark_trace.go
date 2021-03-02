@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -94,6 +95,7 @@ func main() {
 	driver.ResetMetrics(0, &none)
 
 	client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
+	RequestedHintNumRows = make([]int, 0)
 
 	var clientTime, serverTime time.Duration
 	var numBytes int
@@ -157,7 +159,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%4d/%-5d\b\b\b\b\b\b\b\b\b\b", i, numUpdates)
 		}
 	}
-
-	// fmt.Fprintf(os.Stderr, "# NumLayerActivations: %v\n", NumLayerActivations)
-	// fmt.Fprintf(os.Stderr, "# NumLayerHintBytes: %v\n", NumLayerHintBytes)
+	if config.HintSizesOutFilename != "" {
+		str := ""
+		for _, n := range RequestedHintNumRows {
+			str += fmt.Sprintf("%d\n", n)
+		}
+		ioutil.WriteFile(config.HintSizesOutFilename, []byte(str), 0644)
+	}
 }
