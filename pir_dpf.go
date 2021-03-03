@@ -1,7 +1,6 @@
 package boosted
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -10,26 +9,21 @@ import (
 )
 
 type pirDPFClient struct {
-	nRows, rowLen int
+	nRows int
 
 	randSource *rand.Rand
 }
 
 type pirDPFServer struct {
-	numRows, rowLen int
-	flatDb          []byte
+	*staticDB
 }
 
-func NewPIRDPFServer(flatDb []byte, nRows, rowLen int) PirDB {
-	if nRows < 1 {
+func NewPIRDPFServer(db *staticDB) *pirDPFServer {
+	if db.numRows < 1 {
 		panic("Database must contain at least one row")
 	}
 
-	return &pirDPFServer{
-		numRows: nRows,
-		rowLen:  rowLen,
-		flatDb:  flatDb,
-	}
+	return &pirDPFServer{db}
 }
 
 func (s pirDPFServer) matVecProduct(bitVector []byte) []byte {
@@ -61,31 +55,11 @@ func (s *pirDPFServer) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func (s *pirDPFServer) NumRows(none int, out *int) error {
-	*out = s.numRows
-	return nil
-}
-
-func (s *pirDPFServer) GetRow(idx int, row *RowIndexVal) error {
-	if idx < -1 || idx >= s.numRows {
-		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.numRows)
-	}
-	if idx == -1 {
-		// return random row
-		idx = RandSource().Int() % s.numRows
-	}
-	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
-	row.Index = idx
-	row.Key = uint32(idx)
-	return nil
-}
-
 func NewPIRDPFClient(source *rand.Rand) *pirDPFClient {
 	return &pirDPFClient{randSource: source}
 }
 
 func (c *pirDPFClient) initHint(resp *HintResp) error {
-	c.rowLen = resp.RowLen
 	c.nRows = resp.NumRows
 	return nil
 }

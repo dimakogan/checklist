@@ -7,9 +7,9 @@ import (
 	"fmt"
 )
 
-const _LoadTypeName = "AnswerHintKeyUpdate"
+const _LoadTypeName = "AnswerHintKeyUpdateUser"
 
-var _LoadTypeIndex = [...]uint8{0, 6, 10, 19}
+var _LoadTypeIndex = [...]uint8{0, 6, 10, 19, 23}
 
 func (i LoadType) String() string {
 	if i < 0 || i >= LoadType(len(_LoadTypeIndex)-1) {
@@ -18,12 +18,13 @@ func (i LoadType) String() string {
 	return _LoadTypeName[_LoadTypeIndex[i]:_LoadTypeIndex[i+1]]
 }
 
-var _LoadTypeValues = []LoadType{0, 1, 2}
+var _LoadTypeValues = []LoadType{0, 1, 2, 3}
 
 var _LoadTypeNameToValueMap = map[string]LoadType{
 	_LoadTypeName[0:6]:   0,
 	_LoadTypeName[6:10]:  1,
 	_LoadTypeName[10:19]: 2,
+	_LoadTypeName[19:23]: 3,
 }
 
 // LoadTypeString retrieves an enum value from the enum constants string name.

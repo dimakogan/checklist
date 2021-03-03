@@ -33,12 +33,8 @@ type pirClientPunc struct {
 }
 
 type pirServerPunc struct {
-	nRows  int
-	rowLen int
-
+	*staticDB
 	numHintsMultiplier int
-
-	flatDb []byte
 }
 
 const Left int = 0
@@ -60,18 +56,16 @@ func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
 	xorRowsFlatSlice(s.flatDb, s.rowLen, indices, out)
 }
 
-func NewPirServerPunc(source *rand.Rand, flatDb []byte, nRows, rowLen int) pirServerPunc {
+func NewPirServerPunc(db *staticDB) pirServerPunc {
 	return pirServerPunc{
-		flatDb:             flatDb,
-		nRows:              nRows,
-		rowLen:             rowLen,
+		staticDB:           db,
 		numHintsMultiplier: int(float64(SecParam) * math.Log(2)),
 	}
 }
 
 func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
-	setSize := int(math.Round(math.Pow(float64(s.nRows), 0.5)))
-	nHints := s.numHintsMultiplier * s.nRows / setSize
+	setSize := int(math.Round(math.Pow(float64(s.numRows), 0.5)))
+	nHints := s.numHintsMultiplier * s.numRows / setSize
 
 	key := make([]byte, 16)
 	if _, err := io.ReadFull(rand.New(rand.NewSource(req.RandSeed)), key); err != nil {
@@ -80,7 +74,7 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 
 	hints := make([]Row, nHints)
 	hintBuf := make([]byte, s.rowLen*nHints)
-	setGen := NewSetGenerator(key, 0, s.nRows, setSize)
+	setGen := NewSetGenerator(key, 0, s.numRows, setSize)
 	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
 		setGen.Gen(&pset)
@@ -88,7 +82,7 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 		s.xorRowsFlatSlice(hints[i], pset.elems)
 	}
 	resp.Hints = hints
-	resp.NumRows = s.nRows
+	resp.NumRows = s.numRows
 	resp.RowLen = s.rowLen
 	resp.SetSize = setSize
 	resp.SetGenKey = key
@@ -96,32 +90,11 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 }
 
 func (s pirServerPunc) dbElem(i int) Row {
-	if i < s.nRows {
+	if i < s.numRows {
 		return s.flatDb[s.rowLen*i : s.rowLen*(i+1)]
 	} else {
 		return make(Row, s.rowLen)
 	}
-}
-
-func (s pirServerPunc) NumRows(none int, out *int) error {
-	*out = s.nRows
-	return nil
-}
-
-func (s pirServerPunc) GetRow(idx int, row *RowIndexVal) error {
-	if idx == -1 {
-		// return random row
-		idx = RandSource().Int() % s.nRows
-	}
-
-	if idx < 0 || idx >= s.nRows {
-		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
-	}
-
-	row.Index = idx
-	row.Key = uint32(idx)
-	row.Value = s.dbElem(idx)
-	return nil
 }
 
 func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {

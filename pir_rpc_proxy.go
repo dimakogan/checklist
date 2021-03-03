@@ -61,6 +61,10 @@ func (p *PirRpcProxy) NumRows(none int, out *int) error {
 	return p.Call("PirServerDriver.NumRows", none, out)
 }
 
+func (p *PirRpcProxy) RowLen(none int, out *int) error {
+	return p.Call("PirServerDriver.RowLen", none, out)
+}
+
 func (p *PirRpcProxy) GetRow(idx int, row *RowIndexVal) error {
 	return p.Call("PirServerDriver.GetRow", idx, row)
 }

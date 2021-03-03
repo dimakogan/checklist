@@ -20,7 +20,7 @@ func MasterKey() []byte {
 	return key
 }
 
-func MakeDB(src *rand.Rand, nRows int, rowLen int) []Row {
+func MakeRows(src *rand.Rand, nRows, rowLen int) []Row {
 	db := make([]Row, nRows)
 	for i := range db {
 		db[i] = make([]byte, rowLen)
@@ -29,6 +29,10 @@ func MakeDB(src *rand.Rand, nRows int, rowLen int) []Row {
 		db[i][1] = 'A' + byte(i%256)
 	}
 	return db
+}
+
+func MakeDB(src *rand.Rand, nRows int, rowLen int) staticDB {
+	return staticDB{nRows, rowLen, flattenDb(MakeRows(src, nRows, rowLen))}
 }
 
 func MakeKeys(src *rand.Rand, nRows int) []uint32 {

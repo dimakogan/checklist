@@ -10,11 +10,20 @@ import (
 )
 
 type answerLoadGen struct {
-	reqs  []QueryReq
-	resps []QueryResp
+	numRows int
+	reqs    []QueryReq
+	resps   []QueryResp
 }
 
-func initAnswerLoadGen(config *Config, proxy *PirRpcProxy) *answerLoadGen {
+func initAnswerLoadGen(config *Config) *answerLoadGen {
+	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
+	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	if err != nil {
+		log.Fatal("Connection error: ", err)
+	}
+	defer proxy.Close()
+	fmt.Printf("[OK]\n")
+
 	totalNumRows := config.NumRows
 	config.NumRows = config.NumRows * 2 / 3
 
@@ -28,10 +37,11 @@ func initAnswerLoadGen(config *Config, proxy *PirRpcProxy) *answerLoadGen {
 			Value: value})
 	}
 
-	err := proxy.Configure(config.TestConfig, nil)
-	if err != nil {
+	fmt.Printf("Setting up remote DB...")
+	if err := proxy.Configure(config.TestConfig, nil); err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
+	fmt.Printf("[OK]\n")
 
 	client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{proxy, proxy})
 	client.CallAsync = false
@@ -54,8 +64,12 @@ func initAnswerLoadGen(config *Config, proxy *PirRpcProxy) *answerLoadGen {
 			log.Fatalf("failed to update hint after adding %d rows: %s", toAdd, err)
 		}
 	}
+	var numRows int
+	if err = proxy.NumRows(0, &numRows); err != nil || numRows < config.NumRows*99/100 {
+		log.Fatalf("Invalid number of rows on server: %d", numRows)
+	}
 
-	fmt.Printf("[OK] (num rows: %d, num layers: %d)\n", config.NumRows, client.NumLayers())
+	fmt.Printf("[OK] (num rows: %d)\n", config.NumRows)
 
 	fmt.Printf("Caching responses...")
 	proxy.StartRecording()
@@ -81,7 +95,7 @@ func initAnswerLoadGen(config *Config, proxy *PirRpcProxy) *answerLoadGen {
 	}
 	fmt.Printf("(%d #cached) [OK]\n", len(reqs))
 
-	return &answerLoadGen{reqs: reqs, resps: resps}
+	return &answerLoadGen{numRows: numRows, reqs: reqs, resps: resps}
 }
 
 func (s *answerLoadGen) request(proxy *PirRpcProxy) error {
@@ -95,4 +109,8 @@ func (s *answerLoadGen) request(proxy *PirRpcProxy) error {
 		return fmt.Errorf("Mismatching response in query number %d", idx)
 	}
 	return nil
+}
+
+func (gen *answerLoadGen) debugStr() string {
+	return ""
 }

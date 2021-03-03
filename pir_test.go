@@ -19,8 +19,8 @@ func TestMain(m *testing.M) {
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(RandSource(), 256, 100)
 
-	leftServer := NewPirServerPunc(RandSource(), flattenDb(db), 256, 100)
-	rightServer := NewPirServerPunc(RandSource(), flattenDb(db), 256, 100)
+	leftServer := NewPirServerPunc(&db)
+	rightServer := NewPirServerPunc(&db)
 	servers := [2]PirServer{leftServer, rightServer}
 	client := NewPIRClient(
 		NewPirClientPunc(RandSource()),
@@ -31,12 +31,12 @@ func TestPIRPunc(t *testing.T) {
 	const readIndex = 2
 	val, err := client.Read(readIndex)
 	assert.NilError(t, err)
-	assert.DeepEqual(t, val, db[readIndex])
+	assert.DeepEqual(t, val, db.Row(readIndex))
 
 	// Test refreshing by reading the same item again
 	val, err = client.Read(readIndex)
 	assert.NilError(t, err)
-	assert.DeepEqual(t, val, db[readIndex])
+	assert.DeepEqual(t, val, db.Row(readIndex))
 }
 
 func TestPunc(t *testing.T) {
@@ -152,7 +152,7 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	src := RandSource()
 	db := MakeDB(src, 4, 100)
 
-	server := NewPirServerPunc(src, flattenDb(db), 4, 100)
+	server := NewPirServerPunc(&db)
 
 	for i := 0; i < 100; i++ {
 		client := NewPIRClient(
@@ -164,7 +164,7 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 		const readIndex = 2
 		val, err := client.Read(readIndex)
 		assert.NilError(t, err)
-		assert.DeepEqual(t, val, db[readIndex])
+		assert.DeepEqual(t, val, db.Row(readIndex))
 	}
 }
 
@@ -181,45 +181,6 @@ func randStringBytes(r *rand.Rand, n int) string {
 // Save results to avoid compiler optimizations.
 var hint *HintResp
 var resp *QueryResp
-
-func BenchmarkNothingRandom(b *testing.B) {
-	config := TestConfig{NumRows: 1024 * 1024, RowLen: 1024}
-	db := MakeDB(RandSource(), config.NumRows, config.RowLen)
-
-	nHints := 1024
-	setLen := 1024
-
-	out := make(Row, config.RowLen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for j := 0; j < nHints; j++ {
-			for k := 0; k < setLen; k++ {
-				q := ((123124124 * k) + 912812367) % config.NumRows
-				xorInto(out, db[q])
-			}
-		}
-	}
-}
-
-func BenchmarkNothingLinear(b *testing.B) {
-	config := TestConfig{NumRows: 1024 * 1024, RowLen: 1024}
-	db := MakeDB(RandSource(), config.NumRows, config.RowLen)
-
-	nHints := 1024
-	setLen := 1024
-
-	out := make(Row, config.RowLen)
-	b.ResetTimer()
-	q := 0
-	for i := 0; i < b.N; i++ {
-		for j := 0; j < nHints; j++ {
-			for k := 0; k < setLen; k++ {
-				xorInto(out, db[q])
-				q = (q + 1) % config.NumRows
-			}
-		}
-	}
-}
 
 func TestSample(t *testing.T) {
 	client := NewPirClientPunc(RandSource())
@@ -267,7 +228,7 @@ func _TestMessageSizes(t *testing.T) {
 	numRows := 3000000
 	db := MakeDB(RandSource(), numRows, 32)
 
-	server := NewPirServerPunc(RandSource(), flattenDb(db), numRows, 32)
+	server := NewPirServerPunc(&db)
 
 	client := NewPirClientPunc(RandSource())
 	clientWrapper := NewPIRClient(client,
@@ -289,12 +250,12 @@ func _TestMessageSizesUpdatable(t *testing.T) {
 	numRows := 4000000
 	initialSize := 3000000
 	keys := MakeKeys(RandSource(), numRows)
-	db := MakeDB(RandSource(), numRows, 32)
+	db := MakeRows(RandSource(), numRows, 32)
 
-	server := NewPirServerUpdatable(RandSource())
+	server := pirUpdatableServer{}
 	server.AddRows(keys[0:initialSize], db[0:initialSize])
 
-	client := NewPirClientUpdatable(RandSource(), Punc, [2]PirUpdatableServer{server, server})
+	client := NewPirClientUpdatable(RandSource(), Punc, [2]PirUpdatableServer{&server, &server})
 
 	assert.NilError(t, client.Init())
 
@@ -302,7 +263,7 @@ func _TestMessageSizesUpdatable(t *testing.T) {
 		server.AddRows(keys[initialSize+i*200:initialSize+(i+1)*200], db[initialSize+i*200:initialSize+(i+1)*200])
 		assert.NilError(t, client.Update())
 
-		qs, _ := client.query(int(keys[7]))
+		qs, _ := client.waterfall.Query(int(keys[7]))
 		size, err := SerializedSizeOf(qs[0])
 		if err != nil {
 			log.Fatal(err)

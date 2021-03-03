@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 
@@ -15,8 +16,27 @@ type hintLoadGen struct {
 	pirType PirType
 }
 
-func initHintLoadGen(config *Config, proxy *PirRpcProxy) *hintLoadGen {
-	sizes := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{proxy, proxy}).LayersMaxSize(config.NumRows)
+func initHintLoadGen(config *Config) *hintLoadGen {
+	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
+	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	if err != nil {
+		log.Fatal("Connection error: ", err)
+	}
+	defer proxy.Close()
+	fmt.Printf("[OK]\n")
+
+	fmt.Printf("Setting up remote DB...")
+	if err := proxy.Configure(config.TestConfig, nil); err != nil {
+		log.Fatalf("Failed to Configure: %s\n", err)
+	}
+	var numRows int
+	if err = proxy.NumRows(0, &numRows); err != nil || numRows < config.NumRows*99/100 {
+		log.Fatalf("Invalid number of rows on server: %d", numRows)
+	}
+
+	fmt.Printf("[OK] (num rows: %d)\n", config.NumRows)
+
+	sizes := NewPirClientWaterfall(RandSource(), config.PirType).LayersMaxSize(config.NumRows)
 	probs := make([]float64, len(sizes))
 	probs[len(probs)-1] = 1.0
 	overflowSize := 2 * sizes[len(sizes)-1]
@@ -60,4 +80,8 @@ func (s *hintLoadGen) request(proxy *PirRpcProxy) error {
 		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.NumRows)
 	}
 	return nil
+}
+
+func (gen *hintLoadGen) debugStr() string {
+	return ""
 }

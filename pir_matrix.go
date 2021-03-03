@@ -1,7 +1,6 @@
 package boosted
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 )
@@ -16,11 +15,9 @@ type pirClientMatrix struct {
 }
 
 type pirMatrix struct {
-	nRows  int
+	*staticDB
 	height int
 	width  int
-	rowLen int
-	flatDb []byte
 }
 
 func getHeightWidth(nRows int, rowLen int) (int, int) {
@@ -31,18 +28,16 @@ func getHeightWidth(nRows int, rowLen int) (int, int) {
 	return width, height
 }
 
-func NewPirServerMatrix(flatDb []byte, nRows, rowLen int) PirDB {
-	if nRows < 1 {
+func NewPirServerMatrix(db *staticDB) *pirMatrix {
+	if db.numRows < 1 {
 		panic("Database must contain at least one row")
 	}
 
-	width, height := getHeightWidth(nRows, rowLen)
+	width, height := getHeightWidth(db.numRows, db.rowLen)
 	return &pirMatrix{
-		nRows:  nRows,
-		rowLen: rowLen,
-		flatDb: flatDb,
-		height: height,
-		width:  width,
+		staticDB: db,
+		height:   height,
+		width:    width,
 	}
 }
 
@@ -51,14 +46,15 @@ func (s pirMatrix) matVecProduct(bitVector []bool) []byte {
 
 	cnt := 0
 	tableWidth := s.rowLen * s.width
+	flatDb := s.Slice(0, s.numRows)
 	for j := 0; j < s.height; j++ {
 		if bitVector[j] {
 			start := tableWidth * j
 			length := tableWidth
-			if start+length >= len(s.flatDb) {
-				length = len(s.flatDb) - start
+			if start+length >= len(flatDb) {
+				length = len(flatDb) - start
 			}
-			xorInto(out[0:length], s.flatDb[start:start+length])
+			xorInto(out[0:length], flatDb[start:start+length])
 			cnt = cnt + tableWidth
 		}
 	}
@@ -67,7 +63,7 @@ func (s pirMatrix) matVecProduct(bitVector []bool) []byte {
 
 func (s pirMatrix) Hint(req HintReq, resp *HintResp) error {
 	*resp = HintResp{
-		NumRows: s.nRows,
+		NumRows: s.numRows,
 		RowLen:  s.rowLen,
 	}
 	return nil
@@ -75,25 +71,6 @@ func (s pirMatrix) Hint(req HintReq, resp *HintResp) error {
 
 func (s *pirMatrix) Answer(q QueryReq, resp *QueryResp) error {
 	*resp = QueryResp{Answer: s.matVecProduct(q.BitVector)}
-	return nil
-}
-
-func (s *pirMatrix) NumRows(none int, out *int) error {
-	*out = s.nRows
-	return nil
-}
-
-func (s *pirMatrix) GetRow(idx int, row *RowIndexVal) error {
-	if idx < 0 || idx >= s.nRows {
-		return fmt.Errorf("Index %d out of bounds [0,%d)", idx, s.nRows)
-	}
-	if idx == -1 {
-		// return random row
-		idx = RandSource().Int() % s.nRows
-	}
-	row.Value = s.flatDb[idx*s.rowLen : (idx+1)*s.rowLen]
-	row.Index = idx
-	row.Key = uint32(idx)
 	return nil
 }
 

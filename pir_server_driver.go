@@ -9,12 +9,14 @@ import (
 
 type PirServerDriver interface {
 	PirUpdatableServer
-	DB
 
 	Configure(config TestConfig, none *int) error
 
 	AddRows(numRows int, none *int) error
 	DeleteRows(numRows int, none *int) error
+	GetRow(idx int, row *RowIndexVal) error
+	NumRows(none int, out *int) error
+	RowLen(none int, out *int) error
 
 	ResetMetrics(none int, none2 *int) error
 	GetOfflineTimer(none int, out *time.Duration) error
@@ -24,8 +26,9 @@ type PirServerDriver interface {
 }
 
 type pirServerDriver struct {
-	PirDB
-	server *pirServerUpdatable
+	server          PirServer
+	updatableServer *pirUpdatableServer
+	staticDB        *staticDB
 
 	config TestConfig
 
@@ -45,11 +48,11 @@ func registerExtraTypes() {
 func NewPirServerDriver() (*pirServerDriver, error) {
 	randSource := RandSource()
 	registerExtraTypes()
-	server := NewPirServerUpdatable(randSource)
+	db := NewPirUpdatableServer()
 	driver := pirServerDriver{
-		PirDB:      server,
-		server:     server,
-		randSource: randSource,
+		updatableServer: db,
+		staticDB:        &db.staticDB,
+		randSource:      randSource,
 	}
 	return &driver, nil
 }
@@ -64,7 +67,7 @@ func (driver *pirServerDriver) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesRes
 	}
 
 	start := time.Now()
-	if err := driver.server.KeyUpdates(req, resp); err != nil {
+	if err := driver.updatableServer.KeyUpdates(req, resp); err != nil {
 		return err
 	}
 	driver.hintTime += time.Since(start)
@@ -89,7 +92,7 @@ func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	start := time.Now()
-	if err := driver.PirDB.Hint(req, resp); err != nil {
+	if err := driver.server.Hint(req, resp); err != nil {
 		return err
 	}
 	driver.hintTime += time.Since(start)
@@ -114,7 +117,7 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 	}
 
 	start := time.Now()
-	if err := driver.PirDB.Answer(q, resp); err != nil {
+	if err := driver.server.Answer(q, resp); err != nil {
 		return err
 	}
 	driver.answerTime += time.Since(start)
@@ -133,20 +136,22 @@ func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err erro
 		driver.randSource = rand.New(rand.NewSource(config.RandSeed))
 	}
 
-	db := MakeDB(driver.randSource, config.NumRows, config.RowLen)
+	rows := MakeRows(driver.randSource, config.NumRows, config.RowLen)
 	keys := MakeKeys(driver.randSource, config.NumRows)
 	for _, preset := range config.PresetRows {
-		copy(db[preset.Index], preset.Value)
+		copy(rows[preset.Index], preset.Value)
 		keys[preset.Index] = preset.Key
 	}
 
 	if config.Updatable {
-		driver.server = NewPirServerUpdatable(driver.randSource)
-		driver.server.AddRows(keys, db)
-		driver.PirDB = driver.server
+		driver.updatableServer = NewPirUpdatableServer()
+		driver.updatableServer.AddRows(keys, rows)
+		driver.staticDB = &driver.updatableServer.staticDB
+		driver.server = driver.updatableServer
 	} else {
-		driver.PirDB = NewPirServerByType(config.PirType, driver.randSource, flattenDb(db), len(db), len(db[0]))
-		driver.server = nil
+		driver.staticDB = &staticDB{config.NumRows, config.RowLen, flattenDb(rows)}
+		driver.updatableServer = nil
+		driver.server = NewPirServerByType(config.PirType, driver.staticDB)
 	}
 
 	driver.ResetMetrics(0, nil)
@@ -158,9 +163,9 @@ func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
 	if !driver.updatable {
 		return fmt.Errorf("Cannot AddRows to Non-Updatable PIR server")
 	}
-	newVals := MakeDB(driver.randSource, numRows, driver.config.RowLen)
+	newVals := MakeRows(driver.randSource, numRows, driver.config.RowLen)
 	newKeys := MakeKeys(driver.randSource, numRows)
-	driver.server.AddRows(newKeys, newVals)
+	driver.updatableServer.AddRows(newKeys, newVals)
 	return nil
 }
 
@@ -168,17 +173,27 @@ func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
 	if !driver.updatable {
 		return fmt.Errorf("Cannot DeleteRows from Non-Updatable PIR server")
 	}
-	keys := driver.server.SomeKeys(numRows)
-	driver.server.DeleteRows(keys)
+	keys := driver.updatableServer.SomeKeys(numRows)
+	driver.updatableServer.DeleteRows(keys)
 	return nil
 }
 
 func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
-	return driver.PirDB.GetRow(idx, row)
+	if driver.updatableServer != nil {
+		return driver.updatableServer.GetRow(idx, row)
+	} else {
+		return driver.staticDB.GetRow(idx, row)
+	}
 }
 
 func (driver *pirServerDriver) NumRows(none int, out *int) error {
-	return driver.PirDB.NumRows(none, out)
+	*out = driver.staticDB.numRows
+	return nil
+}
+
+func (driver *pirServerDriver) RowLen(none int, out *int) error {
+	*out = driver.staticDB.rowLen
+	return nil
 }
 
 func (driver *pirServerDriver) GetOfflineTimer(none int, out *time.Duration) error {

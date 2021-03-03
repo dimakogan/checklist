@@ -67,9 +67,8 @@ type QueryReq struct {
 	DPFkey dpf.DPFkey
 
 	// For PirUpdatable
-	LatestKeyTimestamp int32
-	FirstRow, NumRows  int32
-	PirType            PirType
+	FirstRow, NumRows int32
+	PirType           PirType
 
 	// Debug & testing.
 	Index int
@@ -119,24 +118,6 @@ type PirUpdatableServer interface {
 	KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error
 }
 
-type DB interface {
-	GetRow(idx int, row *RowIndexVal) error
-	NumRows(none int, out *int) error
-}
-
-type PirDB interface {
-	DB
-	PirServer
-}
-
-type PirUpdatableDB interface {
-	DB
-	PirUpdatableServer
-
-	AddRows(keys []uint32, vals []Row)
-	DeleteRows(keys []uint32)
-}
-
 type PirClient interface {
 	Init() error
 	Read(i int) (Row, error)
@@ -165,16 +146,16 @@ type pirClient struct {
 	randSource *rand.Rand
 }
 
-func NewPirServerByType(pirType PirType, randSrc *rand.Rand, flatDb []byte, nRows, rowLen int) PirDB {
+func NewPirServerByType(pirType PirType, db *staticDB) PirServer {
 	switch pirType {
 	case Matrix:
-		return NewPirServerMatrix(flatDb, nRows, rowLen)
+		return NewPirServerMatrix(db)
 	case Punc:
-		return NewPirServerPunc(randSrc, flatDb, nRows, rowLen)
+		return NewPirServerPunc(db)
 	case DPF:
-		return NewPIRDPFServer(flatDb, nRows, rowLen)
+		return NewPIRDPFServer(db)
 	case NonPrivate:
-		return NewPirServerNonPrivate(flatDb, nRows, rowLen)
+		return NewPirServerNonPrivate(db)
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }

@@ -4,9 +4,11 @@ import (
 	"expvar"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,10 +32,12 @@ const (
 	Answer LoadType = iota
 	Hint
 	KeyUpdate
+	User
 )
 
 type loadGen interface {
 	request(proxy *PirRpcProxy) error
+	debugStr() string
 }
 
 type testConfig struct {
@@ -67,6 +71,7 @@ type stressTest struct {
 
 func parseFlags(config *testConfig) {
 	config.AddPirFlags().AddClientFlags()
+	config.FlagSet.StringVar(&config.TraceFile, "trace", "trace.txt", "input trace file")
 	config.FlagSet.IntVar(&config.incInterval, "i", 0, "Interval to increment num workers")
 	config.FlagSet.IntVar(&config.sleepMsec, "s", 500, "milliseconds to sleep between requests")
 	config.FlagSet.StringVar(&config.outFile, "o", "", "output filename for stats")
@@ -117,47 +122,22 @@ func (t *stressTest) onError() {
 	atomic.AddUint64(&t.totalNumErrors, 1)
 }
 
-func initTest() *stressTest {
-	test := stressTest{}
-	parseFlags(&test.testConfig)
-	test.addingWorkers = true
-	fmt.Printf("Connecting to %s (TLS: %t)...", test.ServerAddr, test.UseTLS)
-	proxy, err := NewPirRpcProxy(test.ServerAddr, test.UseTLS, test.UsePersistent)
-	if err != nil {
-		log.Fatal("Connection error: ", err)
+func (t *stressTest) addPresetRows() {
+	for i := 0; i < NumDifferentReads; i++ {
+		idx := i % t.NumRows
+		value := make([]byte, t.RowLen)
+		rand.Read(value)
+		t.PresetRows = append(t.PresetRows, RowIndexVal{
+			Index: idx,
+			Key:   rand.Uint32(),
+			Value: value})
 	}
-	fmt.Printf("[OK]\n")
-
-	fmt.Printf("Setting up remote DB...")
-	test.RandSeed = 678
-	if err := proxy.Configure(test.TestConfig, nil); err != nil {
-		log.Fatalf("Failed to Configure: %s\n", err)
-	}
-	var numRows int
-	if err = proxy.NumRows(0, &numRows); err != nil || numRows < test.NumRows*99/100 {
-		log.Fatalf("Invalid number of rows on server: %d", numRows)
-	}
-	fmt.Printf("[OK]\n")
-	switch test.loadType {
-	case Hint:
-		test.load = initHintLoadGen(&test.Config, proxy)
-	case Answer:
-		test.load = initAnswerLoadGen(&test.Config, proxy)
-	case KeyUpdate:
-		test.load = initKeyUpdateLoadGen(&test.Config, proxy)
-	}
-
-	proxy.Close()
-
-	test.initMonitoring()
-
-	return &test
 }
 
 func (t *stressTest) workerFunc() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Fatalf("Worker panic: %v", r)
+			log.Fatalf("Worker panic: %+v\n%s", r, string(debug.Stack()))
 		}
 	}()
 	proxy, err := NewPirRpcProxy(t.ServerAddr, t.UseTLS, t.UsePersistent)
@@ -222,7 +202,7 @@ func (t *stressTest) liveMonitor() {
 		defer f.Close()
 	}
 
-	fmt.Fprintf(f, "Seconds,Workers,Queries,Latency,Errors\n")
+	fmt.Fprintf(f, "Seconds,Workers,Queries,Latency,Errors,Debug\n")
 
 	for {
 		if t.inShutdown {
@@ -241,7 +221,13 @@ func (t *stressTest) liveMonitor() {
 			continue
 		}
 		if f != nil {
-			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d\n", time.Now().Unix(), t.curNumWorkers, t.totalNumQueries, t.latency.Rate(), t.totalNumErrors)
+			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d,%s\n",
+				time.Now().Unix(),
+				t.curNumWorkers,
+				t.totalNumQueries,
+				t.latency.Rate(),
+				t.totalNumErrors,
+				t.load.debugStr())
 		}
 	}
 	t.wg.Wait()
@@ -259,8 +245,24 @@ func (t *stressTest) notifyOnSignal() {
 }
 
 func main() {
-	t := initTest()
-	go t.runWorkers()
-	t.notifyOnSignal()
-	t.liveMonitor()
+	test := stressTest{}
+	parseFlags(&test.testConfig)
+	test.RandSeed = 678
+	test.addingWorkers = true
+
+	switch test.loadType {
+	case Hint:
+		test.load = initHintLoadGen(&test.Config)
+	case Answer:
+		test.load = initAnswerLoadGen(&test.Config)
+	case KeyUpdate:
+		test.load = initKeyUpdateLoadGen(&test.Config)
+	case User:
+		test.load = initUserLoadGen(&test.Config, LoadTraceFile(test.Config.TraceFile))
+	}
+
+	test.initMonitoring()
+	go test.runWorkers()
+	test.notifyOnSignal()
+	test.liveMonitor()
 }
