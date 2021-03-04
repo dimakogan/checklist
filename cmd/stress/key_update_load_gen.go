@@ -54,3 +54,7 @@ func (s *keyUpdateLoadGen) request(proxy *PirRpcProxy) error {
 func (gen *keyUpdateLoadGen) debugStr() string {
 	return ""
 }
+
+func (gen *keyUpdateLoadGen) reqRate() int {
+	return 1
+}

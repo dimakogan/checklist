@@ -85,3 +85,7 @@ func (s *hintLoadGen) request(proxy *PirRpcProxy) error {
 func (gen *hintLoadGen) debugStr() string {
 	return ""
 }
+
+func (gen *hintLoadGen) reqRate() int {
+	return 1
+}

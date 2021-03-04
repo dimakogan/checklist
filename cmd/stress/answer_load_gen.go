@@ -114,3 +114,7 @@ func (s *answerLoadGen) request(proxy *PirRpcProxy) error {
 func (gen *answerLoadGen) debugStr() string {
 	return ""
 }
+
+func (gen *answerLoadGen) reqRate() int {
+	return 1
+}

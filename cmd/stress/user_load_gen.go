@@ -17,6 +17,7 @@ type userLoadGen struct {
 	numQueries int
 	answerGen  *answerLoadGen
 
+	requestRate                         int
 	updatesDone, queriesDone, hintsDone uint64
 }
 
@@ -48,7 +49,7 @@ func initUserLoadGen(config *Config, trace [][]int) *userLoadGen {
 	fmt.Printf("Generated %d hint requests [OK]\n", len(hintReqs))
 	reqRate := (trace[len(trace)-1][ColumnTimestamp] - trace[0][ColumnTimestamp]) / (len(keyUpdates) + numQueries)
 	fmt.Printf("1 Req/Sec = %d Users\n", reqRate)
-	return &userLoadGen{hintReqs, keyUpdates, numQueries, initAnswerLoadGen(config), 0, 0, 0}
+	return &userLoadGen{hintReqs, keyUpdates, numQueries, initAnswerLoadGen(config), reqRate, 0, 0, 0}
 }
 
 func (gen *userLoadGen) request(proxy *PirRpcProxy) error {
@@ -91,4 +92,8 @@ func (gen *userLoadGen) request(proxy *PirRpcProxy) error {
 
 func (gen *userLoadGen) debugStr() string {
 	return fmt.Sprintf("%d,%d,%d", gen.updatesDone, gen.hintsDone, gen.queriesDone)
+}
+
+func (gen *userLoadGen) reqRate() int {
+	return gen.requestRate
 }

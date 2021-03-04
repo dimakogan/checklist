@@ -37,6 +37,7 @@ const (
 
 type loadGen interface {
 	request(proxy *PirRpcProxy) error
+	reqRate() int
 	debugStr() string
 }
 
@@ -202,14 +203,14 @@ func (t *stressTest) liveMonitor() {
 		defer f.Close()
 	}
 
-	fmt.Fprintf(f, "Seconds,Workers,Queries,Latency,Errors,Debug\n")
+	fmt.Fprintf(f, "Seconds,Workers,Queries,Latency,Errors,Users,Debug\n")
 
 	for {
 		if t.inShutdown {
 			break
 		}
 		time.Sleep(time.Second)
-		fmt.Printf("\rWorkers: %d, Current rate: %d QPS, overall rate (over %s): %.02f, average latency: %.02f ms, errors: %d          ",
+		fmt.Printf("\rWorkers: %d, Current rate: %d Req/Sec, overall rate (over %s): %.02f, average latency: %.02f ms, errors: %d          ",
 			t.curNumWorkers,
 			t.reqs.Rate(),
 			time.Since(t.startTime).String(),
@@ -221,12 +222,13 @@ func (t *stressTest) liveMonitor() {
 			continue
 		}
 		if f != nil {
-			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d,%s\n",
+			fmt.Fprintf(f, "%d,%d,%d,%.02f,%d,%d,%s\n",
 				time.Now().Unix(),
 				t.curNumWorkers,
 				t.totalNumQueries,
 				t.latency.Rate(),
 				t.totalNumErrors,
+				t.totalNumQueries*uint64(t.load.reqRate()),
 				t.load.debugStr())
 		}
 	}
