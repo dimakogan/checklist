@@ -30,7 +30,7 @@ throughput_filenames = ["boosted.txt", "dpf.txt", "nonprivate.txt"]
 latency_filenames = ["boosted_latency.txt", "dpf_latency.txt", "nonprivate_latency.txt"]
 labels = ["Checklist", "DPF", "Non-private"]
 
-skip = [2,4,3]
+skip = [0,1,0]
 
 # Column names
 # Seconds,Workers,Queries,Latency,Errors
@@ -53,11 +53,11 @@ def init_plot(ylabel, scales=['linear', 'linear'], ylim=None):
     if scales[0] == 'linear':
         ax.set_xticks([1000*i for i in range(6)])
     if scales[1] == 'linear':
-        ax.set_yticks([60*i for i in range(8)])
+        ax.set_yticks([60*i for i in range(10)])
         ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
 
     if scales[0] == 'log':
-        ax.set_xticks([40,200,1000,5000])
+        ax.set_xticks([10000,100000,1000000])
         ax.xaxis.set_major_formatter(ScalarFormatter())
         #ax.xaxis.set_minor_locator(MaxNLocator(1))
         #ax.xaxis.set_minor_formatter(ScalarFormatter())
@@ -95,20 +95,21 @@ def legend(ax):
     plt.legend(fontsize=8, loc='upper left')#, bbox_to_anchor=(0.4,0.5))
 
 
-def read_results(filename):
-    return np.genfromtxt(filename, names=True, comments='#', delimiter=',')
+def read_results(filename, usecols=None):
+    return np.genfromtxt(filename, names=True, comments='#', delimiter=',', usecols=usecols)
 
 
-fig, ax = init_plot('Latency (msec)', scales=["log", "linear"], ylim=250)
+fig, ax = init_plot('Latency (msec)', scales=["log", "linear"]) #, ylim=250)
+
+max_throughput = {}
 
 for i in [0,1,2]:
-    throughput = read_results(throughput_filenames[i])
-    latency = read_results(latency_filenames[i])
-
+    throughput = read_results(throughput_filenames[i], range(6))
+    latency = read_results(latency_filenames[i],range(2))
     throughputs = {}
     for row in throughput:
         time = row['Seconds']
-        reqs = row['Queries']
+        reqs = row['Users']
         if (time not in throughputs) or (throughputs[time] < reqs):
             throughputs[time] = reqs
 
@@ -120,7 +121,6 @@ for i in [0,1,2]:
             lats = latencies[time]
         lats += [row['Latency']]
         latencies[time] = lats
-
     windows = {}
     time2window = {}
     for row in throughput:
@@ -149,35 +149,36 @@ for i in [0,1,2]:
         if time in latencies:
             lats += latencies[time]
         window2latencies[window] = lats
-
     window_avg_latency = []
     window_90th_latency = []
     window_throughput = []
     plotted_windows = []
-    for w, tp  in sorted(window2throughput.items(), key=lambda item: item[1]):
+    for w, tp  in sorted(window2throughput.items(), key=lambda item: item[0]):
         ls = window2latencies[w]
+        if len(ls) == 0:
+            continue
         l90 = int(np.percentile(ls, 90))
         lavg = int(np.average(ls))
         tp = int(tp)
 
-        if lavg > 230:
-            continue
+        # if lavg > 230:
+        #     continue
 
         # if len(window_throughput)>0 and tp < window_throughput[-1]:
         #     continue
 
-        while len(window_throughput)>0 and w < plotted_windows[-1]*1.1 and (lavg <= window_avg_latency[-1]):
-            plotted_windows = plotted_windows[:-1]
-            window_throughput = window_throughput[:-1]
-            window_avg_latency = window_avg_latency[:-1]
-            window_90th_latency = window_90th_latency[:-1]
+        # while len(window_throughput)>0 and w < plotted_windows[-1]*1.1 and (lavg <= window_avg_latency[-1]):
+        #     plotted_windows = plotted_windows[:-1]
+        #     window_throughput = window_throughput[:-1]
+        #     window_avg_latency = window_avg_latency[:-1]
+        #     window_90th_latency = window_90th_latency[:-1]
 
         plotted_windows += [w]
         window_throughput += [tp]
         window_90th_latency += [l90]
         window_avg_latency += [lavg]
         # print(f"{i}, {w}, {tp}, {l90}")
-
+    
     print("Windows for " + labels[i] + ": " + str([(plotted_windows[j],window_throughput[j],window_avg_latency[j]) for j in range(len(plotted_windows))]))
     plt.plot(
         window_throughput[skip[i]:],

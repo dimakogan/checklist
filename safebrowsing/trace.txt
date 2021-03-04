@@ -1,4 +1,3 @@
-#Original trace replayed 26 times
 #Timestamp,NumAdds,NumDeletes,NumQueries,ServerTime,ClientTime,CommBytes
 1608252461,3124860,0,0,0,0,5272661
 1608252482,0,0,1,0,0,360

@@ -166,6 +166,7 @@ func (t *stressTest) workerFunc() {
 func (t *stressTest) runWorkers() {
 	for _, w := range t.numWorkersSeq {
 		t.addingWorkers = true
+		time.Sleep(time.Second)
 		toAdd := w - t.curNumWorkers
 		t.wg.Add(toAdd)
 		t.workersMet.Add(float64(toAdd))
@@ -174,6 +175,7 @@ func (t *stressTest) runWorkers() {
 		for i := 0; i < toAdd; i++ {
 			go t.workerFunc()
 		}
+		time.Sleep(15 * time.Second)
 		t.addingWorkers = false
 		if t.incInterval == 0 {
 			return
