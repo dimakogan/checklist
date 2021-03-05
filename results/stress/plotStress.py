@@ -57,14 +57,15 @@ def init_plot(ylabel, scales=['linear', 'linear'], ylim=None):
         ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
 
     if scales[0] == 'log':
-        ax.set_xticks([10000,100000,1000000])
-        ax.xaxis.set_major_formatter(ScalarFormatter())
+        ax.set_xticks([10000,100000,1000000,10000000])
+        ax.xaxis.set_major_formatter(FuncFormatter(custom_style.reformat_large_tick_values));
+        #ax.xaxis.set_major_formatter(ScalarFormatter())
         #ax.xaxis.set_minor_locator(MaxNLocator(1))
         #ax.xaxis.set_minor_formatter(ScalarFormatter())
         plt.minorticks_off()
 
  
-    plt.xlabel("Throughput (requests/second)")
+    plt.xlabel("Throughput (users)")
     plt.ylabel("Latency (msec)")
     if scales[1] == 'linear':
         ax.set_ylim(bottom=60)
@@ -99,7 +100,7 @@ def read_results(filename, usecols=None):
     return np.genfromtxt(filename, names=True, comments='#', delimiter=',', usecols=usecols)
 
 
-fig, ax = init_plot('Latency (msec)', scales=["log", "linear"]) #, ylim=250)
+fig, ax = init_plot('Latency (msec)', scales=["log", "linear"], ylim=350)
 
 max_throughput = {}
 
@@ -139,7 +140,7 @@ for i in [0,1,2]:
     window2throughput = {}
     for w,(start,end) in windows.items():
         window2throughput[w] = (throughputs[end]-throughputs[start])/(end-start)
-    
+
     window2latencies = {}
     for time, window in time2window.items():
         lats = []
@@ -151,44 +152,51 @@ for i in [0,1,2]:
         window2latencies[window] = lats
     window_avg_latency = []
     window_90th_latency = []
+    window_std_latency = []
     window_throughput = []
     plotted_windows = []
     for w, tp  in sorted(window2throughput.items(), key=lambda item: item[0]):
         ls = window2latencies[w]
         if len(ls) == 0:
             continue
-        l90 = int(np.percentile(ls, 90))
+        l90 = int(np.percentile(ls, 95))
         lavg = int(np.average(ls))
+        lstd = int(np.std(ls))
         tp = int(tp)
 
-        # if lavg > 230:
-        #     continue
+        if lavg > 330:
+             continue
 
         # if len(window_throughput)>0 and tp < window_throughput[-1]:
         #     continue
 
-        # while len(window_throughput)>0 and w < plotted_windows[-1]*1.1 and (lavg <= window_avg_latency[-1]):
-        #     plotted_windows = plotted_windows[:-1]
-        #     window_throughput = window_throughput[:-1]
-        #     window_avg_latency = window_avg_latency[:-1]
-        #     window_90th_latency = window_90th_latency[:-1]
+        while len(window_throughput)>0 and w < plotted_windows[-1]*1.1 and (lavg <= window_avg_latency[-1]):
+            plotted_windows = plotted_windows[:-1]
+            window_throughput = window_throughput[:-1]
+            window_avg_latency = window_avg_latency[:-1]
+            window_90th_latency = window_90th_latency[:-1]
 
         plotted_windows += [w]
         window_throughput += [tp]
         window_90th_latency += [l90]
         window_avg_latency += [lavg]
+        window_std_latency += [lstd]
         # print(f"{i}, {w}, {tp}, {l90}")
-    
+    print(window_std_latency)
     print("Windows for " + labels[i] + ": " + str([(plotted_windows[j],window_throughput[j],window_avg_latency[j]) for j in range(len(plotted_windows))]))
     plt.plot(
         window_throughput[skip[i]:],
         window_avg_latency[skip[i]:],
+        #yerr=window_std_latency[skip[i]:],
+       # capsize=4,
         # dots,
         marker='o',
         markersize=2,
         linewidth=1,
         color=colors[i],
         label=labels[i])
+
+    ax.fill_between(window_throughput[skip[i]:], window_avg_latency[skip[i]:], window_90th_latency[skip[i]:], color=colors[i], alpha=.1)        
 
     # plt.plot(
     #     window_throughput,
