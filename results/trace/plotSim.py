@@ -7,7 +7,7 @@
 import matplotlib 
 matplotlib.use('Agg')
 import math
-import datetime
+from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -18,9 +18,11 @@ sys.path.insert(1, '../initial')
 
 import custom_style
 
+boosted_trace_file = "boosted.txt"
+
 def get_date(line):
     s = " ".join(line.split()[0:2])
-    return datetime.datetime.strptime(s, "%Y/%m/%d %H:%M:%S")
+    return datetime.strptime(s, "%Y/%m/%d %H:%M:%S")
 
 def get_updates(line):
     second_part = line.split("bytes")[1].replace(",", "")
@@ -70,14 +72,18 @@ find_xs = []
 find_ys = []
 fetch_xs = [] 
 fetch_ys = []
-for line in sys.stdin:
-    if "FIND Request" in line: 
-        find_xs.append(get_date(line))
-        find_ys.append(SIZE_FIND)
 
-    if "FETCH Response" in line:
-        fetch_xs.append(get_date(line))
-        fetch_ys.append(SIZE_UPDATE * get_updates(line))
+results = np.genfromtxt(boosted_trace_file, names=True, comments='#', skip_header=1)
+
+
+for line in results:
+    if line['NumQueries'] > 0:
+        find_xs.append(datetime.fromtimestamp(line['Timestamp']))
+        find_ys.append(line['CommBytes'])
+
+    if line['NumAdds'] > 0:
+        fetch_xs.append(datetime.fromtimestamp(line['Timestamp']))
+        fetch_ys.append(line['CommBytes'])
 
 find_xs, find_ys = dedup_dates(find_xs, find_ys)
 fetch_xs, fetch_ys = dedup_dates(fetch_xs, fetch_ys)
