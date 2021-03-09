@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sort"
 	"sync"
 )
 
@@ -193,10 +194,29 @@ func compressPosMap(k2v map[uint32]int32, valRange int) compressedMap {
 	return compressedMap{present, keys}
 }
 
-func (c *PirClientUpdatable) StorageNumBytes() int {
-	numBytes := 0
+func (c *PirClientUpdatable) keysSizeWithRice() (int, error) {
+	keys := make([]uint32, 0)
+	for k := range c.keyToPos {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	rice, err := EncodeRiceIntegers(keys)
+	if err != nil {
+		return 0, err
+	}
+	return len(rice.EncodedData), nil
+}
 
-	keysBytes, err := SerializedSizeOf(compressPosMap(c.keyToPos, c.numRows))
+func (c *PirClientUpdatable) StorageNumBytes() int {
+	numBytes := c.waterfall.StorageNumBytes()
+
+	var keysBytes int
+	var err error
+	if c.waterfall.pirType != Punc {
+		keysBytes, err = c.keysSizeWithRice()
+	} else {
+		keysBytes, err = SerializedSizeOf(compressPosMap(c.keyToPos, c.numRows))
+	}
 	if err != nil {
 		log.Fatalf("%s", err)
 		return 0
