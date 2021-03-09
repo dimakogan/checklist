@@ -67,6 +67,10 @@ func (s *pirUpdatableServer) Answer(req QueryReq, resp *QueryResp) error {
 	return nil
 }
 
+func (s *pirUpdatableServer) NumRows() int {
+	return s.kv.Len()
+}
+
 func (s *pirUpdatableServer) GetRow(idx int, out *RowIndexVal) error {
 	if idx == -1 {
 		// return random row
@@ -81,7 +85,7 @@ func (s *pirUpdatableServer) GetRow(idx int, out *RowIndexVal) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Index %d out of bounds", idx)
+	return fmt.Errorf("Index %d out of bounds [0:%d)", idx, s.numRows)
 }
 
 func (s *pirUpdatableServer) SomeKeys(num int) []uint32 {
@@ -212,11 +216,16 @@ func defrag(ops []dbOp, endDefrag int) (newOps []dbOp, numRemoved int) {
 func opsToKeyUpdates(ops []dbOp, keyUpdate *KeyUpdatesResp) error {
 	keys := make([]uint32, len(ops))
 	keyUpdate.IsDeletion = make([]uint8, (len(keys)-1)/8+1)
+	hasDeletion := false
 	for j := range keys {
 		keys[j] = ops[j].Key
 		if ops[j].Delete {
 			keyUpdate.IsDeletion[j/8] |= (1 << (j % 8))
+			hasDeletion = true
 		}
+	}
+	if !hasDeletion {
+		keyUpdate.IsDeletion = nil
 	}
 	if sort.SliceIsSorted(keys, func(i, j int) bool { return keys[i] < keys[j] }) {
 		var err error

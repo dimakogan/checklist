@@ -21,7 +21,8 @@ type PirClientUpdatable struct {
 	keyToPos         map[uint32]int32
 
 	// For testing
-	CallAsync bool
+	CallAsync           bool
+	totalKeyUpdateBytes int
 }
 
 func NewPirClientUpdatable(source *rand.Rand, pirType PirType, servers [2]PirUpdatableServer) *PirClientUpdatable {
@@ -116,10 +117,12 @@ func (c *PirClientUpdatable) processKeyUpdate(keyResp *KeyUpdatesResp) (numNewRo
 		c.initialTimestamp = int(keyResp.InitialTimestamp)
 		c.defragTimestamp = keyResp.DefragTimestamp
 		c.keyToPos = make(map[uint32]int32)
+		c.totalKeyUpdateBytes = 0
 		c.waterfall.reset()
 	}
 	var keys []uint32
 	if keyResp.KeysRice != nil {
+		c.totalKeyUpdateBytes += len(keyResp.KeysRice.EncodedData)
 		var err error
 		keys, err = DecodeRiceIntegers(keyResp.KeysRice)
 		if err != nil {
@@ -127,11 +130,12 @@ func (c *PirClientUpdatable) processKeyUpdate(keyResp *KeyUpdatesResp) (numNewRo
 		}
 	} else {
 		keys = keyResp.Keys
+		c.totalKeyUpdateBytes += 4*len(keyResp.Keys) + len(keyResp.IsDeletion)
 	}
 
 	newOps := make([]dbOp, len(keys))
 	for i := range keys {
-		isDelete := (keyResp.IsDeletion[i/8] & (1 << (i % 8))) != 0
+		isDelete := len(keyResp.IsDeletion) > 0 && (keyResp.IsDeletion[i/8]&(1<<(i%8))) != 0
 		newOps[i] = dbOp{
 			Key:    keys[i],
 			Delete: isDelete,
@@ -216,6 +220,9 @@ func (c *PirClientUpdatable) StorageNumBytes() int {
 		keysBytes, err = c.keysSizeWithRice()
 	} else {
 		keysBytes, err = SerializedSizeOf(compressPosMap(c.keyToPos, c.numRows))
+		if c.totalKeyUpdateBytes < keysBytes {
+			keysBytes = c.totalKeyUpdateBytes
+		}
 	}
 	if err != nil {
 		log.Fatalf("%s", err)

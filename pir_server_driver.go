@@ -187,7 +187,11 @@ func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
 }
 
 func (driver *pirServerDriver) NumRows(none int, out *int) error {
-	*out = driver.staticDB.numRows
+	if driver.updatableServer != nil {
+		*out = driver.updatableServer.NumRows()
+	} else {
+		*out = driver.staticDB.numRows
+	}
 	return nil
 }
 
