@@ -42,7 +42,8 @@ def get_updates(line):
 
 def normalize_xs(xs):
     base = xs[0].timestamp()
-    return list(map(lambda x: (x.timestamp() - base + 60461)/3600/24, xs))
+    xs = list(map(lambda x: (x.timestamp() - base + 60461)/3600/24, xs))
+    return list(filter(lambda x: x < 7, xs))
 
 def dedup_dates(xs,ys):
     data = {}
@@ -89,7 +90,9 @@ find_xs, find_ys = dedup_dates(find_xs, find_ys)
 fetch_xs, fetch_ys = dedup_dates(fetch_xs, fetch_ys)
 
 find_xs = normalize_xs(find_xs)
+find_ys = find_ys[:len(find_xs)]
 fetch_xs = normalize_xs(fetch_xs)
+fetch_ys = fetch_ys[:len(fetch_xs)]
 
 
 def set_size(w,h, ax=None):
@@ -122,14 +125,14 @@ plt.yscale("log", basey=2)
 ax.set_xlim([0, 7])
 ax.set_ylim([20, 40*10**6])
 
-plt.legend(loc="upper right", fontsize=6)
+plt.legend(loc="upper right")
 ax.set_yticklabels([])
 
 set_size(1.3,1.7,ax)
 ax.set_yticks([2**4, 2**8, 2**12, 2**16, 2**20, 2**24])
 
-#fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "sim.pdf", [1.2, 1.8])
+custom_style.save_fig(fig, "sim.pdf", [1.7, 2])
+custom_style.save_fig(fig, "sim.pgf", [1.7, 2])
 
 
 # %%

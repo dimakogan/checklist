@@ -26,7 +26,7 @@ ALL = 4
 
 # File names
 filenames = ["boosted.txt", "dpf.txt", "nonprivate.txt", "google.txt"]
-labels = ["Checklist", "DPF", "Non-private", "Non-private"]
+labels = ["Offline-online", "DPF", "Non-private", "Non-private"]
 extra_labels = ["Offline", "Online"]
 
 # Column numbers
@@ -82,14 +82,24 @@ def plot(xs, ys, color, label, dots=""):
 
 def save(fig, ax, out_name, legend=False):
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [2.3, 1.6])
+    custom_style.save_fig(fig, out_name+".pdf", tight=False)
+    custom_style.save_fig(fig, out_name+".pgf")
 
+
+def inline_legend(fig, ax):
+    handles, labels = ax.get_legend_handles_labels()
+
+    custom_lines = [Line2D([0], [0], color=h.get_color(), lw=2) for h in handles]
+    filled = [Patch(facecolor=fill_colors[i]) for i in [0,1]]
+
+    plt.legend(custom_lines[0:1]+filled+custom_lines[1:], labels[0:1]+extra_labels+[ "DPF",  "Non-private"], ncol=1, columnspacing=0.5)
+    #fig.legend(handles=custom_lines[1:], labels=[ "DPF",  "Non-private"], markerfirst=False, markerscale=6, loc="upper center", ncol=2)
 
 def legend(ax):
     handles, labels = ax.get_legend_handles_labels()
 
     custom_lines = [Line2D([0], [0], color=h.get_color(), lw=2) for h in handles]
-    figlegend1 = pylab.figure(figsize=(2.4,0.22))
+    figlegend1 = pylab.figure(figsize=(2.8,0.22))
     filled = [Patch(facecolor=fill_colors[i]) for i in [0,1]]
 
     figlegend1.legend(custom_lines[0:1]+filled, labels[0:1]+extra_labels, ncol=4, columnspacing=1, loc="center")
@@ -207,13 +217,6 @@ def bar_plot(results):
     fig.tight_layout()
     fig.savefig("comm_bars.pdf", dpi=600, bbox_inches='tight', pad_inches = 0)
 
-parser = argparse.ArgumentParser(description='Plot benchmark results.')
-parser.add_argument('-o', 
-                    dest='out_basename',
-                    default='trace',
-                    help='output file basename (default: \'trace\')')
-
-args = parser.parse_args()
 
 results = {}
 for i in range(ALL):
@@ -227,13 +230,14 @@ summarize_results(results)
 
 bar_plot(results)
 
-fig, ax = init_plot('Communication\n(MB, cumulative)', scales=["linear", "linear"], ylim=75)
+fig, ax = init_plot('Communication (MB)', scales=["linear", "linear"], ylim=75)
 ys = stacked(results, COL_COMMUNICATION)
 stackplot(timestamps, ys)
 for i in [BOOSTED, DPF, GOOGLE]:
     y = np.cumsum(results[i][results[i].dtype.names[COL_COMMUNICATION]])/10**6
     plot(timestamps, y, colors[i], labels[i])
-save(fig, ax, args.out_basename+"_comm.pdf")
+inline_legend(fig, ax)
+save(fig, ax, "comm")
 
 fig, ax = init_plot('Server CPU time\n(sec, cumulative)', ylim=200)
 ys = stacked(results, COL_SERVER_TIME)
@@ -241,7 +245,7 @@ stackplot(timestamps, ys)
 for i in [BOOSTED, DPF, NONPRIVATE]:
     y = np.cumsum(results[i][results[i].dtype.names[COL_SERVER_TIME]])/10**6
     plot(timestamps, y, colors[i], labels[i])
-save(fig, ax, args.out_basename+"_server.pdf")
+save(fig, ax, "server")
 
 
 fig, ax = init_plot('Client CPU time\n(sec, cumulative)', ylim=60)
@@ -250,6 +254,6 @@ stackplot(timestamps, ys)
 for i in [BOOSTED, DPF, NONPRIVATE]:    
     y = np.cumsum(results[i][results[i].dtype.names[COL_CLIENT_TIME]])/10**6
     plot(timestamps, y, colors[i], labels[i])
-save(fig, ax, args.out_basename+"_client.pdf")
+save(fig, ax, "client")
 
 legend(ax)

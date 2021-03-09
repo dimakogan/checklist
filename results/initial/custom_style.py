@@ -4,6 +4,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 matplotlib.use("pgf")
+
+golden_ratio = (5**.5 - 1) / 2
+
 pgf_with_pdflatex = {
     "pgf.texsystem": "pdflatex",
     "pgf.preamble": r"""
@@ -12,8 +15,8 @@ pgf_with_pdflatex = {
     \usepackage{sansmathfonts}
          """,
     "text.usetex": True,
-    #"font.family": "sans-serif",
-    "font.serif": [], 
+    "font.family": "serif",
+    "figure.figsize": [3.336,3.15*golden_ratio],  
     "font.sans-serif": [],
     "font.monospace": [],
     "axes.labelsize": 8, 
@@ -56,9 +59,12 @@ tufte.tuftestyle(ax)
 plt.tight_layout()
 plt.grid(axis='y', color="0.9", linestyle='-', linewidth=1)
 
-def save_fig(fig, out_name, size=[3.15,1.5], pad = 0):
+def save_fig(fig, out_name, size=None, pad = 0, width=3.336, tight=True):
+    if size == None:
+        size = [width, width*golden_ratio]
     fig.set_size_inches(size)
-    fig.tight_layout()
+    if tight:
+        fig.tight_layout()
     plt.savefig(out_name, dpi=600, bbox_inches='tight', pad_inches = pad)
   
 def setup_columns(f):

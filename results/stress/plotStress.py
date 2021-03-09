@@ -28,7 +28,7 @@ WINDOW_SIZE_SEC = 5
 # File names
 throughput_filenames = ["boosted.txt", "dpf.txt", "nonprivate.txt"]
 latency_filenames = ["boosted_latency.txt", "dpf_latency.txt", "nonprivate_latency.txt"]
-labels = ["Checklist", "DPF", "Non-private"]
+labels = ["Offline-online", "DPF", "Non-private"]
 
 skip = [0,1,0]
 
@@ -89,7 +89,8 @@ def plot(xs, ys, color, label, dots=""):
 
 def save(fig, ax, out_name, legend=False):
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [3.125, 1.8])
+    custom_style.save_fig(fig, out_name+".pgf", tight=False)
+    custom_style.save_fig(fig, out_name+".pdf", tight=False)
 
 
 def legend(ax):
@@ -211,5 +212,5 @@ for i in [0,1,2]:
 
 
 legend(ax)
-save(fig, ax, "stress.pdf")
+save(fig, ax, "stress")
 

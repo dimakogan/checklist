@@ -23,6 +23,7 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
     plt.ticklabel_format(style='plain')
     ax.set_xscale(scales[0])
     ax.set_yscale(scales[1])
+    plt.minorticks_off()
 
     # ax.set_xticks([86400*7*i for i in range(10)])
     # ax.set_yticks([10**i for i in range(2,7)])
@@ -75,14 +76,15 @@ def plot(file_to_cols, scales, labels, out_name, legend=False):
         ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
 
         plt.ylabel(labels[1])
-        plt.legend(loc="right", fontsize=6, bbox_to_anchor=(1.04,0.37))
+        plt.legend(loc="right", bbox_to_anchor=(1.04,0.37))
 
         # all_labels = ax.get_legend_handles_labels()
         # #labels = [all_labels[0], ["Boosted PIR\n(this work)", "DPF", "Matrix"][0:len(all_labels[0])]]
         # plt.legend(all_labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name,  [2.3,1.8])
+    custom_style.save_fig(fig, out_name+".pdf")
+    custom_style.save_fig(fig, out_name+".pgf")
 
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
@@ -105,17 +107,17 @@ if len(names) == 0:
 plot({name : [0, 1] for name in names}, 
     ["linear", "log"],
     ["Updates \\fontsize{6}{7}\\selectfont{(% DB changed)}", 'Server time (sec)'], 
-    args.out_basename+"_server.pdf")
+    args.out_basename+"_server")
 
 plot({name : [0, 2] for name in names}, 
     ["linear", "linear"],
     ["DB Changes", 'Client time (sec)'], 
-    args.out_basename+"_client.pdf", legend=True)
+    args.out_basename+"_client", legend=True)
 
 plot({name : [0, 3] for name in names}, 
     ["linear", "log"],
     ["DB Changes", 'Communication (MB)'], 
-    args.out_basename+"_comm.pdf")
+    args.out_basename+"_comm")
 
 """
 plot({name : [0, 4] for name in (names+no_offline_names)[0:1]},

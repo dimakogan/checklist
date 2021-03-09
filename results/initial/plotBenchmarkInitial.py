@@ -86,18 +86,21 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     #     plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name, [2.3, 1.6])
+    custom_style.save_fig(fig, out_name+".pdf", width=2.2)
+    custom_style.save_fig(fig, out_name+".pgf", width=2.2)
     if legend:
         handles, labels = ax.get_legend_handles_labels()
 
-        figlegend1 = pylab.figure(figsize=(3.55,0.22))
+        figlegend1 = pylab.figure(figsize=(4,0.22))
         dummy = Line2D([0], [0], linewidth=0, linestyle=None)
-        figlegend1.legend(handles=[dummy]+handles[0:3], labels=["Checklist", "online", "offline", "amortized"], loc="center", ncol=4)
+        figlegend1.legend(handles=[dummy]+handles[0:3], labels=["Offline-Online", "online", "offline", "amortized"], loc="center", ncol=4)
         figlegend1.savefig("legend1.pdf")
+        figlegend1.savefig("legend1.pgf")
 
-        figlegend2 = pylab.figure(figsize=(1.52,0.22))
+        figlegend2 = pylab.figure(figsize=(1.54,0.22))
         figlegend2.legend(handles=handles[3:5], labels=[ "DPF",  "Matrix"], markerfirst=False, loc="center", ncol=2)
         figlegend2.savefig("legend2.pdf")
+        figlegend2.savefig("legend2.pgf")
 
 
 parser = argparse.ArgumentParser(description='Plot benchmark results.')
@@ -126,21 +129,21 @@ plot({**{name : [0, 5, 1] for name in names},
     ["", " (Offline)"], 
     ["linear", "log"],
     ["Num Queries", 'Server time (µs)'], 
-    args.out_basename+"_server.pdf")
+    args.out_basename+"_server")
 
 plot({**{name : [0, 6, 2] for name in names}, 
     **{name : [0, 6] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
     ["Num Queries", 'Client time (µs)'], 
-    args.out_basename+"_client.pdf", legend=True)
+    args.out_basename+"_client", legend=True)
 
 plot({**{name : [0, 7, 3] for name in names}, 
     **{name : [0, 7] for name in no_offline_names}}, 
     ["", " (Offline)"], 
     ["linear", "log"],
     ["Num Queries", 'Communication (bytes)'], 
-    args.out_basename+"_comm.pdf")
+    args.out_basename+"_comm")
 
 """
 plot({name : [0, 4] for name in (names+no_offline_names)[0:1]},

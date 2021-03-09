@@ -72,7 +72,7 @@ fetch_xs = normalize_xs(fetch_xs)
 
 fig, ax = plt.subplots()
 plt.scatter(fetch_xs, fetch_ys, label="Update", marker="d")
-plt.scatter(find_xs, find_ys, label="Search")
+plt.scatter(find_xs, find_ys, label="Lookup")
 
 all_xs = sorted(find_xs + fetch_xs)
 plot_evenings(plt)
@@ -106,7 +106,8 @@ ax.set_ylim([20, 40*10**6])
 ax.set_yticks([2**4, 2**8, 2**12, 2**16, 2**20, 2**24])
 
 #fig.legend(bbox_to_anchor=(0.91,0.77))
-custom_style.save_fig(fig, "log.pdf", [1.5, 1.8])
+custom_style.save_fig(fig, "log.pdf", [2, 2])
+custom_style.save_fig(fig, "log.pgf", [2, 2])
 
 
 # %%

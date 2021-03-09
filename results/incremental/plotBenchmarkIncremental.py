@@ -86,12 +86,10 @@ f = FuncFormatter(matplotlib.ticker.FuncFormatter(form))
 ax.xaxis.set_major_formatter(f)
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x,p: ('%f' % x).rstrip('0').rstrip('.')))
 
-custom_style.remove_chart_junk(plt, ax, grid=True)
 
-
-ax.set_yticks([0.1,1,10,100])
-ax.set_xticks([1.0/100, 1.0/10,1,10,100])
-plt.ylim(bottom=0.2, top=400)
+# ax.set_yticks([0.1,1,10,100])
+# ax.set_xticks([1.0/100, 1.0/10,1,10,100])
+# plt.ylim(bottom=0.2, top=400)
 
 
 linestyles = ["solid", "dashed", "dotted"]
@@ -118,7 +116,7 @@ plt.plot(num_queries,per_query_time[2,:],
          markevery=3,
          marker="d",
          linewidth=1,
-         label=('Checklist'))
+         label=('Offline-online'))
 
 
 per_query_time, per_change_comm = compute_with_num_queries(dpf_data, num_queries)
@@ -140,8 +138,10 @@ plt.ylabel("Amortized server time\nper query [ms]")
 plt.minorticks_off()
 
 
-fig.legend(fontsize=6)
-custom_style.save_fig(fig, "server.pdf", [2.3, 1.8])
+fig.legend(loc="right", columnspacing=0)
+custom_style.remove_chart_junk(plt, ax, grid=True)
+custom_style.save_fig(fig, "server.pdf")
+custom_style.save_fig(fig, "server.pgf", tight=False)
 
 
 # %%
