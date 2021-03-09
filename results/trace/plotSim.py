@@ -108,7 +108,7 @@ def set_size(w,h, ax=None):
 
 fig, ax = plt.subplots()
 plt.scatter(fetch_xs, fetch_ys, marker="d", label="Update")
-plt.scatter(find_xs, find_ys, label="Search")
+plt.scatter(find_xs, find_ys, label="Lookup")
 
 all_xs = sorted(find_xs + fetch_xs)
 plot_evenings(plt)

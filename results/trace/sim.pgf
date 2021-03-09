@@ -2065,15 +2065,15 @@
 \pgfsetstrokecolor{currentstroke}%
 \pgfsetstrokeopacity{0.800000}%
 \pgfsetdash{}{0pt}%
-\pgfpathmoveto{\pgfqpoint{0.586854in}{1.331236in}}%
+\pgfpathmoveto{\pgfqpoint{0.578609in}{1.331236in}}%
 \pgfpathlineto{\pgfqpoint{1.322708in}{1.331236in}}%
 \pgfpathquadraticcurveto{\pgfqpoint{1.344930in}{1.331236in}}{\pgfqpoint{1.344930in}{1.353458in}}%
 \pgfpathlineto{\pgfqpoint{1.344930in}{1.652222in}}%
 \pgfpathquadraticcurveto{\pgfqpoint{1.344930in}{1.674444in}}{\pgfqpoint{1.322708in}{1.674444in}}%
-\pgfpathlineto{\pgfqpoint{0.586854in}{1.674444in}}%
-\pgfpathquadraticcurveto{\pgfqpoint{0.564632in}{1.674444in}}{\pgfqpoint{0.564632in}{1.652222in}}%
-\pgfpathlineto{\pgfqpoint{0.564632in}{1.353458in}}%
-\pgfpathquadraticcurveto{\pgfqpoint{0.564632in}{1.331236in}}{\pgfqpoint{0.586854in}{1.331236in}}%
+\pgfpathlineto{\pgfqpoint{0.578609in}{1.674444in}}%
+\pgfpathquadraticcurveto{\pgfqpoint{0.556387in}{1.674444in}}{\pgfqpoint{0.556387in}{1.652222in}}%
+\pgfpathlineto{\pgfqpoint{0.556387in}{1.353458in}}%
+\pgfpathquadraticcurveto{\pgfqpoint{0.556387in}{1.331236in}}{\pgfqpoint{0.578609in}{1.331236in}}%
 \pgfpathclose%
 \pgfusepath{stroke,fill}%
 \end{pgfscope}%
@@ -2095,7 +2095,7 @@
 \pgfusepath{stroke,fill}%
 }%
 \begin{pgfscope}%
-\pgfsys@transformshift{0.720188in}{1.581389in}%
+\pgfsys@transformshift{0.711942in}{1.581389in}%
 \pgfsys@useobject{currentmarker}{}%
 \end{pgfscope}%
 \end{pgfscope}%
@@ -2103,7 +2103,7 @@
 \definecolor{textcolor}{rgb}{0.000000,0.000000,0.000000}%
 \pgfsetstrokecolor{textcolor}%
 \pgfsetfillcolor{textcolor}%
-\pgftext[x=0.920188in,y=1.552222in,left,base]{\color{textcolor}\rmfamily\fontsize{8.000000}{9.600000}\selectfont Update}%
+\pgftext[x=0.911942in,y=1.552222in,left,base]{\color{textcolor}\rmfamily\fontsize{8.000000}{9.600000}\selectfont Update}%
 \end{pgfscope}%
 \begin{pgfscope}%
 \pgfsetbuttcap%
@@ -2128,7 +2128,7 @@
 \pgfusepath{stroke,fill}%
 }%
 \begin{pgfscope}%
-\pgfsys@transformshift{0.720188in}{1.426451in}%
+\pgfsys@transformshift{0.711942in}{1.426451in}%
 \pgfsys@useobject{currentmarker}{}%
 \end{pgfscope}%
 \end{pgfscope}%
@@ -2136,7 +2136,7 @@
 \definecolor{textcolor}{rgb}{0.000000,0.000000,0.000000}%
 \pgfsetstrokecolor{textcolor}%
 \pgfsetfillcolor{textcolor}%
-\pgftext[x=0.920188in,y=1.397285in,left,base]{\color{textcolor}\rmfamily\fontsize{8.000000}{9.600000}\selectfont Search}%
+\pgftext[x=0.911942in,y=1.397285in,left,base]{\color{textcolor}\rmfamily\fontsize{8.000000}{9.600000}\selectfont Lookup}%
 \end{pgfscope}%
 \end{pgfpicture}%
 \makeatother%
