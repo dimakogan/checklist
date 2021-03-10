@@ -6,7 +6,41 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
+
+	sb "github.com/dimakogan/boosted-pir/safebrowsing"
 )
+
+type KeyUpdatesReq struct {
+	DefragTimestamp int32
+	NextTimestamp   int32
+}
+
+type KeyUpdatesResp struct {
+	InitialTimestamp int32
+	DefragTimestamp  int
+
+	Keys     []uint32
+	KeysRice *sb.RiceDeltaEncoding
+
+	//Bit vector
+	IsDeletion []byte
+	RowLen     int
+
+	ShouldDeleteHistory bool
+}
+type PirUpdatableServer interface {
+	PirServer
+	KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error
+}
+
+type PirUpdatableClient interface {
+	Init() error
+	Read(key uint32) (Row, error)
+	Keys() []uint32
+
+	// Debug
+	StorageNumBytes() int
+}
 
 type PirClientUpdatable struct {
 	waterfall *PirClientWaterfall
@@ -60,7 +94,7 @@ func (c *PirClientUpdatable) Update() error {
 	if err := c.servers[Left].Hint(*hintReq, &hintResp); err != nil {
 		return err
 	}
-	return c.waterfall.initHint(&hintResp)
+	return c.waterfall.InitHint(&hintResp)
 }
 
 func (c *PirClientUpdatable) Read(key uint32) (Row, error) {

@@ -2,11 +2,8 @@ package boosted
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 
-	"github.com/dimakogan/boosted-pir/psetggm"
-	sb "github.com/dimakogan/boosted-pir/safebrowsing"
 	"github.com/dimakogan/dpf-go/dpf"
 )
 
@@ -30,15 +27,18 @@ const (
 // One database row.
 type Row []byte
 
-//HintReq is a request for a hint from a client to a server.
+// HintReq is a request for a hint from a client to a server.
 type HintReq struct {
+	// Random seed to be used by the server to generate the hint.
 	RandSeed int64
+
+	// Type of PIR to use.
+	PirType PirType
 
 	// For PirUpdatable
 	DefragTimestamp int32
 	FirstRow        int
 	NumRows         int
-	PirType         PirType
 }
 
 //HintResp is a response to a hint request.
@@ -89,61 +89,17 @@ type QueryResp struct {
 	Val Row
 }
 
-type KeyUpdatesReq struct {
-	DefragTimestamp int32
-	NextTimestamp   int32
-}
-
-type KeyUpdatesResp struct {
-	InitialTimestamp int32
-	DefragTimestamp  int
-
-	Keys     []uint32
-	KeysRice *sb.RiceDeltaEncoding
-
-	//Bit vector
-	IsDeletion []byte
-	RowLen     int
-
-	ShouldDeleteHistory bool
-}
-
 type PirServer interface {
 	Hint(req HintReq, resp *HintResp) error
 	Answer(q QueryReq, resp *QueryResp) error
 }
 
-type PirUpdatableServer interface {
-	PirServer
-	KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error
-}
-
-type PirClient interface {
-	Init() error
-	Read(i int) (Row, error)
-}
-
-type PirUpdatableClient interface {
-	Init() error
-	Read(key uint32) (Row, error)
-	Keys() []uint32
-
-	// Debug
-	StorageNumBytes() int
-}
-
 type ReconstructFunc func(resp []QueryResp) (Row, error)
 
-type pirClientImpl interface {
-	initHint(resp *HintResp) error
-	query(i int) ([]QueryReq, ReconstructFunc)
+type PIRClient interface {
+	InitHint(resp *HintResp) error
+	Query(i int) ([]QueryReq, ReconstructFunc)
 	dummyQuery() []QueryReq
-}
-
-type pirClient struct {
-	impl       pirClientImpl
-	servers    [2]PirServer
-	randSource *rand.Rand
 }
 
 func NewPirServerByType(pirType PirType, db *staticDB) PirServer {
@@ -160,7 +116,7 @@ func NewPirServerByType(pirType PirType, db *staticDB) PirServer {
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
 }
 
-func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
+func NewPirClientByType(pirType PirType, randSrc *rand.Rand) PIRClient {
 	switch pirType {
 	case Matrix:
 		return NewPirClientMatrix(randSrc)
@@ -172,79 +128,4 @@ func NewPirClientByType(pirType PirType, randSrc *rand.Rand) pirClientImpl {
 		return NewPirClientNonPrivate()
 	}
 	panic(fmt.Sprintf("Unknown PIR Type: %d", pirType))
-}
-
-func NewPIRClient(impl pirClientImpl, source *rand.Rand, servers [2]PirServer) PirClient {
-	return pirClient{impl: impl, servers: servers, randSource: source}
-}
-
-func (c pirClient) Init() error {
-	hintReq := HintReq{RandSeed: int64(c.randSource.Uint64())}
-	var hintResp HintResp
-	if err := c.servers[Left].Hint(hintReq, &hintResp); err != nil {
-		return err
-	}
-	return c.impl.initHint(&hintResp)
-}
-
-func (c pirClient) Read(i int) (Row, error) {
-	queryReq, reconstructFunc := c.impl.query(i)
-	if reconstructFunc == nil {
-		return nil, fmt.Errorf("Failed to query: %d", i)
-	}
-	responses := make([]QueryResp, 2)
-	err := c.servers[Left].Answer(queryReq[Left], &responses[Left])
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.servers[Right].Answer(queryReq[Right], &responses[Right])
-	if err != nil {
-		return nil, err
-	}
-	return reconstructFunc(responses)
-}
-
-func flattenDb(data []Row) []byte {
-	return flattenDbWithExtraBytes(data, 0)
-}
-
-func flattenDbWithExtraBytes(data []Row, nExtraBytes int) []byte {
-	if len(data) < 1 {
-		return []byte{}
-	}
-
-	rowLen := len(data[0])
-	flatDb := make([]byte, rowLen*len(data)+nExtraBytes)
-
-	for i, v := range data {
-		if len(v) != rowLen {
-			fmt.Printf("Got row[%v] %v %v\n", i, len(v), rowLen)
-			panic("Database rows must all be of the same length")
-		}
-
-		copy(flatDb[i*rowLen:], v[:])
-	}
-	return flatDb
-}
-
-func xorRowsFlatSlice(flatDb []byte, rowLen int, indices Set, out []byte) {
-	for i := range indices {
-		indices[i] *= rowLen
-	}
-	psetggm.XorBlocks(flatDb, indices, out)
-}
-
-func numRowsToUnivSizeBits(nRows int) int {
-	// Round univsize to next power of 4
-	return ((int(math.Log2(float64(nRows)))-1)/2 + 1) * 2
-}
-
-func PirTypeStrings() []string {
-	vals := PirTypeValues()
-	strs := make([]string, len(vals))
-	for i, val := range vals {
-		strs[i] = val.String()
-	}
-	return strs
 }

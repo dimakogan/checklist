@@ -53,7 +53,11 @@ func xorInto(a []byte, b []byte) {
 }
 
 func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
-	xorRowsFlatSlice(s.flatDb, s.rowLen, indices, out)
+	for i := range indices {
+		indices[i] *= s.rowLen
+	}
+	psetggm.XorBlocks(s.flatDb, indices, out)
+
 }
 
 func NewPirServerPunc(db *staticDB) pirServerPunc {
@@ -131,7 +135,7 @@ func NewPirClientPunc(source *rand.Rand) *pirClientPunc {
 	return &pirClientPunc{randSource: source}
 }
 
-func (c *pirClientPunc) initHint(resp *HintResp) error {
+func (c *pirClientPunc) InitHint(resp *HintResp) error {
 	c.nRows = resp.NumRows
 	c.rowLen = resp.RowLen
 	c.setSize = resp.SetSize
@@ -218,7 +222,7 @@ type puncQueryCtx struct {
 	setIdx   int
 }
 
-func (c *pirClientPunc) query(i int) ([]QueryReq, ReconstructFunc) {
+func (c *pirClientPunc) Query(i int) ([]QueryReq, ReconstructFunc) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}

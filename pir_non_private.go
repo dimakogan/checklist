@@ -34,13 +34,13 @@ func NewPirClientNonPrivate() *pirClientNonPrivate {
 	return &pirClientNonPrivate{}
 }
 
-func (c *pirClientNonPrivate) initHint(resp *HintResp) error {
+func (c *pirClientNonPrivate) InitHint(resp *HintResp) error {
 	c.rowLen = resp.RowLen
 	c.nRows = resp.NumRows
 	return nil
 }
 
-func (c *pirClientNonPrivate) query(idx int) ([]QueryReq, ReconstructFunc) {
+func (c *pirClientNonPrivate) Query(idx int) ([]QueryReq, ReconstructFunc) {
 	queries := make([]QueryReq, 2)
 	queries[Left].Index = idx
 	queries[Right].Index = idx
@@ -51,6 +51,6 @@ func (c *pirClientNonPrivate) query(idx int) ([]QueryReq, ReconstructFunc) {
 }
 
 func (c *pirClientNonPrivate) dummyQuery() []QueryReq {
-	q, _ := c.query(0)
+	q, _ := c.Query(0)
 	return q
 }

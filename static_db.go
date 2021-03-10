@@ -32,3 +32,22 @@ func (db *staticDB) Row(i int) Row {
 	}
 	return Row(db.Slice(i, i+1))
 }
+
+func flattenDb(data []Row) []byte {
+	if len(data) < 1 {
+		return []byte{}
+	}
+
+	rowLen := len(data[0])
+	flatDb := make([]byte, rowLen*len(data))
+
+	for i, v := range data {
+		if len(v) != rowLen {
+			fmt.Printf("Got row[%v] %v %v\n", i, len(v), rowLen)
+			panic("Database rows must all be of the same length")
+		}
+
+		copy(flatDb[i*rowLen:], v[:])
+	}
+	return flatDb
+}

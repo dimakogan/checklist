@@ -107,3 +107,12 @@ func (c *Config) Server2Driver() (PirServerDriver, error) {
 		return NewPirServerDriver()
 	}
 }
+
+func PirTypeStrings() []string {
+	vals := PirTypeValues()
+	strs := make([]string, len(vals))
+	for i, val := range vals {
+		strs[i] = val.String()
+	}
+	return strs
+}

@@ -59,12 +59,12 @@ func NewPIRDPFClient(source *rand.Rand) *pirDPFClient {
 	return &pirDPFClient{randSource: source}
 }
 
-func (c *pirDPFClient) initHint(resp *HintResp) error {
+func (c *pirDPFClient) InitHint(resp *HintResp) error {
 	c.nRows = resp.NumRows
 	return nil
 }
 
-func (c *pirDPFClient) query(idx int) ([]QueryReq, ReconstructFunc) {
+func (c *pirDPFClient) Query(idx int) ([]QueryReq, ReconstructFunc) {
 	queries := make([]QueryReq, 2)
 	numBits := uint64(math.Ceil(math.Log2(float64(c.nRows))))
 	queries[Left].DPFkey, queries[Right].DPFkey = dpf.Gen(uint64(idx), numBits)
@@ -73,7 +73,7 @@ func (c *pirDPFClient) query(idx int) ([]QueryReq, ReconstructFunc) {
 }
 
 func (c *pirDPFClient) dummyQuery() []QueryReq {
-	q, _ := c.query(0)
+	q, _ := c.Query(0)
 	return q
 }
 

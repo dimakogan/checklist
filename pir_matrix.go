@@ -16,8 +16,6 @@ type pirClientMatrix struct {
 
 type pirMatrix struct {
 	*staticDB
-	height int
-	width  int
 }
 
 func getHeightWidth(nRows int, rowLen int) (int, int) {
@@ -33,21 +31,17 @@ func NewPirServerMatrix(db *staticDB) *pirMatrix {
 		panic("Database must contain at least one row")
 	}
 
-	width, height := getHeightWidth(db.numRows, db.rowLen)
-	return &pirMatrix{
-		staticDB: db,
-		height:   height,
-		width:    width,
-	}
+	return &pirMatrix{staticDB: db}
 }
 
 func (s pirMatrix) matVecProduct(bitVector []bool) []byte {
-	out := make([]byte, s.width*s.rowLen)
+	width, height := getHeightWidth(s.numRows, s.rowLen)
+	out := make([]byte, width*s.rowLen)
 
 	cnt := 0
-	tableWidth := s.rowLen * s.width
+	tableWidth := s.rowLen * width
 	flatDb := s.Slice(0, s.numRows)
-	for j := 0; j < s.height; j++ {
+	for j := 0; j < height; j++ {
 		if bitVector[j] {
 			start := tableWidth * j
 			length := tableWidth
@@ -78,14 +72,14 @@ func NewPirClientMatrix(source *rand.Rand) *pirClientMatrix {
 	return &pirClientMatrix{randSource: source}
 }
 
-func (c *pirClientMatrix) initHint(resp *HintResp) error {
+func (c *pirClientMatrix) InitHint(resp *HintResp) error {
 	c.nRows = resp.NumRows
 	c.rowLen = resp.RowLen
 	c.width, c.height = getHeightWidth(resp.NumRows, c.rowLen)
 	return nil
 }
 
-func (c *pirClientMatrix) query(idx int) ([]QueryReq, ReconstructFunc) {
+func (c *pirClientMatrix) Query(idx int) ([]QueryReq, ReconstructFunc) {
 	rowNum := idx / c.width
 	colNum := idx % c.width
 	queries := make([]QueryReq, 2)
@@ -102,7 +96,7 @@ func (c *pirClientMatrix) query(idx int) ([]QueryReq, ReconstructFunc) {
 }
 
 func (c *pirClientMatrix) dummyQuery() []QueryReq {
-	q, _ := c.query(0)
+	q, _ := c.Query(0)
 	return q
 }
 

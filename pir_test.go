@@ -22,12 +22,9 @@ func TestPIRPunc(t *testing.T) {
 	leftServer := NewPirServerPunc(&db)
 	rightServer := NewPirServerPunc(&db)
 	servers := [2]PirServer{leftServer, rightServer}
-	client := NewPIRClient(
-		NewPirClientPunc(RandSource()),
-		RandSource(),
-		servers)
+	client := NewPIRReader(RandSource(), servers)
 
-	assert.NilError(t, client.Init())
+	assert.NilError(t, client.Init(Punc))
 	const readIndex = 2
 	val, err := client.Read(readIndex)
 	assert.NilError(t, err)
@@ -54,9 +51,9 @@ func TestPunc(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	client := NewPIRClient(NewPirClientPunc(RandSource()), RandSource(), [2]PirServer{driver, driver})
+	client := NewPIRReader(RandSource(), [2]PirServer{driver, driver})
 
-	err = client.Init()
+	err = client.Init(Punc)
 	assert.NilError(t, err)
 
 	// runtime.GC()
@@ -86,9 +83,9 @@ func TestPuncWithBlock(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	client := NewPIRClient(NewPirClientPunc(RandSource()), RandSource(), [2]PirServer{driver, driver})
+	client := NewPIRReader(RandSource(), [2]PirServer{driver, driver})
 
-	err = client.Init()
+	err = client.Init(Punc)
 	assert.NilError(t, err)
 
 	// runtime.GC()
@@ -115,9 +112,9 @@ func TestMatrix(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	client := NewPIRClient(NewPirClientMatrix(RandSource()), RandSource(), [2]PirServer{driver, driver})
+	client := NewPIRReader(RandSource(), [2]PirServer{driver, driver})
 
-	err = client.Init()
+	err = client.Init(Matrix)
 	assert.NilError(t, err)
 
 	val, err := client.Read(0x7)
@@ -137,9 +134,9 @@ func TestDPF(t *testing.T) {
 		Updatable:  false,
 	}, nil))
 
-	client := NewPIRClient(NewPIRDPFClient(RandSource()), RandSource(), [2]PirServer{driver, driver})
+	client := NewPIRReader(RandSource(), [2]PirServer{driver, driver})
 
-	err = client.Init()
+	err = client.Init(DPF)
 	assert.NilError(t, err)
 
 	val, err := client.Read(128)
@@ -155,12 +152,9 @@ func DontTestPIRPuncKrzysztofTrick(t *testing.T) {
 	server := NewPirServerPunc(&db)
 
 	for i := 0; i < 100; i++ {
-		client := NewPIRClient(
-			NewPirClientPunc(src),
-			src,
-			[2]PirServer{server, server})
+		client := NewPIRReader(src, [2]PirServer{server, server})
 
-		assert.NilError(t, client.Init())
+		assert.NilError(t, client.Init(Punc))
 		const readIndex = 2
 		val, err := client.Read(readIndex)
 		assert.NilError(t, err)
@@ -231,13 +225,11 @@ func _TestMessageSizes(t *testing.T) {
 	server := NewPirServerPunc(&db)
 
 	client := NewPirClientPunc(RandSource())
-	clientWrapper := NewPIRClient(client,
-		RandSource(),
-		[2]PirServer{server, server})
+	clientWrapper := NewPIRReader(RandSource(), [2]PirServer{server, server})
 
-	assert.NilError(t, clientWrapper.Init())
+	assert.NilError(t, clientWrapper.Init(Punc))
 
-	qs, _ := client.query(7)
+	qs, _ := client.Query(7)
 
 	size, err := SerializedSizeOf(qs[0])
 	if err != nil {

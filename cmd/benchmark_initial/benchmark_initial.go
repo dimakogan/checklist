@@ -35,7 +35,7 @@ func main() {
 
 	rand := RandSource()
 
-	var clientStatic PirClient
+	var clientStatic PIRReader
 	var clientUpdatable PirUpdatableClient
 	var none int
 	if err := driver.Configure(config.TestConfig, &none); err != nil {
@@ -52,9 +52,8 @@ func main() {
 				clientUpdatable = NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
 				err = clientUpdatable.Init()
 			} else {
-				clientStatic = NewPIRClient(NewPirClientByType(config.PirType, rand), rand,
-					[2]PirServer{driver, driver})
-				err = clientStatic.Init()
+				clientStatic = NewPIRReader(rand, [2]PirServer{driver, driver})
+				err = clientStatic.Init(config.PirType)
 
 			}
 			assert.NilError(ep, err)

@@ -11,7 +11,7 @@ type clientLayer struct {
 	numRows  int
 
 	pirType PirType
-	pir     pirClientImpl
+	pir     PIRClient
 
 	// debug
 	hintNumBytes int
@@ -83,7 +83,7 @@ func (c *PirClientWaterfall) HintUpdateReq(numNewRows int) (*HintReq, error) {
 	}
 	layer := &c.layers[layerNum]
 	if layer.pirType != Punc {
-		layer.pir.initHint(&HintResp{NumRows: layer.numRows, RowLen: c.rowLen})
+		layer.pir.InitHint(&HintResp{NumRows: layer.numRows, RowLen: c.rowLen})
 		return nil, nil
 	}
 	return &HintReq{
@@ -125,7 +125,7 @@ func (c *PirClientWaterfall) updateLayers(numNewRows int) int {
 	return i
 }
 
-func (c *PirClientWaterfall) initHint(resp *HintResp) error {
+func (c *PirClientWaterfall) InitHint(resp *HintResp) error {
 	var l int
 	for l = len(c.layers) - 1; l >= 0; l-- {
 		if c.layers[l].pir != nil {
@@ -133,9 +133,9 @@ func (c *PirClientWaterfall) initHint(resp *HintResp) error {
 		}
 	}
 	if l < 0 {
-		panic("initHint called with no active layers")
+		panic("InitHint called with no active layers")
 	}
-	err := c.layers[l].pir.initHint(resp)
+	err := c.layers[l].pir.InitHint(resp)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (c *PirClientWaterfall) Query(pos int) ([]QueryReq, ReconstructFunc) {
 			continue
 		}
 		if layerEnd <= int(pos) && int(pos) < layerEnd+layer.numRows {
-			q, reconstructFunc = layer.pir.query(int(pos) - layerEnd)
+			q, reconstructFunc = layer.pir.Query(int(pos) - layerEnd)
 			matchingLayer = len(req[Left].BatchReqs)
 		} else {
 			q = layer.pir.dummyQuery()
