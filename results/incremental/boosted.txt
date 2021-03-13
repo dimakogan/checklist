@@ -1,5 +1,0 @@
-# benchmark_incremental -numRows=3000000 -pirType=Punc -updateSize=32000,4000,500
-   numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-   3000000       32000                 93491                195953                    11       42317737                   397                   680           6742
-   3000000        4000                 11204                103767                    11       42207067                   480                  5208           7282
-   3000000         500                  1439                 99105                    13       42207109                   470                  3263           7341

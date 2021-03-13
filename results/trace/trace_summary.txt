@@ -1,7 +1,0 @@
-           Type          Weeks      OffServer       OnServer      OffClient       OnClient        OffComm        OnComm
-    boosted.txt          26.00          29.84           3.18          32.21          14.15          56.73          12.34
-        dpf.txt          26.00           0.38         181.09           2.76           0.96          21.69           4.63
- nonprivate.txt          26.00           0.38           0.01           3.66           0.38          21.69           0.96
-     google.txt          26.00           0.00           0.00           0.00           0.00          19.92           1.99
-
-# Starting size: 3124860, total added: 2123758, total removed: 1191094, final size: 4057524

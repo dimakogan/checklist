@@ -1,5 +1,0 @@
-# benchmark_incremental -numRows=3000000 -pirType=Matrix -updateSize=32000,4000,500
-   numRows  updateSize  UpdateServerTime[us]  UpdateClientTime[us]  UpdateBytesPerChange    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-   3000000       32000                   246                117326                     5       30768286                 16577                   734          44787
-   3000000        4000                    47                 93055                     5       30727312                 14796                   690          44735
-   3000000         500                    27                104092                     6       30727354                 16562                   746          44729

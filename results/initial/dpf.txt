@@ -1,3 +1,0 @@
-# benchmark_initial -numRows=3000000 -updatable=false -pirType=DPF
-   numRows OfflineServerTime[us] OfflineClientTime[us]   OfflineBytes    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-   3000000                     0                    24            706              0                 23072                   176           1606
