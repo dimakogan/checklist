@@ -38,3 +38,4 @@ compare/fig/__pycache__/
 .ipynb_checkpoints/
 __pycache__
 ~*.xlsx
+example/example
