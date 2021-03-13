@@ -67,7 +67,7 @@ void tree_eval_all(generator* gen, __m128i seed, long long unsigned int* out) {
             out[node] = *(uint32_t*)(&keys[key_pos]) % gen->univ_size;	
             bool is_right = true;	
             // while 'is right child', go up	
-            while (node&1 == 1) {	
+            while ((node&1) == 1) {	
                 ++height;	
                 key_pos -= 1;	
                 node >>= 1;	
