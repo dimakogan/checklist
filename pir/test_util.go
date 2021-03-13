@@ -9,6 +9,10 @@ func RandSource() *rand.Rand {
 	return rand.New(rand.NewSource(17))
 }
 
+func CryptoRandSource() *rand.Rand {
+  return rand.New(new(cryptoSource))
+}
+
 func MasterKey() []byte {
 	key := make([]byte, 16)
 	io.ReadFull(RandSource(), key)

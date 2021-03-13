@@ -44,11 +44,8 @@ func main() {
     log.Fatal("Offline hint generation failed")
   }
 
-  // XXX Use cryptographic randomness source
-  randSource := rand.New(rand.NewSource(27))
-
   // Initialize the client state
-  client := offlineResp.(pir.HintResp).InitClient(randSource)
+  client := offlineResp.(pir.HintResp).InitClient(pir.CryptoRandSource())
 
 
   // ===== ONLINE PHASE =====
