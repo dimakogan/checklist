@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+
+  . "checklist/safebrowsing"
 )
 
 const (
