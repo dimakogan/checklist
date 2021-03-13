@@ -5,8 +5,8 @@ import (
 	"log"
 	"math"
 
-	. "github.com/dimakogan/boosted-pir/driver"
-	"github.com/dimakogan/boosted-pir/updatable"
+	. "checklist/driver"
+	"checklist/updatable"
 )
 
 type keyUpdateLoadGen struct {

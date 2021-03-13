@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	. "github.com/dimakogan/boosted-pir/driver"
+	. "checklist/driver"
 
 	"github.com/paulbellamy/ratecounter"
 	"github.com/zserge/metric"

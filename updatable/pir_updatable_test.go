@@ -3,7 +3,8 @@ package updatable
 import (
 	"testing"
 
-	"github.com/dimakogan/boosted-pir/pir"
+	"checklist/pir"
+
 	"gotest.tools/assert"
 )
 

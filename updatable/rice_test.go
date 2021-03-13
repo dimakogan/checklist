@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	sb "github.com/dimakogan/boosted-pir/safebrowsing"
+	sb "checklist/safebrowsing"
 
 	"github.com/golang/protobuf/proto"
 	"gotest.tools/assert"

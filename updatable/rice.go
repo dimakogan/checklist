@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	. "github.com/dimakogan/boosted-pir/safebrowsing"
+	. "checklist/safebrowsing"
 )
 
 func RiceEncodedHashes(hashInts []uint32) (*RiceDeltaEncoding, error) {

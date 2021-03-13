@@ -5,7 +5,8 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/dimakogan/boosted-pir/psetggm"
+	"checklist/psetggm"
+
 	"github.com/dimakogan/dpf-go/dpf"
 )
 

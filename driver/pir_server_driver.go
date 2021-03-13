@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dimakogan/boosted-pir/pir"
-	"github.com/dimakogan/boosted-pir/updatable"
+	"checklist/pir"
+	"checklist/updatable"
 )
 
 type PirServerDriver interface {

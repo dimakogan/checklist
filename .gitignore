@@ -1,14 +1,9 @@
 .vscode/
-simpleperf
-simpleperf.o
-/boosted-pir
 rpc_server
 rpc_client
-boosted-pir.exe
 .vscode/launch.json
 .*.swp
 prof.out
-boosted-pir.test
 rpc_client.exe
 rpc_server.exe
 wiki/

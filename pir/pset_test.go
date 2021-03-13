@@ -6,7 +6,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dimakogan/boosted-pir/psetggm"
+	"checklist/psetggm"
+
 	"gotest.tools/assert"
 )
 

@@ -17,8 +17,6 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-
-	. "github.com/dimakogan/boosted-pir/safebrowsing"
 )
 
 const (

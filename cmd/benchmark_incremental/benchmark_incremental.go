@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/dimakogan/boosted-pir/driver"
-	"github.com/dimakogan/boosted-pir/pir"
-	"github.com/dimakogan/boosted-pir/updatable"
+	. "checklist/driver"
+	"checklist/pir"
+	"checklist/updatable"
 
 	"gotest.tools/assert"
 )

@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/dimakogan/boosted-pir/pir"
-	"github.com/dimakogan/boosted-pir/rpc"
+	"checklist/pir"
+	"checklist/rpc"
+
 	"github.com/ugorji/go/codec"
 )
 

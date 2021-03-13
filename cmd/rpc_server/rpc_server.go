@@ -10,10 +10,10 @@ import (
 	"strings"
 	"syscall"
 
-	. "github.com/dimakogan/boosted-pir/driver"
-	"github.com/dimakogan/boosted-pir/rpc"
+	. "checklist/driver"
+	"checklist/rpc"
 
-	sb "github.com/dimakogan/boosted-pir/safebrowsing"
+	sb "checklist/safebrowsing"
 )
 
 func readBlockedURLs(blockListFile string, config *TestConfig) {

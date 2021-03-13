@@ -3,8 +3,8 @@ package driver
 import (
 	"reflect"
 
-	"github.com/dimakogan/boosted-pir/pir"
-	"github.com/dimakogan/boosted-pir/updatable"
+	"checklist/pir"
+	"checklist/updatable"
 )
 
 var registeredObjs = []interface{}{

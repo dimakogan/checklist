@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/dimakogan/boosted-pir/pir"
+	"checklist/pir"
 )
 
 type clientLayer struct {

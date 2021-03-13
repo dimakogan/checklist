@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/dimakogan/boosted-pir/psetggm"
+	"checklist/psetggm"
 )
 
 type Present int

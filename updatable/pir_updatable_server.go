@@ -5,7 +5,8 @@ import (
 	"log"
 	"sort"
 
-	"github.com/dimakogan/boosted-pir/pir"
+	"checklist/pir"
+
 	"github.com/elliotchance/orderedmap"
 )
 

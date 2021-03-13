@@ -8,7 +8,7 @@ import (
 
 	"math/rand"
 
-	"github.com/dimakogan/boosted-pir/psetggm"
+	"checklist/psetggm"
 )
 
 type puncClient struct {

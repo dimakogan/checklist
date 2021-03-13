@@ -7,8 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/dimakogan/boosted-pir/pir"
-	sb "github.com/dimakogan/boosted-pir/safebrowsing"
+	"checklist/pir"
+	sb "checklist/safebrowsing"
 )
 
 type KeyUpdatesReq struct {

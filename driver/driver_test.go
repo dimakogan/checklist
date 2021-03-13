@@ -10,9 +10,10 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/dimakogan/boosted-pir/pir"
-	"github.com/dimakogan/boosted-pir/rpc"
-	"github.com/dimakogan/boosted-pir/updatable"
+	"checklist/pir"
+	"checklist/rpc"
+	"checklist/updatable"
+
 	"github.com/ugorji/go/codec"
 	"gotest.tools/assert"
 )

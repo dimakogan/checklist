@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dimakogan/boosted-pir/pir"
+	"checklist/pir"
 )
 
 type Config struct {

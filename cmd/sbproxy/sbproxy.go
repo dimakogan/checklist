@@ -16,10 +16,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	duration "github.com/golang/protobuf/ptypes/duration"
 
-	"github.com/dimakogan/boosted-pir/driver"
-	"github.com/dimakogan/boosted-pir/pir"
-	. "github.com/dimakogan/boosted-pir/safebrowsing"
-	"github.com/dimakogan/boosted-pir/updatable"
+	"checklist/driver"
+	"checklist/pir"
+	. "checklist/safebrowsing"
+	"checklist/updatable"
 )
 
 const (

@@ -3,9 +3,9 @@ package driver
 import (
 	"time"
 
-	"github.com/dimakogan/boosted-pir/pir"
-	"github.com/dimakogan/boosted-pir/rpc"
-	"github.com/dimakogan/boosted-pir/updatable"
+	"checklist/pir"
+	"checklist/rpc"
+	"checklist/updatable"
 )
 
 type RpcProxy struct {
