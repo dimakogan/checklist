@@ -133,7 +133,7 @@ plt.plot(num_queries,per_query_time[1,:],
 
 
 plt.xlabel("Number of queries per period")
-plt.ylabel("Amortized server time\nper query [ms]")
+plt.ylabel("Amortized server time\nper query (ms)")
 #ax.set_yticks([0.2, 1, 2, 4, 5])
 plt.minorticks_off()
 
