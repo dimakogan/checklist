@@ -10,13 +10,13 @@ import (
 	"strings"
 	"syscall"
 
+	. "github.com/dimakogan/boosted-pir/driver"
 	"github.com/dimakogan/boosted-pir/rpc"
 
-	b "github.com/dimakogan/boosted-pir"
 	sb "github.com/dimakogan/boosted-pir/safebrowsing"
 )
 
-func readBlockedURLs(blockListFile string, config *b.TestConfig) {
+func readBlockedURLs(blockListFile string, config *TestConfig) {
 	file, err := os.Open(blockListFile)
 	if err != nil {
 		log.Fatalf("Failed to open block list file %s: %s", blockListFile, err)
@@ -29,7 +29,7 @@ func readBlockedURLs(blockListFile string, config *b.TestConfig) {
 			continue
 		}
 		partial, full := sb.ComputeHash([]byte(line))
-		entry := b.RowIndexVal{
+		entry := RowIndexVal{
 			Index: pos,
 			Key:   binary.LittleEndian.Uint32(partial),
 			Value: full,
@@ -45,7 +45,7 @@ func readBlockedURLs(blockListFile string, config *b.TestConfig) {
 }
 
 func main() {
-	config := new(b.Config).AddPirFlags().AddServerFlags()
+	config := new(Config).AddPirFlags().AddServerFlags()
 	blockList := config.FlagSet.String("f", "", "URL block list file")
 	config.Parse()
 
@@ -55,12 +55,12 @@ func main() {
 
 	config.NumRows = len(config.PresetRows)
 
-	driver, err := b.NewPirServerDriver()
+	driver, err := NewServerDriver()
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
 	}
 
-	server, err := rpc.NewServer(config.Port, config.UseTLS)
+	server, err := rpc.NewServer(config.Port, config.UseTLS, RegisteredTypes())
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
 	}
@@ -77,7 +77,7 @@ func main() {
 		server.Close()
 	}()
 
-	prof := b.NewProfiler(config.CpuProfile)
+	prof := NewProfiler(config.CpuProfile)
 	defer prof.Close()
 
 	err = server.Serve()

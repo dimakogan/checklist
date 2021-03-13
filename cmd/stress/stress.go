@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
 
 	"github.com/paulbellamy/ratecounter"
 	"github.com/zserge/metric"
@@ -36,7 +36,7 @@ const (
 )
 
 type loadGen interface {
-	request(proxy *PirRpcProxy) error
+	request(proxy *RpcProxy) error
 	reqRate() int
 	debugStr() string
 }
@@ -141,7 +141,7 @@ func (t *stressTest) workerFunc() {
 			log.Fatalf("Worker panic: %+v\n%s", r, string(debug.Stack()))
 		}
 	}()
-	proxy, err := NewPirRpcProxy(t.ServerAddr, t.UseTLS, t.UsePersistent)
+	proxy, err := NewRpcProxy(t.ServerAddr, t.UseTLS, t.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}

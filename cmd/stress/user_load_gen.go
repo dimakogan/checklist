@@ -8,11 +8,13 @@ import (
 	"os"
 	"sync/atomic"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 )
 
 type userLoadGen struct {
-	hintReqs   []*HintReq
+	hintReqs   []*updatable.UpdatableHintReq
 	keyUpdates []int
 	numQueries int
 	answerGen  *answerLoadGen
@@ -22,9 +24,9 @@ type userLoadGen struct {
 }
 
 func initUserLoadGen(config *Config, trace [][]int) *userLoadGen {
-	waterfallClient := NewPirClientWaterfall(RandSource(), config.PirType)
+	waterfallClient := updatable.NewWaterfallClient(pir.RandSource(), config.PirType)
 	config.NumRows = 0
-	hintReqs := make([]*HintReq, 0)
+	hintReqs := make([]*updatable.UpdatableHintReq, 0)
 	numQueries := 0
 	keyUpdates := make([]int, 0)
 	for i, row := range trace {
@@ -32,16 +34,16 @@ func initUserLoadGen(config *Config, trace [][]int) *userLoadGen {
 		if row[ColumnAdds] > 0 {
 			keyUpdates = append(keyUpdates, row[ColumnAdds])
 			config.NumRows += row[ColumnAdds]
-			hintReq, err := waterfallClient.HintUpdateReq(row[ColumnAdds])
+			hintReq, err := waterfallClient.HintUpdateReq(row[ColumnAdds], config.RowLen)
 			if err != nil {
-				log.Fatal("Failed to generate HintReq for timestamp %d: %s", row[ColumnTimestamp], err)
+				log.Fatalf("Failed to generate HintReq for timestamp %d: %s", row[ColumnTimestamp], err)
 			}
 			if hintReq != nil {
 				hintReqs = append(hintReqs, hintReq)
 			}
 		} else {
 			numQueries++
-			if config.PirType != NonPrivate {
+			if config.PirType != pir.NonPrivate {
 				numQueries++
 			}
 		}
@@ -52,32 +54,33 @@ func initUserLoadGen(config *Config, trace [][]int) *userLoadGen {
 	return &userLoadGen{hintReqs, keyUpdates, numQueries, initAnswerLoadGen(config), reqRate, 0, 0, 0}
 }
 
-func (gen *userLoadGen) request(proxy *PirRpcProxy) error {
+func (gen *userLoadGen) request(proxy *RpcProxy) error {
 	r := rand.Intn(len(gen.keyUpdates) + gen.numQueries)
 	if r < len(gen.keyUpdates) {
 		updateSize := gen.keyUpdates[r]
-		keyReq := KeyUpdatesReq{
+		keyReq := updatable.KeyUpdatesReq{
 			DefragTimestamp: math.MaxInt32,
 			NextTimestamp:   int32(gen.answerGen.numRows - updateSize),
 		}
-		var keyResp KeyUpdatesResp
+		var keyResp updatable.KeyUpdatesResp
 		err := proxy.KeyUpdates(keyReq, &keyResp)
 		if err != nil {
 			return fmt.Errorf("Failed to replay key update request %v, %s", keyReq, err)
 		}
-		if len(keyResp.Keys) != updateSize && int(keyResp.KeysRice.NumEntries)+1 != updateSize {
-			return fmt.Errorf("Invalid size of key update, expected: %d, got: %d", updateSize, len(keyResp.Keys))
+		// int(keyResp.KeysRice.NumEntries)+1 != updateSize
+		if len(keyResp.Keys) != updateSize {
+			panic(fmt.Sprintf("Invalid size of key update, expected: %d, got: %d", updateSize, len(keyResp.Keys)))
 		}
 		atomic.AddUint64(&gen.updatesDone, 1)
 		if r < len(gen.hintReqs) {
 			hintReq := gen.hintReqs[r]
-			var hintResp HintResp
-			err := proxy.Hint(*hintReq, &hintResp)
+			var hintResp pir.HintResp
+			err := proxy.Hint(hintReq, &hintResp)
 			if err != nil {
 				return fmt.Errorf("Failed to replay hint request %v, %s", hintReq, err)
 			}
-			if hintResp.NumRows != gen.hintReqs[r].NumRows {
-				return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, hintReq.NumRows, hintResp.NumRows)
+			if hintResp.NumRows() != gen.hintReqs[r].NumRows {
+				return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, hintReq.NumRows, hintResp.NumRows())
 			}
 			atomic.AddUint64(&gen.hintsDone, 1)
 		}

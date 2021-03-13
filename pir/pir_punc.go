@@ -1,4 +1,4 @@
-package boosted
+package pir
 
 import (
 	"errors"
@@ -6,19 +6,14 @@ import (
 	"io"
 	"math"
 
-	//	"log"
-
 	"math/rand"
 
-	//	"sort"
-
 	"github.com/dimakogan/boosted-pir/psetggm"
-	"github.com/lukechampine/fastxor"
 )
 
-type pirClientPunc struct {
+type puncClient struct {
 	nRows  int
-	rowLen int
+	RowLen int
 
 	setSize int
 
@@ -32,44 +27,36 @@ type pirClientPunc struct {
 	idxToSetIdx []int32
 }
 
-type pirServerPunc struct {
-	*staticDB
-	numHintsMultiplier int
+type PuncHintReq struct {
+	RandSeed           int64
+	NumHintsMultiplier int
 }
 
-const Left int = 0
-const Right int = 1
-
-func xorInto(a []byte, b []byte) {
-	if len(a) != len(b) {
-		panic("Tried to XOR byte-slices of unequal length.")
-	}
-
-	fastxor.Bytes(a, a, b)
-
-	// for i := 0; i < len(a); i++ {
-	// 	a[i] = a[i] ^ b[i]
-	// }
+type PuncHintResp struct {
+	NRows     int
+	RowLen    int
+	SetSize   int
+	SetGenKey []byte
+	Hints     []Row
 }
 
-func (s *pirServerPunc) xorRowsFlatSlice(out []byte, indices Set) {
+func xorRowsFlatSlice(db *StaticDB, out []byte, indices Set) {
 	for i := range indices {
-		indices[i] *= s.rowLen
+		indices[i] *= db.RowLen
 	}
-	psetggm.XorBlocks(s.flatDb, indices, out)
+	psetggm.XorBlocks(db.FlatDb, indices, out)
 
 }
 
-func NewPirServerPunc(db *staticDB) pirServerPunc {
-	return pirServerPunc{
-		staticDB:           db,
-		numHintsMultiplier: int(float64(SecParam) * math.Log(2)),
+func NewPuncHintReq() *PuncHintReq {
+	return &PuncHintReq{
+		NumHintsMultiplier: int(float64(SecParam) * math.Log(2)),
 	}
 }
 
-func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
-	setSize := int(math.Round(math.Pow(float64(s.numRows), 0.5)))
-	nHints := s.numHintsMultiplier * s.numRows / setSize
+func (req *PuncHintReq) Process(db StaticDB) (HintResp, error) {
+	setSize := int(math.Round(math.Pow(float64(db.NumRows), 0.5)))
+	nHints := req.NumHintsMultiplier * db.NumRows / setSize
 
 	key := make([]byte, 16)
 	if _, err := io.ReadFull(rand.New(rand.NewSource(req.RandSeed)), key); err != nil {
@@ -77,75 +64,50 @@ func (s pirServerPunc) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	hints := make([]Row, nHints)
-	hintBuf := make([]byte, s.rowLen*nHints)
-	setGen := NewSetGenerator(key, 0, s.numRows, setSize)
+	hintBuf := make([]byte, db.RowLen*nHints)
+	setGen := NewSetGenerator(key, 0, db.NumRows, setSize)
 	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
 		setGen.Gen(&pset)
-		hints[i] = Row(hintBuf[s.rowLen*i : s.rowLen*(i+1)])
-		s.xorRowsFlatSlice(hints[i], pset.elems)
+		hints[i] = Row(hintBuf[db.RowLen*i : db.RowLen*(i+1)])
+		xorRowsFlatSlice(&db, hints[i], pset.elems)
 	}
-	resp.Hints = hints
-	resp.NumRows = s.numRows
-	resp.RowLen = s.rowLen
-	resp.SetSize = setSize
-	resp.SetGenKey = key
-	return nil
+
+	return &PuncHintResp{
+		Hints:     hints,
+		NRows:     db.NumRows,
+		RowLen:    db.RowLen,
+		SetSize:   setSize,
+		SetGenKey: key,
+	}, nil
 }
 
-func (s pirServerPunc) dbElem(i int) Row {
-	if i < s.numRows {
-		return s.flatDb[s.rowLen*i : s.rowLen*(i+1)]
+func dbElem(db StaticDB, i int) Row {
+	if i < db.NumRows {
+		return db.Row(i)
 	} else {
-		return make(Row, s.rowLen)
+		return make(Row, db.RowLen)
 	}
 }
 
-func (s pirServerPunc) Answer(q QueryReq, resp *QueryResp) error {
-	if q.BatchReqs != nil {
-		return s.answerBatch(q.BatchReqs, &resp.BatchResps)
+func (resp *PuncHintResp) InitClient(source *rand.Rand) Client {
+	c := puncClient{
+		randSource: source,
+		nRows:      resp.NRows,
+		RowLen:     resp.RowLen,
+		setSize:    resp.SetSize,
+		hints:      resp.Hints,
+		origSetGen: NewSetGenerator(resp.SetGenKey, 0, resp.NRows, resp.SetSize),
 	}
-	resp.Answer = make(Row, s.rowLen)
-	//s.xorRowsFlatSlice(resp.Answer, q.PuncturedSet.Eval())
-	psetggm.FastAnswer(q.PuncturedSet.Keys, q.PuncturedSet.Hole, q.PuncturedSet.UnivSize, q.PuncturedSet.SetSize, int(q.PuncturedSet.Shift),
-		s.flatDb, s.rowLen, resp.Answer)
-	resp.ExtraElem = s.flatDb[s.rowLen*q.ExtraElem : s.rowLen*q.ExtraElem+s.rowLen]
-
-	// Debug
-	resp.Val = s.dbElem(q.Index)
-
-	return nil
-}
-
-func (s pirServerPunc) answerBatch(queries []QueryReq, resps *[]QueryResp) error {
-	totalRows := 0
-	*resps = make([]QueryResp, len(queries))
-	for i, q := range queries {
-		totalRows += q.PuncturedSet.SetSize
-		err := s.Answer(q, &(*resps)[i])
-		if err != nil {
-			return err
-		}
-	}
-	//fmt.Printf("AnswerBatch total rows read: %d\n", totalRows)
-	return nil
-}
-
-func NewPirClientPunc(source *rand.Rand) *pirClientPunc {
-	return &pirClientPunc{randSource: source}
-}
-
-func (c *pirClientPunc) InitHint(resp *HintResp) error {
-	c.nRows = resp.NumRows
-	c.rowLen = resp.RowLen
-	c.setSize = resp.SetSize
-	c.hints = resp.Hints
-	c.origSetGen = NewSetGenerator(resp.SetGenKey, 0, c.nRows, c.setSize)
 	c.initSets()
-	return nil
+	return &c
 }
 
-func (c *pirClientPunc) initSets() {
+func (resp *PuncHintResp) NumRows() int {
+	return resp.NRows
+}
+
+func (c *puncClient) initSets() {
 	c.sets = make([]SetKey, len(c.hints))
 	c.idxToSetIdx = make([]int32, c.nRows)
 	for i := range c.idxToSetIdx {
@@ -169,12 +131,12 @@ func (c *pirClientPunc) initSets() {
 
 // Sample a biased coin that comes up heads (true) with
 // probability (nHeads/total).
-func (c *pirClientPunc) bernoulli(nHeads int, total int) bool {
+func (c *puncClient) bernoulli(nHeads int, total int) bool {
 	coin := c.randSource.Intn(total)
 	return coin < nHeads
 }
 
-func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
+func (c *puncClient) sample(odd1 int, odd2 int, total int) int {
 	coin := c.randSource.Intn(total)
 	if coin < odd1 {
 		return 1
@@ -185,7 +147,7 @@ func (c *pirClientPunc) sample(odd1 int, odd2 int, total int) int {
 	}
 }
 
-func (c *pirClientPunc) findIndex(i int) (setIdx int) {
+func (c *puncClient) findIndex(i int) (setIdx int) {
 	if i >= c.nRows {
 		return -1
 	}
@@ -217,12 +179,22 @@ func (c *pirClientPunc) findIndex(i int) (setIdx int) {
 	return -1
 }
 
+type PuncQueryReq struct {
+	PuncturedSet PuncturedSet
+	ExtraElem    int
+}
+
+type PuncQueryResp struct {
+	Answer    Row
+	ExtraElem Row
+}
+
 type puncQueryCtx struct {
 	randCase int
 	setIdx   int
 }
 
-func (c *pirClientPunc) Query(i int) ([]QueryReq, ReconstructFunc) {
+func (c *puncClient) Query(i int) ([]QueryReq, ReconstructFunc) {
 	if len(c.hints) < 1 {
 		panic("No stored hints. Did you forget to call InitHint?")
 	}
@@ -232,7 +204,6 @@ func (c *pirClientPunc) Query(i int) ([]QueryReq, ReconstructFunc) {
 	if ctx.setIdx = c.findIndex(i); ctx.setIdx < 0 {
 		return nil, nil
 	}
-	origI := i
 	i = MathMod(i, c.nRows)
 
 	pset := c.eval(ctx.setIdx)
@@ -265,14 +236,23 @@ func (c *pirClientPunc) Query(i int) ([]QueryReq, ReconstructFunc) {
 	}
 
 	return []QueryReq{
-			{PuncturedSet: puncSetL, ExtraElem: extraL, Index: origI /* Debug */},
-			{PuncturedSet: puncSetR, ExtraElem: extraR, Index: origI /* Debug */}},
-		func(resp []QueryResp) (Row, error) {
-			return c.reconstruct(ctx, resp)
+			&PuncQueryReq{PuncturedSet: puncSetL, ExtraElem: extraL},
+			&PuncQueryReq{PuncturedSet: puncSetR, ExtraElem: extraR},
+		},
+		func(resps []interface{}) (Row, error) {
+			queryResps := make([]*PuncQueryResp, len(resps))
+			var ok bool
+			for i, r := range resps {
+				if queryResps[i], ok = r.(*PuncQueryResp); !ok {
+					return nil, fmt.Errorf("Invalid response type: %T, expected: *PuncQueryResp", r)
+				}
+			}
+
+			return c.reconstruct(ctx, queryResps)
 		}
 }
 
-func (c *pirClientPunc) eval(setIdx int) PuncturableSet {
+func (c *puncClient) eval(setIdx int) PuncturableSet {
 	if c.sets[setIdx].id < c.origSetGen.num {
 		return c.origSetGen.Eval(c.sets[setIdx])
 	} else {
@@ -280,7 +260,7 @@ func (c *pirClientPunc) eval(setIdx int) PuncturableSet {
 	}
 }
 
-func (c *pirClientPunc) setGenForSet(setIdx int) *SetGenerator {
+func (c *puncClient) setGenForSet(setIdx int) *SetGenerator {
 	if c.sets[setIdx].id < c.origSetGen.num {
 		return &c.origSetGen
 	} else {
@@ -288,7 +268,7 @@ func (c *pirClientPunc) setGenForSet(setIdx int) *SetGenerator {
 	}
 }
 
-func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
+func (c *puncClient) replaceSet(setIdx int, newSet PuncturableSet) {
 	pset := c.eval(setIdx)
 	for _, idx := range pset.elems {
 		if idx < c.nRows && c.idxToSetIdx[idx] == int32(setIdx) {
@@ -302,15 +282,24 @@ func (c *pirClientPunc) replaceSet(setIdx int, newSet PuncturableSet) {
 	}
 }
 
-func (c *pirClientPunc) dummyQuery() []QueryReq {
+func (c *puncClient) DummyQuery() []QueryReq {
 	newSet := c.setGen.GenWith(0)
 	extra := c.randomMemberExcept(newSet, 0)
 	puncSet := c.setGen.Punc(newSet, 0)
-	q := QueryReq{PuncturedSet: puncSet, ExtraElem: extra, Index: 0}
-	return []QueryReq{q, q}
+	q := PuncQueryReq{PuncturedSet: puncSet, ExtraElem: extra}
+	return []QueryReq{&q, &q}
 }
 
-func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []QueryResp) (Row, error) {
+func (q *PuncQueryReq) Process(db StaticDB) (interface{}, error) {
+	resp := PuncQueryResp{Answer: make(Row, db.RowLen)}
+	psetggm.FastAnswer(q.PuncturedSet.Keys, q.PuncturedSet.Hole, q.PuncturedSet.UnivSize, q.PuncturedSet.SetSize, int(q.PuncturedSet.Shift),
+		db.FlatDb, db.RowLen, resp.Answer)
+	resp.ExtraElem = db.FlatDb[db.RowLen*q.ExtraElem : db.RowLen*q.ExtraElem+db.RowLen]
+
+	return &resp, nil
+}
+
+func (c *puncClient) reconstruct(ctx puncQueryCtx, resp []*PuncQueryResp) (Row, error) {
 	if len(resp) != 2 {
 		return nil, fmt.Errorf("Unexpected number of answers: have: %d, want: 2", len(resp))
 	}
@@ -343,7 +332,7 @@ func (c *pirClientPunc) reconstruct(ctx puncQueryCtx, resp []QueryResp) (Row, er
 	return out, nil
 }
 
-func (c *pirClientPunc) NumCovered() int {
+func (c *puncClient) NumCovered() int {
 	covered := make(map[int]bool)
 	for j := range c.sets {
 		for _, elem := range c.eval(j).elems {
@@ -354,7 +343,7 @@ func (c *pirClientPunc) NumCovered() int {
 }
 
 // Sample a random element of the set that is not equal to `idx`.
-func (c *pirClientPunc) randomMemberExcept(set PuncturableSet, idx int) int {
+func (c *puncClient) randomMemberExcept(set PuncturableSet, idx int) int {
 	for {
 		// TODO: If this is slow, use a more clever way to
 		// pick the random element.
@@ -365,4 +354,11 @@ func (c *pirClientPunc) randomMemberExcept(set PuncturableSet, idx int) int {
 			return val
 		}
 	}
+}
+
+func (c *puncClient) StorageNumBytes() int {
+	if len(c.hints) == 0 {
+		return 0
+	}
+	return len(c.hints)*len(c.hints[0]) + 16
 }

@@ -1,4 +1,4 @@
-package boosted
+package pir
 
 import (
 	"crypto/aes"
@@ -128,7 +128,6 @@ func (gen *SetGenerator) Eval(key SetKey) PuncturableSet {
 	gen.EvalInPlace(key, &pset)
 	return pset
 }
-
 
 func (gen *SetGenerator) EvalInPlace(key SetKey, pset *PuncturableSet) {
 	pset.SetKey = key

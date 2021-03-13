@@ -1,14 +1,16 @@
-package boosted
+package driver
 
 import (
-	"encoding/gob"
 	"fmt"
 	"math/rand"
 	"time"
+
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 )
 
 type PirServerDriver interface {
-	PirUpdatableServer
+	updatable.UpdatableServer
 
 	Configure(config TestConfig, none *int) error
 
@@ -16,6 +18,7 @@ type PirServerDriver interface {
 	DeleteRows(numRows int, none *int) error
 	GetRow(idx int, row *RowIndexVal) error
 	NumRows(none int, out *int) error
+	NumKeys(none int, out *int) error
 	RowLen(none int, out *int) error
 
 	ResetMetrics(none int, none2 *int) error
@@ -25,10 +28,15 @@ type PirServerDriver interface {
 	GetOnlineBytes(none int, out *int) error
 }
 
-type pirServerDriver struct {
-	server          PirServer
-	updatableServer *pirUpdatableServer
-	staticDB        *staticDB
+type RowIndexVal struct {
+	Index int
+	Key   uint32
+	Value pir.Row
+}
+
+type serverDriver struct {
+	updatableServer *updatable.Server
+	staticDB        *pir.StaticDB
 
 	config TestConfig
 
@@ -40,24 +48,18 @@ type pirServerDriver struct {
 	offlineBytes, onlineBytes int
 }
 
-func registerExtraTypes() {
-	gob.Register(&PuncturedSet{})
-	gob.Register(&puncturedGGMSet{})
-}
-
-func NewPirServerDriver() (*pirServerDriver, error) {
-	randSource := RandSource()
-	registerExtraTypes()
-	db := NewPirUpdatableServer()
-	driver := pirServerDriver{
+func NewServerDriver() (*serverDriver, error) {
+	randSource := pir.RandSource()
+	db := updatable.NewUpdatableServer()
+	driver := serverDriver{
 		updatableServer: db,
-		staticDB:        &db.staticDB,
+		staticDB:        &db.StaticDB,
 		randSource:      randSource,
 	}
 	return &driver, nil
 }
 
-func (driver *pirServerDriver) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
+func (driver *serverDriver) KeyUpdates(req updatable.KeyUpdatesReq, resp *updatable.KeyUpdatesResp) error {
 	if driver.config.MeasureBandwidth {
 		reqSize, err := SerializedSizeOf(req)
 		if err != nil {
@@ -82,7 +84,7 @@ func (driver *pirServerDriver) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesRes
 	return nil
 }
 
-func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
+func (driver *serverDriver) Hint(req pir.HintReq, resp *pir.HintResp) (err error) {
 	if driver.config.MeasureBandwidth {
 		reqSize, err := SerializedSizeOf(req)
 		if err != nil {
@@ -92,7 +94,7 @@ func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
 	}
 
 	start := time.Now()
-	if err := driver.server.Hint(req, resp); err != nil {
+	if *resp, err = req.Process(*driver.staticDB); err != nil {
 		return err
 	}
 	driver.hintTime += time.Since(start)
@@ -107,7 +109,7 @@ func (driver *pirServerDriver) Hint(req HintReq, resp *HintResp) error {
 	return nil
 }
 
-func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
+func (driver *serverDriver) Answer(q pir.QueryReq, resp *interface{}) (err error) {
 	if driver.config.MeasureBandwidth {
 		reqSize, err := SerializedSizeOf(q)
 		if err != nil {
@@ -117,7 +119,7 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 	}
 
 	start := time.Now()
-	if err := driver.server.Answer(q, resp); err != nil {
+	if *resp, err = q.Process(*driver.staticDB); err != nil {
 		return err
 	}
 	driver.answerTime += time.Since(start)
@@ -129,29 +131,27 @@ func (driver *pirServerDriver) Answer(q QueryReq, resp *QueryResp) error {
 	return nil
 }
 
-func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err error) {
+func (driver *serverDriver) Configure(config TestConfig, none *int) (err error) {
 	driver.config = config
 	driver.updatable = config.Updatable
 	if config.RandSeed > 0 {
 		driver.randSource = rand.New(rand.NewSource(config.RandSeed))
 	}
 
-	rows := MakeRows(driver.randSource, config.NumRows, config.RowLen)
-	keys := MakeKeys(driver.randSource, config.NumRows)
+	rows := pir.MakeRows(driver.randSource, config.NumRows, config.RowLen)
+	keys := pir.MakeKeys(driver.randSource, config.NumRows)
 	for _, preset := range config.PresetRows {
 		copy(rows[preset.Index], preset.Value)
 		keys[preset.Index] = preset.Key
 	}
 
 	if config.Updatable {
-		driver.updatableServer = NewPirUpdatableServer()
+		driver.updatableServer = updatable.NewUpdatableServer()
 		driver.updatableServer.AddRows(keys, rows)
-		driver.staticDB = &driver.updatableServer.staticDB
-		driver.server = driver.updatableServer
+		driver.staticDB = &driver.updatableServer.StaticDB
 	} else {
-		driver.staticDB = &staticDB{config.NumRows, config.RowLen, flattenDb(rows)}
+		driver.staticDB = pir.StaticDBFromRows(rows)
 		driver.updatableServer = nil
-		driver.server = NewPirServerByType(config.PirType, driver.staticDB)
 	}
 
 	driver.ResetMetrics(0, nil)
@@ -159,17 +159,17 @@ func (driver *pirServerDriver) Configure(config TestConfig, none *int) (err erro
 
 }
 
-func (driver *pirServerDriver) AddRows(numRows int, none *int) (err error) {
+func (driver *serverDriver) AddRows(numRows int, none *int) (err error) {
 	if !driver.updatable {
 		return fmt.Errorf("Cannot AddRows to Non-Updatable PIR server")
 	}
-	newVals := MakeRows(driver.randSource, numRows, driver.config.RowLen)
-	newKeys := MakeKeys(driver.randSource, numRows)
+	newVals := pir.MakeRows(driver.randSource, numRows, driver.config.RowLen)
+	newKeys := pir.MakeKeys(driver.randSource, numRows)
 	driver.updatableServer.AddRows(newKeys, newVals)
 	return nil
 }
 
-func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
+func (driver *serverDriver) DeleteRows(numRows int, none *int) (err error) {
 	if !driver.updatable {
 		return fmt.Errorf("Cannot DeleteRows from Non-Updatable PIR server")
 	}
@@ -178,49 +178,53 @@ func (driver *pirServerDriver) DeleteRows(numRows int, none *int) (err error) {
 	return nil
 }
 
-func (driver *pirServerDriver) GetRow(idx int, row *RowIndexVal) error {
+func (driver *serverDriver) GetRow(idx int, row *RowIndexVal) error {
+	row.Index = idx
+	var err error
 	if driver.updatableServer != nil {
-		return driver.updatableServer.GetRow(idx, row)
-	} else {
-		return driver.staticDB.GetRow(idx, row)
+		row.Key, row.Value, err = driver.updatableServer.Row(idx)
+		return err
 	}
-}
-
-func (driver *pirServerDriver) NumRows(none int, out *int) error {
-	if driver.updatableServer != nil {
-		*out = driver.updatableServer.NumRows()
-	} else {
-		*out = driver.staticDB.numRows
-	}
+	row.Value = driver.staticDB.Row(idx)
 	return nil
 }
 
-func (driver *pirServerDriver) RowLen(none int, out *int) error {
-	*out = driver.staticDB.rowLen
+func (driver *serverDriver) NumRows(none int, out *int) error {
+	*out = driver.staticDB.NumRows
 	return nil
 }
 
-func (driver *pirServerDriver) GetOfflineTimer(none int, out *time.Duration) error {
+func (driver *serverDriver) NumKeys(none int, out *int) error {
+	*out = driver.updatableServer.NumKeys()
+	return nil
+}
+
+func (driver *serverDriver) RowLen(none int, out *int) error {
+	*out = driver.staticDB.RowLen
+	return nil
+}
+
+func (driver *serverDriver) GetOfflineTimer(none int, out *time.Duration) error {
 	*out = driver.hintTime
 	return nil
 }
 
-func (driver *pirServerDriver) GetOnlineTimer(none int, out *time.Duration) error {
+func (driver *serverDriver) GetOnlineTimer(none int, out *time.Duration) error {
 	*out = driver.answerTime
 	return nil
 }
 
-func (driver *pirServerDriver) GetOfflineBytes(none int, out *int) error {
+func (driver *serverDriver) GetOfflineBytes(none int, out *int) error {
 	*out = driver.offlineBytes
 	return nil
 }
 
-func (driver *pirServerDriver) GetOnlineBytes(none int, out *int) error {
+func (driver *serverDriver) GetOnlineBytes(none int, out *int) error {
 	*out = driver.onlineBytes
 	return nil
 }
 
-func (driver *pirServerDriver) ResetMetrics(none int, none2 *int) error {
+func (driver *serverDriver) ResetMetrics(none int, none2 *int) error {
 	driver.hintTime = 0
 	driver.answerTime = 0
 	driver.offlineBytes = 0

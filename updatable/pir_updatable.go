@@ -1,4 +1,4 @@
-package boosted
+package updatable
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/dimakogan/boosted-pir/pir"
 	sb "github.com/dimakogan/boosted-pir/safebrowsing"
 )
 
@@ -28,24 +29,15 @@ type KeyUpdatesResp struct {
 
 	ShouldDeleteHistory bool
 }
-type PirUpdatableServer interface {
-	PirServer
+type UpdatableServer interface {
+	pir.Server
 	KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error
 }
 
-type PirUpdatableClient interface {
-	Init() error
-	Read(key uint32) (Row, error)
-	Keys() []uint32
+type Client struct {
+	waterfall *WaterfallClient
 
-	// Debug
-	StorageNumBytes() int
-}
-
-type PirClientUpdatable struct {
-	waterfall *PirClientWaterfall
-
-	servers [2]PirUpdatableServer
+	servers [2]UpdatableServer
 
 	initialTimestamp int
 	defragTimestamp  int
@@ -59,26 +51,26 @@ type PirClientUpdatable struct {
 	totalKeyUpdateBytes int
 }
 
-func NewPirClientUpdatable(source *rand.Rand, pirType PirType, servers [2]PirUpdatableServer) *PirClientUpdatable {
-	return &PirClientUpdatable{
-		waterfall: NewPirClientWaterfall(source, pirType),
+func NewClient(source *rand.Rand, pirType pir.PirType, servers [2]UpdatableServer) *Client {
+	return &Client{
+		waterfall: NewWaterfallClient(source, pirType),
 		keyToPos:  make(map[uint32]int32),
 		servers:   servers}
 }
 
-func (c *PirClientUpdatable) Init() error {
+func (c *Client) Init() error {
 	err := c.Update()
 	return err
 }
 
-func (c *PirClientUpdatable) Update() error {
+func (c *Client) Update() error {
 	nextTimestamp := c.nextTimestamp()
 	keyReq := KeyUpdatesReq{
 		DefragTimestamp: int32(c.defragTimestamp),
 		NextTimestamp:   int32(nextTimestamp),
 	}
 	var keyResp KeyUpdatesResp
-	if err := c.servers[Left].KeyUpdates(keyReq, &keyResp); err != nil {
+	if err := c.servers[pir.Left].KeyUpdates(keyReq, &keyResp); err != nil {
 		return err
 	}
 
@@ -86,18 +78,18 @@ func (c *PirClientUpdatable) Update() error {
 	if err != nil || numNewRows == 0 {
 		return err
 	}
-	hintReq, err := c.waterfall.HintUpdateReq(numNewRows)
+	hintReq, err := c.waterfall.HintUpdateReq(numNewRows, keyResp.RowLen)
 	if err != nil || hintReq == nil {
 		return err
 	}
-	var hintResp HintResp
-	if err := c.servers[Left].Hint(*hintReq, &hintResp); err != nil {
+	var hintResp pir.HintResp
+	if err := c.servers[pir.Left].Hint(hintReq, &hintResp); err != nil {
 		return err
 	}
-	return c.waterfall.InitHint(&hintResp)
+	return c.waterfall.InitHint(hintResp)
 }
 
-func (c *PirClientUpdatable) Read(key uint32) (Row, error) {
+func (c *Client) Read(key uint32) (pir.Row, error) {
 	pos, ok := c.keyToPos[key]
 	if !ok {
 		return nil, fmt.Errorf("key not found")
@@ -106,7 +98,7 @@ func (c *PirClientUpdatable) Read(key uint32) (Row, error) {
 	if reconstructFunc == nil {
 		return nil, fmt.Errorf("Failed to query: %x", key)
 	}
-	responses := make([]QueryResp, 2)
+	responses := make([]interface{}, 2)
 	errs := make([]error, 2)
 
 	if c.CallAsync {
@@ -114,28 +106,28 @@ func (c *PirClientUpdatable) Read(key uint32) (Row, error) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			errs[Left] = c.servers[Left].Answer(queryReq[Left], &responses[Left])
+			errs[pir.Left] = c.servers[pir.Left].Answer(queryReq[pir.Left], &responses[pir.Left])
 		}()
 		go func() {
 			defer wg.Done()
-			errs[Right] = c.servers[Right].Answer(queryReq[Right], &responses[Right])
+			errs[pir.Right] = c.servers[pir.Right].Answer(queryReq[pir.Right], &responses[pir.Right])
 		}()
 		wg.Wait()
 	} else {
-		errs[Left] = c.servers[Left].Answer(queryReq[Left], &responses[Left])
-		errs[Right] = c.servers[Right].Answer(queryReq[Right], &responses[Right])
+		errs[pir.Left] = c.servers[pir.Left].Answer(queryReq[pir.Left], &responses[pir.Left])
+		errs[pir.Right] = c.servers[pir.Right].Answer(queryReq[pir.Right], &responses[pir.Right])
 	}
-	if errs[Left] != nil {
-		return nil, errs[Left]
+	if errs[pir.Left] != nil {
+		return nil, errs[pir.Left]
 	}
-	if errs[Right] != nil {
-		return nil, errs[Left]
+	if errs[pir.Right] != nil {
+		return nil, errs[pir.Left]
 	}
 
 	return reconstructFunc(responses)
 }
 
-func (c *PirClientUpdatable) Keys() []uint32 {
+func (c *Client) Keys() []uint32 {
 	keys := make([]uint32, 0, len(c.keyToPos))
 	for k := range c.keyToPos {
 		keys = append(keys, k)
@@ -143,7 +135,7 @@ func (c *PirClientUpdatable) Keys() []uint32 {
 	return keys
 }
 
-func (c *PirClientUpdatable) processKeyUpdate(keyResp *KeyUpdatesResp) (numNewRows int, err error) {
+func (c *Client) processKeyUpdate(keyResp *KeyUpdatesResp) (numNewRows int, err error) {
 	c.rowLen = keyResp.RowLen
 	if keyResp.ShouldDeleteHistory {
 		c.ops = []dbOp{}
@@ -200,7 +192,7 @@ func (c *PirClientUpdatable) processKeyUpdate(keyResp *KeyUpdatesResp) (numNewRo
 	return numNewRows, nil
 }
 
-func (c *PirClientUpdatable) updatePositionMap(fromOpNumber int) {
+func (c *Client) updatePositionMap(fromOpNumber int) {
 	for i := fromOpNumber; i < len(c.ops); i++ {
 		op := c.ops[i]
 		if op.Delete {
@@ -232,7 +224,7 @@ func compressPosMap(k2v map[uint32]int32, valRange int) compressedMap {
 	return compressedMap{present, keys}
 }
 
-func (c *PirClientUpdatable) keysSizeWithRice() (int, error) {
+func (c *Client) keysSizeWithRice() (int, error) {
 	keys := make([]uint32, 0)
 	for k := range c.keyToPos {
 		keys = append(keys, k)
@@ -245,15 +237,15 @@ func (c *PirClientUpdatable) keysSizeWithRice() (int, error) {
 	return len(rice.EncodedData), nil
 }
 
-func (c *PirClientUpdatable) StorageNumBytes() int {
+func (c *Client) StorageNumBytes(sizeFunc func(interface{}) (int, error)) int {
 	numBytes := c.waterfall.StorageNumBytes()
 
 	var keysBytes int
 	var err error
-	if c.waterfall.pirType != Punc {
+	if c.waterfall.pirType != pir.Punc {
 		keysBytes, err = c.keysSizeWithRice()
 	} else {
-		keysBytes, err = SerializedSizeOf(compressPosMap(c.keyToPos, c.numRows))
+		keysBytes, err = sizeFunc(compressPosMap(c.keyToPos, c.numRows))
 		if c.totalKeyUpdateBytes < keysBytes {
 			keysBytes = c.totalKeyUpdateBytes
 		}
@@ -267,6 +259,6 @@ func (c *PirClientUpdatable) StorageNumBytes() int {
 	return numBytes
 }
 
-func (c *PirClientUpdatable) nextTimestamp() int {
+func (c *Client) nextTimestamp() int {
 	return c.initialTimestamp + len(c.ops)
 }

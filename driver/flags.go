@@ -1,4 +1,4 @@
-package boosted
+package driver
 
 import (
 	"flag"
@@ -7,6 +7,8 @@ import (
 	"math"
 	"os"
 	"strings"
+
+	"github.com/dimakogan/boosted-pir/pir"
 )
 
 type Config struct {
@@ -37,7 +39,7 @@ func (c *Config) AddPirFlags() *Config {
 	c.FlagSet = flag.CommandLine
 	c.FlagSet.IntVar(&c.NumRows, "numRows", 10000, "Num DB Rows")
 	c.FlagSet.IntVar(&c.RowLen, "rowLen", 32, "Row length in bytes")
-	c.FlagSet.StringVar(&c.pirTypeStr, "pirType", Punc.String(),
+	c.FlagSet.StringVar(&c.pirTypeStr, "pirType", pir.Punc.String(),
 		fmt.Sprintf("Updatable PIR type: [%s]", strings.Join(PirTypeStrings(), "|")))
 	c.FlagSet.BoolVar(&c.Updatable, "updatable", true, "Test Updatable PIR")
 	c.FlagSet.IntVar(&c.UpdateSize, "updateSize", 500, "number of rows in each update batch (default: 500)")
@@ -48,7 +50,7 @@ func (c *Config) AddPirFlags() *Config {
 func (c *Config) AddClientFlags() *Config {
 	c.FlagSet.StringVar(&c.ServerAddr, "serverAddr", "", "<HOSTNAME>:<PORT> of server for RPC test")
 	c.FlagSet.StringVar(&c.ServerAddr2, "serverAddr2", "", "<HOSTNAME>:<PORT> of server for RPC test")
-	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
+	c.FlagSet.BoolVar(&c.UseTLS, "tls", true, "Should use TLS")
 	c.FlagSet.BoolVar(&c.UsePersistent, "persistent", false, "Should use peristent connection to server")
 	return c
 }
@@ -75,11 +77,11 @@ func (c *Config) Parse() *Config {
 		log.Fatalf("%v", err)
 	}
 	var err error
-	c.PirType, err = PirTypeString(c.pirTypeStr)
+	c.PirType, err = pir.PirTypeString(c.pirTypeStr)
 	if err != nil {
 		log.Fatalf("Bad PirType: %s\n", c.pirTypeStr)
 	}
-	if c.PirType == Perm {
+	if c.PirType == pir.Perm {
 		c.NumRows = 1 << int(math.Ceil(math.Log2(float64(c.NumRows))))
 	}
 
@@ -90,9 +92,9 @@ func (c *Config) ServerDriver() (PirServerDriver, error) {
 	c.Parse()
 
 	if c.ServerAddr != "" {
-		return NewPirRpcProxy(c.ServerAddr, c.UseTLS, c.UsePersistent)
+		return NewRpcProxy(c.ServerAddr, c.UseTLS, c.UsePersistent)
 	} else {
-		return NewPirServerDriver()
+		return NewServerDriver()
 	}
 }
 
@@ -100,16 +102,16 @@ func (c *Config) Server2Driver() (PirServerDriver, error) {
 	c.Parse()
 
 	if c.ServerAddr2 != "" {
-		return NewPirRpcProxy(c.ServerAddr2, c.UseTLS, c.UsePersistent)
+		return NewRpcProxy(c.ServerAddr2, c.UseTLS, c.UsePersistent)
 	} else if c.ServerAddr != "" {
-		return NewPirRpcProxy(c.ServerAddr, c.UseTLS, c.UsePersistent)
+		return NewRpcProxy(c.ServerAddr, c.UseTLS, c.UsePersistent)
 	} else {
-		return NewPirServerDriver()
+		return NewServerDriver()
 	}
 }
 
 func PirTypeStrings() []string {
-	vals := PirTypeValues()
+	vals := pir.PirTypeValues()
 	strs := make([]string, len(vals))
 	for i, val := range vals {
 		strs[i] = val.String()

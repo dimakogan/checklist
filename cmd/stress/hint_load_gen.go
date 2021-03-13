@@ -3,22 +3,23 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 )
 
 type hintLoadGen struct {
 	numRows int
 	sizes   []int
 	probs   []float64
-	pirType PirType
+	pirType pir.PirType
 }
 
 func initHintLoadGen(config *Config) *hintLoadGen {
 	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
-	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	proxy, err := NewRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -36,7 +37,7 @@ func initHintLoadGen(config *Config) *hintLoadGen {
 
 	fmt.Printf("[OK] (num rows: %d)\n", config.NumRows)
 
-	sizes := NewPirClientWaterfall(RandSource(), config.PirType).LayersMaxSize(config.NumRows)
+	sizes := updatable.NewWaterfallClient(pir.RandSource(), config.PirType).LayersMaxSize(config.NumRows)
 	probs := make([]float64, len(sizes))
 	probs[len(probs)-1] = 1.0
 	overflowSize := 2 * sizes[len(sizes)-1]
@@ -59,25 +60,24 @@ func (s *hintLoadGen) randSize() int {
 	return s.sizes[bucket]
 }
 
-func (s *hintLoadGen) request(proxy *PirRpcProxy) error {
+func (s *hintLoadGen) request(proxy *RpcProxy) error {
 	layerSize := s.randSize()
 	firstRow := rand.Intn(s.numRows - layerSize + 1)
-	hintReq := HintReq{
-		RandSeed:        42,
-		DefragTimestamp: math.MaxInt32,
-		FirstRow:        firstRow,
-		NumRows:         layerSize,
-		PirType:         s.pirType,
+	hintReq := updatable.UpdatableHintReq{
+		RandSeed: 42,
+		FirstRow: firstRow,
+		NumRows:  layerSize,
+		Req:      pir.NewHintReq(s.pirType),
 	}
 	//fmt.Printf("Using size: %d\n", layerSize)
-	var hintResp HintResp
-	err := proxy.Hint(hintReq, &hintResp)
+	var hintResp pir.HintResp
+	err := proxy.Hint(&hintReq, &hintResp)
 	if err != nil {
 		return fmt.Errorf("Failed to replay hint request %v, %s", hintReq, err)
 	}
-	if hintResp.NumRows != layerSize {
+	if hintResp.NumRows() != layerSize {
 		fmt.Printf("%+v\n", hintResp)
-		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.NumRows)
+		return fmt.Errorf("Failed to replay hint request %v , mismatching hint num rows, expected: %d, got: %d", hintReq, layerSize, hintResp.NumRows())
 	}
 	return nil
 }

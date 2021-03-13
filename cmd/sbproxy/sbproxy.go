@@ -16,8 +16,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	duration "github.com/golang/protobuf/ptypes/duration"
 
-	boosted "github.com/dimakogan/boosted-pir"
+	"github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
 	. "github.com/dimakogan/boosted-pir/safebrowsing"
+	"github.com/dimakogan/boosted-pir/updatable"
 )
 
 const (
@@ -33,18 +35,18 @@ const (
 )
 
 type sbproxy struct {
-	pirClient boosted.PirUpdatableClient
+	pirClient *updatable.Client
 }
 
 func NewSBProxy(serverAddr string) *sbproxy {
 	addrs := strings.Split(serverAddr, ",")
-	rpcLeft, err := boosted.NewPirRpcProxy(addrs[0], false, true)
+	rpcLeft, err := driver.NewRpcProxy(addrs[0], false, true)
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %s", addrs[0], err)
 	}
-	var rpcRight *boosted.PirRpcProxy
+	var rpcRight *driver.RpcProxy
 	if len(addrs) > 1 {
-		rpcRight, err = boosted.NewPirRpcProxy(addrs[1], false, true)
+		rpcRight, err = driver.NewRpcProxy(addrs[1], false, true)
 		if err != nil {
 			log.Fatalf("Failed to connect to %s: %s", addrs[1], err)
 		}
@@ -52,7 +54,7 @@ func NewSBProxy(serverAddr string) *sbproxy {
 		rpcRight = rpcLeft
 	}
 
-	client := boosted.NewPirClientUpdatable(boosted.RandSource(), boosted.Punc, [2]boosted.PirUpdatableServer{rpcLeft, rpcRight})
+	client := updatable.NewClient(pir.RandSource(), pir.Punc, [2]updatable.UpdatableServer{rpcLeft, rpcRight})
 	if err = client.Init(); err != nil {
 		log.Fatalf("Failed to run PIR Init: %s\n", err)
 	}
@@ -165,7 +167,7 @@ func (proxy *sbproxy) handleFetch(w http.ResponseWriter, req *http.Request) {
 		listUp.Additions = make([]*ThreatEntrySet, 1)
 		listUp.Additions[0] = new(ThreatEntrySet)
 		listUp.Additions[0].CompressionType = CompressionType_RICE
-		listUp.Additions[0].RiceHashes, err = boosted.RiceEncodedHashes(proxy.pirClient.Keys())
+		listUp.Additions[0].RiceHashes, err = updatable.RiceEncodedHashes(proxy.pirClient.Keys())
 		if err != nil {
 			log.Printf("Can't Rice-encode hashes: %v", err)
 			return

@@ -6,18 +6,20 @@ import (
 	"math/rand"
 	"reflect"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 )
 
 type answerLoadGen struct {
 	numRows int
-	reqs    []QueryReq
-	resps   []QueryResp
+	reqs    []pir.QueryReq
+	resps   []interface{}
 }
 
 func initAnswerLoadGen(config *Config) *answerLoadGen {
 	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
-	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	proxy, err := NewRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -41,9 +43,11 @@ func initAnswerLoadGen(config *Config) *answerLoadGen {
 	if err := proxy.Configure(config.TestConfig, nil); err != nil {
 		log.Fatalf("Failed to Configure: %s\n", err)
 	}
-	fmt.Printf("[OK]\n")
+	var numRows int
+	proxy.NumRows(0, &numRows)
+	fmt.Printf("[OK] (numRows: %d)\n", numRows)
 
-	client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{proxy, proxy})
+	client := updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{proxy, proxy})
 	client.CallAsync = false
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
@@ -64,12 +68,11 @@ func initAnswerLoadGen(config *Config) *answerLoadGen {
 			log.Fatalf("failed to update hint after adding %d rows: %s", toAdd, err)
 		}
 	}
-	var numRows int
 	if err = proxy.NumRows(0, &numRows); err != nil || numRows < config.NumRows*99/100 {
 		log.Fatalf("Invalid number of rows on server: %d", numRows)
 	}
 
-	fmt.Printf("[OK] (num rows: %d)\n", config.NumRows)
+	fmt.Printf("[OK] (num rows: %d, %d)\n", config.NumRows, numRows)
 
 	fmt.Printf("Caching responses...")
 	proxy.StartRecording()
@@ -84,11 +87,11 @@ func initAnswerLoadGen(config *Config) *answerLoadGen {
 		}
 	}
 	ireqs := proxy.StopRecording()
-	reqs := make([]QueryReq, 0, len(ireqs))
-	resps := make([]QueryResp, 0, len(ireqs))
+	reqs := make([]pir.QueryReq, 0, len(ireqs))
+	resps := make([]interface{}, 0, len(ireqs))
 	for i := range ireqs {
-		reqs = append(reqs, ireqs[i].ReqBody.(QueryReq))
-		resps = append(resps, *(ireqs[i].RespBody.(*QueryResp)))
+		reqs = append(reqs, ireqs[i].ReqBody.(pir.QueryReq))
+		resps = append(resps, ireqs[i].RespBody)
 	}
 	if len(reqs) == 0 {
 		log.Fatalf("Failed to cache any requests")
@@ -98,9 +101,9 @@ func initAnswerLoadGen(config *Config) *answerLoadGen {
 	return &answerLoadGen{numRows: numRows, reqs: reqs, resps: resps}
 }
 
-func (s *answerLoadGen) request(proxy *PirRpcProxy) error {
+func (s *answerLoadGen) request(proxy *RpcProxy) error {
 	idx := rand.Intn(len(s.reqs))
-	var queryResp QueryResp
+	var queryResp interface{}
 	err := proxy.Answer(s.reqs[idx], &queryResp)
 	if err != nil {
 		return fmt.Errorf("Failed to replay query number %d to server: %s", idx, err)

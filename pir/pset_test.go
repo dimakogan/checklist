@@ -1,6 +1,7 @@
-package boosted
+package pir
 
 import (
+	"flag"
 	"fmt"
 	"math"
 	"testing"
@@ -185,6 +186,8 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 	}
 }
 
+var univSize = flag.Int("univSize", 10000, "universe size for puncturable-set test")
+
 // Starting result:
 // BenchmarkGGMEval-4   	    2926	    373090 ns/op	  104448 B/op	    2699 allocs/op
 //
@@ -194,24 +197,22 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 // Preallocate keys for treeEvalAll:
 // BenchmarkGGMEval-4   	    5881	    203453 ns/op	   53334 B/op	      14 allocs/op
 func BenchmarkPuncSetGen(b *testing.B) {
-	univSize := config.NumRows
-	setSize := int(math.Sqrt(float64(univSize)))
+	setSize := int(math.Sqrt(float64(*univSize)))
 	gen := NewGGMSetGenerator(RandSource())
-	b.Run(config.String(), func(b *testing.B) {
+	b.Run(fmt.Sprintf("UnivSize=%d", *univSize), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			gen.SetGenAndEval(univSize, setSize)
+			gen.SetGenAndEval(*univSize, setSize)
 		}
 	})
 }
 
 func BenchmarkGGMEvalC(b *testing.B) {
-	univSize := config.NumRows
-	setSize := int(math.Sqrt(float64(univSize)))
+	setSize := int(math.Sqrt(float64(*univSize)))
 
-	gen := psetggm.NewGGMSetGeneratorC(univSize, setSize)
+	gen := psetggm.NewGGMSetGeneratorC(*univSize, setSize)
 	set := make([]int, setSize)
 	seed := make([]byte, 16)
-	b.Run(config.String(), func(b *testing.B) {
+	b.Run(fmt.Sprintf("UnivSize=%d", *univSize), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			seed[0] = (byte)(i % 256)
 			gen.Eval(seed, set)
@@ -220,22 +221,13 @@ func BenchmarkGGMEvalC(b *testing.B) {
 }
 
 func BenchmarkGen(b *testing.B) {
-	univSize := config.NumRows
-	setSize := int(math.Sqrt(float64(univSize)))
+	setSize := int(math.Sqrt(float64(*univSize)))
 
-	gen := NewSetGenerator(MasterKey(), 0, univSize, setSize)
+	gen := NewSetGenerator(MasterKey(), 0, *univSize, setSize)
 	var set PuncturableSet
-	b.Run(config.String(), func(b *testing.B) {
+	b.Run(fmt.Sprintf("UnivSize=%d", *univSize), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			gen.gen(&set)
 		}
 	})
 }
-
-// func TestGGMEvalVsC(t *testing.T) {
-// 	univSize := config.NumRows
-// 	setSize := 10
-// 	key := MasterKey()
-// 	gen := NewSetGenerator(NewGGMSetGenerator, MasterKey())
-// 	fmt.Sprintf("%v\n", gen.SetGenAndEval(univSize, setSize))
-// }

@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 
 	"gotest.tools/assert"
 )
@@ -35,14 +37,14 @@ func main() {
 		log.Fatalf("Failed to create driver: %s\n", err)
 	}
 
-	rand := RandSource()
+	rand := pir.RandSource()
 
 	var none int
 	if err := driver.Configure(config.TestConfig, &none); err != nil {
 		log.Fatalf("Failed to configure driver: %s\n", err)
 	}
 
-	client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
+	client := updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{driver, driver})
 
 	err = client.Init()
 	assert.NilError(ep, err)
@@ -66,9 +68,9 @@ func main() {
 		clientUpdateTime += time.Since(start)
 
 		var rowIV RowIndexVal
-		var numRows int
-		assert.NilError(ep, driver.NumRows(none, &numRows))
-		assert.NilError(ep, driver.GetRow(rand.Intn(numRows), &rowIV))
+		var numKeys int
+		assert.NilError(ep, driver.NumKeys(none, &numKeys))
+		assert.NilError(ep, driver.GetRow(rand.Intn(numKeys), &rowIV))
 
 		start = time.Now()
 		row, err := client.Read(rowIV.Key)
@@ -103,7 +105,7 @@ func main() {
 		serverOfflineTime.Microseconds()/int64(numBatches),
 		(clientUpdateTime-serverOfflineTime).Microseconds()/int64(numBatches),
 		offlineBytes/(numBatches*config.UpdateSize),
-		client.StorageNumBytes(),
+		client.StorageNumBytes(SerializedSizeOf),
 		serverOnlineTime.Microseconds()/int64(numBatches),
 		(clientReadTime-serverOnlineTime).Microseconds()/int64(numBatches),
 		onlineBytes/numBatches)

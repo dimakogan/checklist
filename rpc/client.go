@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"reflect"
 
 	"github.com/ugorji/go/codec"
 )
@@ -118,8 +119,8 @@ type recorderCodec struct {
 	lastSeq uint64
 }
 
-func NewClientProxy(serverAddr string, useTLS bool, usePersistent bool) (*ClientProxy, error) {
-	proxy := ClientProxy{serverAddr: serverAddr, useTLS: useTLS, codecHandle: CodecHandle()}
+func NewClientProxy(serverAddr string, useTLS bool, usePersistent bool, types []reflect.Type) (*ClientProxy, error) {
+	proxy := ClientProxy{serverAddr: serverAddr, useTLS: useTLS, codecHandle: CodecHandle(types)}
 	if usePersistent || useTLS {
 		// Always cache TLS codec
 		codec, err := proxy.codec()

@@ -8,7 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	b "github.com/dimakogan/boosted-pir"
+	driver "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 
 	"log"
 )
@@ -18,7 +20,7 @@ type requestTime struct {
 }
 
 func main() {
-	config := new(b.Config).AddPirFlags().AddClientFlags()
+	config := new(driver.Config).AddPirFlags().AddClientFlags()
 	latenciesFile := config.FlagSet.String("latenciesFile", "", "Latencies output filename")
 	config.Parse()
 
@@ -33,7 +35,7 @@ func main() {
 	}
 
 	fmt.Printf("Obtaining hint (this may take a while)...")
-	client := b.NewPirClientUpdatable(b.RandSource(), config.PirType, [2]b.PirUpdatableServer{proxyLeft, proxyRight})
+	client := updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{proxyLeft, proxyRight})
 	client.CallAsync = true
 	err = client.Init()
 	if err != nil {

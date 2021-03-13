@@ -5,7 +5,8 @@ import (
 	"log"
 	"math"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/updatable"
 )
 
 type keyUpdateLoadGen struct {
@@ -14,7 +15,7 @@ type keyUpdateLoadGen struct {
 
 func initKeyUpdateLoadGen(config *Config) *keyUpdateLoadGen {
 	fmt.Printf("Connecting to %s (TLS: %t)...", config.ServerAddr, config.UseTLS)
-	proxy, err := NewPirRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
+	proxy, err := NewRpcProxy(config.ServerAddr, config.UseTLS, config.UsePersistent)
 	if err != nil {
 		log.Fatal("Connection error: ", err)
 	}
@@ -35,12 +36,12 @@ func initKeyUpdateLoadGen(config *Config) *keyUpdateLoadGen {
 	return &keyUpdateLoadGen{config.NumRows, config.UpdateSize}
 }
 
-func (s *keyUpdateLoadGen) request(proxy *PirRpcProxy) error {
-	keyReq := KeyUpdatesReq{
+func (s *keyUpdateLoadGen) request(proxy *RpcProxy) error {
+	keyReq := updatable.KeyUpdatesReq{
 		DefragTimestamp: math.MaxInt32,
 		NextTimestamp:   int32(s.numRows - s.updateSize),
 	}
-	var keyResp KeyUpdatesResp
+	var keyResp updatable.KeyUpdatesResp
 	err := proxy.KeyUpdates(keyReq, &keyResp)
 	if err != nil {
 		return fmt.Errorf("Failed to replay key update request %v, %s", keyReq, err)

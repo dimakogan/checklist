@@ -1,13 +1,14 @@
-package boosted
+package updatable
 
 import (
 	"testing"
 
+	"github.com/dimakogan/boosted-pir/pir"
 	"gotest.tools/assert"
 )
 
-func testRead(t *testing.T, keys []uint32, rows []Row, servers [2]PirUpdatableServer) {
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+func testRead(t *testing.T, keys []uint32, rows []pir.Row, servers [2]UpdatableServer) {
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 
 	assert.NilError(t, client.Init())
 	readIndex := 2
@@ -23,13 +24,12 @@ func testRead(t *testing.T, keys []uint32, rows []Row, servers [2]PirUpdatableSe
 }
 
 func TestPIRUpdatableStatic(t *testing.T) {
-	rows := MakeRows(RandSource(), 256, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(256, 100)
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, rows)
 	rightServer.AddRows(keys, rows)
@@ -38,21 +38,20 @@ func TestPIRUpdatableStatic(t *testing.T) {
 }
 
 func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
-	rows := MakeRows(RandSource(), 3000, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(3000, 100)
 
 	initialSize := 1000
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 	leftServer.AddRows(keys[0:initialSize], rows[0:initialSize])
 	rightServer.AddRows(keys[0:initialSize], rows[0:initialSize])
 	leftServer.AddRows(keys[initialSize:], rows[initialSize:])
 	rightServer.AddRows(keys[initialSize:], rows[initialSize:])
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 
 	// Read something from the beginning
 	assert.NilError(t, client.Init())
@@ -70,17 +69,16 @@ func TestPIRUpdatableInitAfterFewAdditions(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
-	rows := MakeRows(RandSource(), 3000, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(3000, 100)
 
 	initialSize := 1000
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 
 	leftServer.AddRows(keys[0:initialSize], rows[0:initialSize])
 	rightServer.AddRows(keys[0:initialSize], rows[0:initialSize])
@@ -106,17 +104,16 @@ func TestPIRUpdatableUpdateAfterManyAdditions(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterFewAdditions(t *testing.T) {
-	rows := MakeRows(RandSource(), 1200, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(1200, 100)
 
 	initialSize := 1000
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 
 	leftServer.AddRows(keys[0:initialSize], rows[0:initialSize])
@@ -148,16 +145,14 @@ func TestPIRUpdatableMultipleUpdates(t *testing.T) {
 	numSteps := 10
 
 	finalSize := initialSize + delta*numSteps
+	keys, rows := pir.MakeKeysRows(finalSize, 100)
 
-	rows := MakeRows(RandSource(), finalSize, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
-
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 
 	leftServer.AddRows(keys[0:initialSize], rows[0:initialSize])
@@ -191,13 +186,12 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 	initialSize := 500
 	deletedPrefix := 200
 
-	rows := MakeRows(RandSource(), initialSize, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(initialSize, 100)
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, rows)
 	rightServer.AddRows(keys, rows)
@@ -207,7 +201,7 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 		rightServer.DeleteRows(keys[i : i+1])
 	}
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 
@@ -225,20 +219,19 @@ func TestPIRUpdatableInitAfterDeletes(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
-	rows := MakeRows(RandSource(), 3000, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(3000, 100)
 
 	numDeletes := 1000
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, rows)
 	rightServer.AddRows(keys, rows)
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 
 	assert.NilError(t, client.Init())
@@ -264,18 +257,17 @@ func TestPIRUpdatableUpdateAfterDeletes(t *testing.T) {
 }
 
 func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
-	rows := MakeRows(RandSource(), 20, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(20, 100)
 
 	numDeletesAndAdds := 10
 	initialSize := len(rows) - numDeletesAndAdds
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 
 	leftServer.AddRows(keys[0:initialSize], rows[0:initialSize])
@@ -284,8 +276,8 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 	assert.NilError(t, client.Init())
 
 	for i := 0; i < numDeletesAndAdds; i++ {
-		leftServer.AddRows([]uint32{keys[initialSize+i]}, []Row{rows[initialSize+i]})
-		rightServer.AddRows([]uint32{keys[initialSize+i]}, []Row{rows[initialSize+i]})
+		leftServer.AddRows([]uint32{keys[initialSize+i]}, []pir.Row{rows[initialSize+i]})
+		rightServer.AddRows([]uint32{keys[initialSize+i]}, []pir.Row{rows[initialSize+i]})
 
 		// interleave deletes from beginning and from new elements
 		if i%4 == 0 {
@@ -328,34 +320,34 @@ func TestPIRUpdatableUpdateAfterAddsAndDeletes(t *testing.T) {
 }
 
 func TestPIRUpdatableDeleteAll(t *testing.T) {
-	rows := MakeRows(RandSource(), 2, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(2, 100)
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
+	leftServer.AddRows(keys, rows)
+	rightServer.AddRows(keys, rows)
 	leftServer.DeleteRows([]uint32{keys[0]})
 	rightServer.DeleteRows([]uint32{keys[0]})
 	leftServer.DeleteRows([]uint32{keys[1]})
 	rightServer.DeleteRows([]uint32{keys[1]})
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 }
 
 func TestPIRUpdatableDefrag(t *testing.T) {
-	rows := MakeRows(RandSource(), 20, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(20, 100)
 
 	numDeletesAndAdds := len(rows) * 10
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, rows)
 	rightServer.AddRows(keys, rows)
@@ -368,7 +360,7 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 		rightServer.AddRows(keys[0:1], rows[0:1])
 	}
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 
@@ -377,20 +369,19 @@ func TestPIRUpdatableDefrag(t *testing.T) {
 }
 
 func TestPIRUpdatableDefragBetweenUpdates(t *testing.T) {
-	rows := MakeRows(RandSource(), 20, 100)
-	keys := MakeKeys(RandSource(), len(rows))
+	keys, rows := pir.MakeKeysRows(20, 100)
 
 	numDeletesAndAdds := len(rows) * 10
 
-	leftServer := NewPirUpdatableServer()
-	rightServer := NewPirUpdatableServer()
+	leftServer := NewUpdatableServer()
+	rightServer := NewUpdatableServer()
 
-	servers := [2]PirUpdatableServer{leftServer, rightServer}
+	servers := [2]UpdatableServer{leftServer, rightServer}
 
 	leftServer.AddRows(keys, rows)
 	rightServer.AddRows(keys, rows)
 
-	client := NewPirClientUpdatable(RandSource(), Punc, servers)
+	client := NewClient(pir.RandSource(), pir.Punc, servers)
 	client.waterfall.smallestLayerSizeOverride = 10
 	assert.NilError(t, client.Init())
 
@@ -406,27 +397,4 @@ func TestPIRUpdatableDefragBetweenUpdates(t *testing.T) {
 
 	assert.Check(t, len(leftServer.ops) <= len(rows)*4)
 	assert.Check(t, len(client.ops) <= len(rows)*4)
-}
-
-func TestPIRServerOverRPC(t *testing.T) {
-	driver, err := config.ServerDriver()
-	assert.NilError(t, err)
-
-	assert.NilError(t, driver.Configure(TestConfig{
-		NumRows:    1000,
-		RowLen:     4,
-		PresetRows: []RowIndexVal{{7, 0x1234, Row{'C', 'o', 'o', 'l'}}},
-		PirType:    Punc,
-		Updatable:  true,
-	}, nil))
-
-	client := NewPirClientUpdatable(RandSource(), Punc, [2]PirUpdatableServer{driver, driver})
-	client.waterfall.smallestLayerSizeOverride = 10
-
-	err = client.Init()
-	assert.NilError(t, err)
-
-	val, err := client.Read(0x1234)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, val, Row("Cool"))
 }

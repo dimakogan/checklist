@@ -1,21 +1,22 @@
-package boosted
+package updatable
 
 import (
 	"fmt"
 	"log"
 	"sort"
 
+	"github.com/dimakogan/boosted-pir/pir"
 	"github.com/elliotchance/orderedmap"
 )
 
 type dbOp struct {
 	Key    uint32
 	Delete bool
-	data   Row
+	data   pir.Row
 }
 
-type pirUpdatableServer struct {
-	staticDB
+type Server struct {
+	pir.StaticDB
 	initialTimestamp int
 	defragTimestamp  int
 	ops              []dbOp
@@ -26,8 +27,8 @@ type pirUpdatableServer struct {
 	defragRatio float64
 }
 
-func NewPirUpdatableServer() *pirUpdatableServer {
-	s := pirUpdatableServer{
+func NewUpdatableServer() *Server {
+	s := Server{
 		curTimestamp: 0,
 		defragRatio:  4,
 		kv:           orderedmap.NewOrderedMap(),
@@ -35,60 +36,20 @@ func NewPirUpdatableServer() *pirUpdatableServer {
 	return &s
 }
 
-func (s *pirUpdatableServer) Hint(req HintReq, resp *HintResp) error {
-	// if int(req.DefragTimestamp) < s.defragTimestamp {
-	// 	return fmt.Errorf("Defragged since last key updates")
-	// }
-
-	if req.PirType != None {
-		layerFlatDb := s.Slice(req.FirstRow, req.FirstRow+req.NumRows)
-		pir := NewPirServerByType(req.PirType, &staticDB{req.NumRows, s.rowLen, layerFlatDb})
-		pir.Hint(req, resp)
-		resp.PirType = req.PirType
-	}
-
-	return nil
-}
-
-func (s *pirUpdatableServer) Answer(req QueryReq, resp *QueryResp) error {
-	resp.BatchResps = make([]QueryResp, len(req.BatchReqs))
-	for l, q := range req.BatchReqs {
-		if q.NumRows == 0 {
-			continue
-		}
-		layerFlatDb := s.Slice(int(q.FirstRow), int(q.FirstRow+q.NumRows))
-		pir := NewPirServerByType(q.PirType, &staticDB{int(q.NumRows), s.rowLen, layerFlatDb})
-		err := pir.Answer(q, &(resp.BatchResps[l]))
-
-		if err != nil {
-			return err
+func (s *Server) Row(idx int) (uint32, pir.Row, error) {
+	for e, pos := s.kv.Front(), 0; e != nil; e, pos = e.Next(), pos+1 {
+		if pos == idx {
+			return uint32(e.Key.(uint32)), pir.Row(e.Value.(pir.Row)), nil
 		}
 	}
-	return nil
+	return 0, nil, fmt.Errorf("Index %d out of bounds [0:%d)", idx, s.kv.Len())
 }
 
-func (s *pirUpdatableServer) NumRows() int {
+func (s *Server) NumKeys() int {
 	return s.kv.Len()
 }
 
-func (s *pirUpdatableServer) GetRow(idx int, out *RowIndexVal) error {
-	if idx == -1 {
-		// return random row
-		idx = RandSource().Int() % s.kv.Len()
-	}
-
-	for e, pos := s.kv.Front(), 0; e != nil; e, pos = e.Next(), pos+1 {
-		if pos == idx {
-			out.Key = uint32(e.Key.(uint32))
-			out.Value = Row(e.Value.(Row))
-			out.Index = idx
-			return nil
-		}
-	}
-	return fmt.Errorf("Index %d out of bounds [0:%d)", idx, s.numRows)
-}
-
-func (s *pirUpdatableServer) SomeKeys(num int) []uint32 {
+func (s *Server) SomeKeys(num int) []uint32 {
 	keys := make([]uint32, num)
 	for e, pos := s.kv.Front(), 0; e != nil; e, pos = e.Next(), pos+1 {
 		if pos == num {
@@ -100,14 +61,14 @@ func (s *pirUpdatableServer) SomeKeys(num int) []uint32 {
 	return keys
 }
 
-func (s *pirUpdatableServer) AddRows(keys []uint32, rows []Row) {
+func (s *Server) AddRows(keys []uint32, rows []pir.Row) {
 	if len(rows) == 0 {
 		return
 	}
-	if s.rowLen == 0 {
-		s.rowLen = len(rows[0])
-	} else if s.rowLen != len(rows[0]) {
-		log.Fatalf("Different row length added, expected: %d, got: %d", s.rowLen, len(rows[0]))
+	if s.RowLen == 0 {
+		s.RowLen = len(rows[0])
+	} else if s.RowLen != len(rows[0]) {
+		log.Fatalf("Different row length added, expected: %d, got: %d", s.RowLen, len(rows[0]))
 	}
 
 	ops := make([]dbOp, len(keys))
@@ -119,8 +80,8 @@ func (s *pirUpdatableServer) AddRows(keys []uint32, rows []Row) {
 	sort.Slice(ops, func(i, j int) bool { return ops[i].Key < ops[j].Key })
 
 	s.ops = append(s.ops, ops...)
-	s.numRows += len(rows)
-	s.flatDb = append(s.flatDb, opsToFlatDB(ops)...)
+	s.NumRows += len(rows)
+	s.FlatDb = append(s.FlatDb, opsToFlatDB(ops)...)
 }
 
 func opsToFlatDB(ops []dbOp) []byte {
@@ -137,7 +98,7 @@ func opsToFlatDB(ops []dbOp) []byte {
 	return flatDb
 }
 
-func (s *pirUpdatableServer) DeleteRows(keys []uint32) {
+func (s *Server) DeleteRows(keys []uint32) {
 	ops := make([]dbOp, len(keys))
 	for i := range keys {
 		ops[i] = dbOp{Key: keys[i], Delete: true}
@@ -147,18 +108,17 @@ func (s *pirUpdatableServer) DeleteRows(keys []uint32) {
 
 	if len(s.ops) > int(s.defragRatio*float64(s.kv.Len())) {
 		endDefrag := len(s.ops) / 2
-		newOps, numRemoved := defrag(s.ops, endDefrag)
+		newOps, _ := defrag(s.ops, endDefrag)
 		s.defragTimestamp = s.initialTimestamp + endDefrag
 		s.initialTimestamp += (len(s.ops) - len(newOps))
 		s.ops = newOps
-		s.flatDb = flattenDb(opsToRows(s.ops))
-		s.numRows -= numRemoved
+		s.StaticDB = *pir.StaticDBFromRows(opsToRows(s.ops))
 	}
 }
 
-func (s *pirUpdatableServer) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
+func (s *Server) KeyUpdates(req KeyUpdatesReq, resp *KeyUpdatesResp) error {
 	resp.DefragTimestamp = s.defragTimestamp
-	resp.RowLen = s.rowLen
+	resp.RowLen = s.RowLen
 
 	nextTimestamp := int(req.NextTimestamp)
 	if nextTimestamp < s.defragTimestamp {
@@ -237,8 +197,8 @@ func opsToKeyUpdates(ops []dbOp, keyUpdate *KeyUpdatesResp) error {
 	}
 }
 
-func opsToRows(ops []dbOp) []Row {
-	db := make([]Row, 0, len(ops))
+func opsToRows(ops []dbOp) []pir.Row {
+	db := make([]pir.Row, 0, len(ops))
 	for _, op := range ops {
 		if !op.Delete {
 			db = append(db, op.data)

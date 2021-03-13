@@ -1,4 +1,4 @@
-package boosted
+package pir
 
 import (
 	"crypto/aes"

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"reflect"
 	"strings"
 
 	"github.com/rocketlaunchr/https-go"
@@ -68,8 +69,11 @@ func (s *httpRpcServer) Serve() error {
 	return err
 }
 
-func NewServer(port int, useTLS bool) (Server, error) {
+func NewServer(port int, useTLS bool, types []reflect.Type) (Server, error) {
 	rpcServer := rpc.NewServer()
+
+	codecHandle := CodecHandle(types)
+
 	if useTLS {
 		httpSrv, err := https.Server(fmt.Sprintf("%d", port),
 			https.GenerateOptions{Host: "test.app", ECDSACurve: "P256"})
@@ -77,7 +81,6 @@ func NewServer(port int, useTLS bool) (Server, error) {
 			return nil, err
 		}
 		server := httpRpcServer{httpSrv, httpSrv, rpcServer}
-		codecHandle := CodecHandle()
 		httpSrv.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, rpc.DefaultRPCPath) {
 				w.Header().Set("Content-type", "application/octet-stream")
@@ -98,23 +101,23 @@ func NewServer(port int, useTLS bool) (Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to listen tcp: %v", err)
 	}
-
-	return &tcpRpcServer{ln, rpcServer}, nil
+	return &tcpRpcServer{ln, rpcServer, codecHandle}, nil
 }
 
 type tcpRpcServer struct {
 	net.Listener
 	*rpc.Server
+
+	codecHandle codec.Handle
 }
 
 func (s *tcpRpcServer) Serve() error {
-	handle := CodecHandle()
 	log.Printf("Serving RPC server over TCP on %s\n", s.Addr().String())
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
 			return fmt.Errorf("TCP Accept failed: %+v\n", err)
 		}
-		go s.Server.ServeCodec(codec.GoRpc.ServerCodec(conn, handle))
+		go s.Server.ServeCodec(codec.GoRpc.ServerCodec(conn, s.codecHandle))
 	}
 }

@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/dimakogan/boosted-pir"
+	. "github.com/dimakogan/boosted-pir/driver"
+	"github.com/dimakogan/boosted-pir/pir"
+	"github.com/dimakogan/boosted-pir/updatable"
 
 	"gotest.tools/assert"
 )
@@ -33,7 +35,7 @@ func main() {
 		log.Fatalf("Failed to create driver: %s\n", err)
 	}
 
-	rand := RandSource()
+	rand := pir.RandSource()
 
 	var trace [][]int
 	trace = LoadTraceFile(config.TraceFile)
@@ -45,7 +47,7 @@ func main() {
 	}
 	driver.ResetMetrics(0, &none)
 
-	client := NewPirClientUpdatable(RandSource(), config.PirType, [2]PirUpdatableServer{driver, driver})
+	client := updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{driver, driver})
 
 	var clientTime, serverTime time.Duration
 	var numBytes int
@@ -74,9 +76,9 @@ func main() {
 
 		if numQueries > 0 {
 			var rowIV RowIndexVal
-			var numRows int
-			assert.NilError(ep, driver.NumRows(none, &numRows))
-			assert.NilError(ep, driver.GetRow(rand.Intn(numRows), &rowIV))
+			var numKeys int
+			assert.NilError(ep, driver.NumKeys(none, &numKeys))
+			assert.NilError(ep, driver.GetRow(rand.Intn(numKeys), &rowIV))
 
 			driver.ResetMetrics(0, &none)
 
@@ -92,7 +94,7 @@ func main() {
 		}
 
 		if i%200 == 0 {
-			storageBytes = client.StorageNumBytes()
+			storageBytes = client.StorageNumBytes(SerializedSizeOf)
 		}
 
 		fmt.Printf("%15d%15d%15d%15d%15d%15d%15d%15d\n",

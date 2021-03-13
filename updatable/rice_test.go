@@ -1,4 +1,4 @@
-package boosted
+package updatable
 
 import (
 	"encoding/binary"
