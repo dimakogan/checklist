@@ -14,25 +14,20 @@ The technical components of Checklist are:
 
 The directories in this repository are:
 
-```
-# Core PIR library
-pir/ 						- Core PIR protocol code
-psetggm/				- Optimized C++ implementation of puncturable-set primitive
+| **Core PIR library** ||
+| :--- | :---|
+| [pir/](pir/) | Core PIR protocol code |
+| [psetggm/](psetggm/) | Optimized C++ implementation of puncturable-set primitive|
+| **Extension: Database updates** | |
+|[updatable/](updatable/) | Implementation of offline/online PIR with database updates|
+| **Networking and benchmarking** | |
+| [driver/](driver/) |Wrapper code for benchmarks |
+| [rpc/](rpc/) | RPC over HTTPS |
+| **Examples and applications** | |
+| [example/](example/) | Example of how to invoke our basic PIR library |
+| [cmd/rpc_server](cmd/rpc_server/) | Checklist server executable |
+| [cmd/sbproxy](cmd/sbproxy/) | Code to proxy Firefox SafeBrowsing requests through Checklist |
 
-# Extension: Database updates
-updatable/			- Implementation of offline/online PIR with database updates
-
-# Networking, benchmarking, and executables
-cmd/ 						- Executables
-driver/ 				- Wrapper code for benchmarks
-rpc/						- RPC over HTTPS
-
-# Examples and applications:
-example/				- Example of how to invoke our basic PIR library
-safebrowsing/		- Code to proxy Firefox SafeBrowsing
-                  requests through Checklist
-
-```
 
 ### PIR library
 
