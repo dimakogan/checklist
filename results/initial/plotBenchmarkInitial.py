@@ -86,8 +86,8 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     #     plt.legend(*labels, fontsize=6)
 
     custom_style.remove_chart_junk(plt, ax, grid=True)
-    custom_style.save_fig(fig, out_name+".pdf", width=2.2)
-    custom_style.save_fig(fig, out_name+".pgf", width=2.2)
+    custom_style.save_fig(fig, out_name+".pdf", width=2.5)
+    custom_style.save_fig(fig, out_name+".pgf", width=2.5)
     if legend:
         handles, labels = ax.get_legend_handles_labels()
 
