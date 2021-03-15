@@ -268,5 +268,6 @@ func main() {
 		// Disable HTTP/2.
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
+	log.Printf("Listening on %s...", server.Addr)
 	log.Fatal(server.ListenAndServe())
 }
