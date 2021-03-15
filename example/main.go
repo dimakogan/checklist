@@ -24,7 +24,7 @@ func randomDatabase(nRows int, rowLen int) *pir.StaticDB {
 
 func main() {
 	// Use the puncturable-set-based PIR scheme
-	pirType := pir.DPF
+	pirType := pir.Punc
 
 	nRows := 1024
 	rowLen := 256
