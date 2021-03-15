@@ -6,7 +6,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/dimakogan/dpf-go/dpf"
+	"github.com/dkales/dpf-go/dpf"
 )
 
 type dpfClient struct {
