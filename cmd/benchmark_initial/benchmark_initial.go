@@ -55,7 +55,7 @@ func main() {
 				clientUpdatable = updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{dr, dr})
 				err = clientUpdatable.Init()
 			} else {
-				clientStatic = pir.NewPIRReader(rand, [2]pir.Server{dr, dr})
+				clientStatic = pir.NewPIRReader(rand, dr, dr)
 				err = clientStatic.Init(config.PirType)
 
 			}

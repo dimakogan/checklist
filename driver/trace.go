@@ -16,6 +16,9 @@ const (
 
 func LoadTraceFile(filename string) [][]int {
 	var trace [][]int
+	if len(filename) == 0 {
+		log.Fatalf("Missing trace filename")
+	}
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("Failed to open trace file %s: %s", filename, err)

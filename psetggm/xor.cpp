@@ -113,7 +113,8 @@ extern "C"
                 {result, result},
                 {result, result}, };
         
-        for(size_t i = 0; i < db_len/32; i+=8) {
+        int len_full_bytes = (db_len/32)&(~0x7);
+        for(size_t i = 0; i < len_full_bytes; i+=8) {
             uint8_t tmp = indexing[i/8];
             results[0][(tmp>>0)&1] = _mm256_xor_si256(results[0][1], (((__m256i*)db))[i]);
             results[1][(tmp>>1)&1] = _mm256_xor_si256(results[1][1], (((__m256i*)db))[i+1]);
@@ -124,7 +125,10 @@ extern "C"
             results[6][(tmp>>6)&1] = _mm256_xor_si256(results[6][1], (((__m256i*)db))[i+6]);
             results[7][(tmp>>7)&1] = _mm256_xor_si256(results[7][1], (((__m256i*)db))[i+7]);
         }
-
+        for (size_t i = len_full_bytes; i < db_len/32; i++) {
+            uint8_t tmp = indexing[i/8];
+            results[i%8][(tmp>>(i%8))&1] = _mm256_xor_si256(results[i%8][1], (((__m256i*)db))[i]);
+        }
         result = _mm256_xor_si256(results[0][1], results[1][1]);
         result = _mm256_xor_si256(result, results[2][1]);
         result = _mm256_xor_si256(result, results[3][1]);

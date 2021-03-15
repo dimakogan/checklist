@@ -83,7 +83,7 @@ func initAnswerLoadGen(config *Config) *answerLoadGen {
 			log.Fatalf("Failed to read index %d: %s", i, err)
 		}
 		if !reflect.DeepEqual(config.PresetRows[idx].Value, readVal) {
-			log.Fatalf("Mismatching row value at index %d", idx)
+			log.Fatalf("Mismatching row value at index %d, expected: %+v, got: %+v", idx, config.PresetRows[idx].Value, readVal)
 		}
 	}
 	ireqs := proxy.StopRecording()
@@ -108,8 +108,9 @@ func (s *answerLoadGen) request(proxy *RpcProxy) error {
 	if err != nil {
 		return fmt.Errorf("Failed to replay query number %d to server: %s", idx, err)
 	}
-	if !reflect.DeepEqual(s.resps[idx], queryResp) {
-		return fmt.Errorf("Mismatching response in query number %d", idx)
+	if !reflect.DeepEqual(s.resps[idx], &queryResp) {
+		return fmt.Errorf("Mismatching response in query number %d, expected: %T, got: %T",
+			idx, s.resps[idx], queryResp)
 	}
 	return nil
 }

@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"reflect"
-	"syscall"
 	"testing"
 
 	"checklist/pir"
 	"checklist/rpc"
+	"checklist/safebrowsing"
 	"checklist/updatable"
 
 	"github.com/ugorji/go/codec"
@@ -20,85 +18,134 @@ import (
 
 var config *Config
 
-func runServer() {
-	driver, err := NewServerDriver()
-	if err != nil {
-		log.Fatalf("Failed to create server: %s", err)
-	}
-
-	server, err := rpc.NewServer(12345, true, RegisteredTypes())
-	if err != nil {
-		log.Fatalf("Failed to create server: %s", err)
-	}
-	if err := server.RegisterName("PirServerDriver", driver); err != nil {
-		log.Fatalf("Failed to register PIRServer, %s", err)
-	}
-
-	var inShutdown bool
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		inShutdown = true
-		server.Close()
-	}()
-
-	prof := NewProfiler(config.CpuProfile)
-	defer prof.Close()
-
-	go func() {
-		err = server.Serve()
-		if err != nil && !inShutdown {
-			log.Fatalf("Failed to serve: %s", err)
-		} else {
-			fmt.Printf("Shutting down")
-		}
-	}()
-
-}
-
 func TestMain(m *testing.M) {
 	config = new(Config).AddPirFlags().AddClientFlags().Parse()
 	os.Exit(m.Run())
 }
 
-func TestPunc(t *testing.T) {
-	//runServer()
-	driver, err := config.ServerDriver()
+func TestStatic(t *testing.T) {
+	driverL, err := config.ServerDriver()
+	assert.NilError(t, err)
+	driverR, err := config.Server2Driver()
 	assert.NilError(t, err)
 
-	presetRow := make(pir.Row, 32)
+	presetRow := make(pir.Row, config.RowLen)
 	pir.RandSource().Read(presetRow)
 
-	assert.NilError(t, driver.Configure(TestConfig{
-		NumRows:    100000,
-		RowLen:     32,
-		PresetRows: []RowIndexVal{{7, 0x7, presetRow}},
-		PirType:    pir.Punc,
-		Updatable:  false,
-	}, nil))
+	config.PresetRows = []RowIndexVal{{7, 0x1234, presetRow}}
+	config.Updatable = false
+	config.RandSeed = 13
 
-	client := pir.NewPIRReader(pir.RandSource(), [2]pir.Server{driver, driver})
-
-	err = client.Init(pir.Punc)
+	var none int
+	err = driverL.Configure(config.TestConfig, &none)
+	assert.NilError(t, err)
+	err = driverR.Configure(config.TestConfig, &none)
 	assert.NilError(t, err)
 
-	// runtime.GC()
-	// if memProf, err := os.Create("mem.prof"); err != nil {
-	// 	panic(err)
-	// } else {
-	// 	pprof.WriteHeapProfile(memProf)
-	// 	memProf.Close()
-	// }
-	val, err := client.Read(0x7)
+	client := pir.NewPIRReader(pir.RandSource(), pir.Server(driverL), pir.Server(driverR))
+
+	err = client.Init(config.PirType)
+	assert.NilError(t, err)
+
+	val, err := client.Read(7)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, val, presetRow)
 }
 
-func _TestMessageSizes(t *testing.T) {
+func TestUpdatable(t *testing.T) {
+	driverL, err := config.ServerDriver()
+	assert.NilError(t, err)
+	driverR, err := config.Server2Driver()
+	assert.NilError(t, err)
+
+	presetRow := make(pir.Row, config.RowLen)
+	pir.RandSource().Read(presetRow)
+
+	config.PresetRows = []RowIndexVal{{7, 0x1234, presetRow}}
+	config.Updatable = true
+	config.RandSeed = 13
+
+	var none int
+	err = driverL.Configure(config.TestConfig, &none)
+	assert.NilError(t, err)
+	err = driverR.Configure(config.TestConfig, &none)
+	assert.NilError(t, err)
+
+	client := updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{driverL, driverR})
+	err = client.Init()
+	assert.NilError(t, err)
+
+	val, err := client.Read(0x1234)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, presetRow)
+
+	val, err = client.Read(0x1234)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, val, presetRow)
+}
+
+func TestSafeBrowsingList(t *testing.T) {
+	blFile := "../safebrowsing/evil_urls.txt"
+	file, err := os.Open(blFile)
+	if err != nil {
+		log.Fatalf("Failed to open block list file %s: %s", blFile, err)
+	}
+	partial, full, err := safebrowsing.ReadBlockedURLs(file)
+	if err != nil || len(full) < 0 {
+		log.Fatalf("Failed to read blocked urls from %s: %s", blFile, err)
+	}
+	if len(partial) != len(full) {
+		log.Fatalf("Invalid number of partial %d and full %d", len(partial), len(full))
+	}
+	config.NumRows = len(partial)
+	config.RowLen = len(full[0])
+	for i := range partial {
+		entry := RowIndexVal{
+			Index: i,
+			Key:   partial[i],
+			Value: full[i],
+		}
+		config.PresetRows = append(config.PresetRows, entry)
+	}
+	none := 0
+
+	driverL, err := config.ServerDriver()
+	assert.NilError(t, err)
+	assert.NilError(t, driverL.Configure(config.TestConfig, &none))
+	driverR, err := config.Server2Driver()
+	assert.NilError(t, err)
+	assert.NilError(t, driverR.Configure(config.TestConfig, &none))
+
+	client := updatable.NewClient(pir.RandSource(), config.PirType, [2]updatable.UpdatableServer{driverL, driverR})
+	err = client.Init()
+	assert.NilError(t, err)
+
+	for i := range partial {
+		val, err := client.Read(partial[i])
+		assert.NilError(t, err)
+		assert.DeepEqual(t, val, pir.Row(full[i]))
+	}
+}
+
+func TestSerialization(t *testing.T) {
+	h := rpc.CodecHandle(RegisteredTypes())
+
+	w := new(bytes.Buffer)
+	enc := codec.NewEncoder(w, h)
+	dec := codec.NewDecoder(w, h)
+
+	req := pir.NewPuncHintReq(pir.RandSource())
+	var reqI pir.HintReq = req
+	assert.NilError(t, enc.Encode(&reqI))
+
+	var reqOut pir.HintReq
+	assert.NilError(t, dec.Decode(&reqOut))
+}
+
+func _testMessageSizes(t *testing.T) {
 	db := pir.MakeDB(3000000, 32)
 
-	resp, err := pir.NewPuncHintReq().Process(db)
+	resp, err := pir.NewPuncHintReq(pir.RandSource()).Process(db)
 	assert.NilError(t, err)
 	client := resp.InitClient(pir.RandSource())
 
@@ -111,7 +158,7 @@ func _TestMessageSizes(t *testing.T) {
 	fmt.Fprintf(os.Stdout, "query size: %d\n", size)
 }
 
-func _TestMessageSizesUpdatable(t *testing.T) {
+func _testMessageSizesUpdatable(t *testing.T) {
 	numRows := 4000000
 	initialSize := 3000000
 	db := pir.MakeDB(numRows, 32)
@@ -140,50 +187,4 @@ func _TestMessageSizesUpdatable(t *testing.T) {
 		}
 		fmt.Fprintf(os.Stdout, "updatable request size: %d\n", size)
 	}
-}
-func TestPIRServerOverRPC(t *testing.T) {
-	driver, err := config.ServerDriver()
-	assert.NilError(t, err)
-
-	assert.NilError(t, driver.Configure(TestConfig{
-		NumRows:    100000,
-		RowLen:     4,
-		PresetRows: []RowIndexVal{{7, 0x1234, pir.Row{'C', 'o', 'o', 'l'}}},
-		PirType:    pir.Punc,
-		Updatable:  true,
-	}, nil))
-
-	client := updatable.NewClient(pir.RandSource(), pir.Punc, [2]updatable.UpdatableServer{driver, driver})
-
-	err = client.Init()
-	assert.NilError(t, err)
-
-	val, err := client.Read(0x1234)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, val, pir.Row("Cool"))
-}
-
-func TestSerialization(t *testing.T) {
-	h := codec.BincHandle{}
-	h.StructToArray = true
-	h.OptimumSize = true
-	h.SetExt(reflect.TypeOf(pir.PuncHintReq{}), 0x12, codec.SelfExt)
-	h.PreferPointerForStructOrArray = true
-	w := new(bytes.Buffer)
-	enc := codec.NewEncoder(w, &h)
-	dec := codec.NewDecoder(w, &h)
-
-	req := pir.NewPuncHintReq()
-	var reqI pir.HintReq
-	reqI = req
-	assert.NilError(t, enc.Encode(&reqI))
-
-	var reqOut pir.HintReq
-	assert.NilError(t, dec.Decode(&reqOut))
-	// var network bytes.Buffer         // Stand-in for a network connection
-	// genc := gob.NewEncoder(&network) // Will write to network.
-	// gdec := gob.NewDecoder(&network) // Will read from network.
-	// assert.NilError(t, genc.Encode(reqI))
-
-	// assert.NilError(t, gdec.Decode(reqOut))
 }

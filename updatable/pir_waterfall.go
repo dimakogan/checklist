@@ -77,7 +77,6 @@ func (c *WaterfallClient) freshLayers(numRows int) []clientLayer {
 
 type UpdatableHintReq struct {
 	Req      pir.HintReq
-	RandSeed int64
 	FirstRow int
 	NumRows  int
 }
@@ -96,7 +95,7 @@ func (c *WaterfallClient) HintUpdateReq(numNewRows int, rowLen int) (*UpdatableH
 	}
 	layer := &c.layers[layerNum]
 	if layer.pirType != pir.Punc {
-		req, err := pir.NewHintReq(layer.pirType).Process(pir.StaticDB{NumRows: layer.numRows, RowLen: c.rowLen})
+		req, err := pir.NewHintReq(c.randSource, layer.pirType).Process(pir.StaticDB{NumRows: layer.numRows, RowLen: c.rowLen})
 		if err != nil {
 			return nil, err
 		}
@@ -104,10 +103,9 @@ func (c *WaterfallClient) HintUpdateReq(numNewRows int, rowLen int) (*UpdatableH
 		return nil, nil
 	}
 	return &UpdatableHintReq{
-		RandSeed: int64(c.randSource.Uint64()),
 		FirstRow: layer.firstRow,
 		NumRows:  layer.numRows,
-		Req:      pir.NewPuncHintReq(),
+		Req:      pir.NewPuncHintReq(c.randSource),
 	}, nil
 }
 

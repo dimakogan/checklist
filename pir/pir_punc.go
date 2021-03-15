@@ -48,8 +48,9 @@ func xorRowsFlatSlice(db *StaticDB, out []byte, indices Set) {
 
 }
 
-func NewPuncHintReq() *PuncHintReq {
+func NewPuncHintReq(randSource *rand.Rand) *PuncHintReq {
 	return &PuncHintReq{
+		RandSeed:           int64(randSource.Uint64()),
 		NumHintsMultiplier: int(float64(SecParam) * math.Log(2)),
 	}
 }

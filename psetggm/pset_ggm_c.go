@@ -45,7 +45,6 @@ func XorBlocks(db []byte, offsets []int, out []byte) {
 }
 
 func XorHashesByBitVector(db []byte, indexing []byte, out []byte) {
-	//	fmt.Printf("indexing len: %d, ptr: %x\n", len(indexing), (*C.uchar)(&indexing[0]))
 	C.xor_hashes_by_bit_vector((*C.uchar)(&db[0]), C.uint(len(db)),
 		(*C.uchar)(&indexing[0]), (*C.uchar)(&out[0]))
 }

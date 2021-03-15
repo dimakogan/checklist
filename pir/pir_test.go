@@ -10,7 +10,7 @@ import (
 func TestPIRPunc(t *testing.T) {
 	db := MakeDB(256, 100)
 
-	client := NewPIRReader(RandSource(), [2]Server{db, db})
+	client := NewPIRReader(RandSource(), Server(db), Server(db))
 
 	err := client.Init(Punc)
 	assert.NilError(t, err)
@@ -29,7 +29,7 @@ func TestPIRPunc(t *testing.T) {
 func TestMatrix(t *testing.T) {
 	db := MakeDB(10000, 4)
 
-	client := NewPIRReader(RandSource(), [2]Server{db, db})
+	client := NewPIRReader(RandSource(), Server(db), Server(db))
 
 	err := client.Init(Matrix)
 	assert.NilError(t, err)
@@ -42,7 +42,7 @@ func TestMatrix(t *testing.T) {
 func TestDPF(t *testing.T) {
 	db := MakeDB(512, 32)
 
-	client := NewPIRReader(RandSource(), [2]Server{db, db})
+	client := NewPIRReader(RandSource(), Server(db), Server(db))
 
 	err := client.Init(DPF)
 	assert.NilError(t, err)

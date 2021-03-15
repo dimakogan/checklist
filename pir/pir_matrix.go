@@ -85,7 +85,7 @@ func (c *matrixClient) Query(idx int) ([]QueryReq, ReconstructFunc) {
 	qR := make([]bool, c.height)
 	for i := 0; i < c.height; i++ {
 		qL[i] = (c.randSource.Uint64()&1 == 0)
-		qR[i] = qL[i] != (i == rowNum)
+		qR[i] = (qL[i] != (i == rowNum))
 	}
 
 	return []QueryReq{&MatrixQueryReq{qL}, &MatrixQueryReq{qR}}, func(resps []interface{}) (Row, error) {
