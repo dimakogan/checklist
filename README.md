@@ -69,7 +69,7 @@ The directory `safebrowsing/ff-profile` contains a Firefox profile that's config
 
 ```
 $ cd safebrowsing/ff-profile
-$ . run_browser.sh
+$ ./run_browser.sh
 ```
 
 When you open Firefox, you should see some activity on the proxy and PIR servers. Test the system is working by navigating to [https://en.wikipedia.org/wiki/Main_Page](https://en.wikipedia.org/wiki/Main_Page), which we added as a test URL in [safebrowsing/evil_urls.txt](safebrowsing/evil_urls.txt)
