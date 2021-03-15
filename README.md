@@ -59,7 +59,8 @@ $ ./rpc_server -f ../../safebrowsing/evil_urls.txt -p 8801
 ```
 $ cd cmd/sbproxy
 $ go build
-$ ./sbproxy -serverAddr=localhost:8800 -serverAddr2=localhost:8801   # Listens on localhost:8888
+$ ./sbproxy -serverAddr=localhost:8800,localhost:8801   
+# Listens on localhost:8888
 ```
 
 **3. Run Firefox with a modified profile** 
