@@ -252,7 +252,7 @@ func (t *stressTest) notifyOnSignal() {
 func main() {
 	test := stressTest{}
 	parseFlags(&test.testConfig)
-	test.RandSeed = 678
+	test.DataRandSeed = 678
 	test.addingWorkers = true
 
 	switch test.loadType {

@@ -34,7 +34,7 @@ func TestStatic(t *testing.T) {
 
 	config.PresetRows = []RowIndexVal{{7, 0x1234, presetRow}}
 	config.Updatable = false
-	config.RandSeed = 13
+	config.DataRandSeed = 13
 
 	var none int
 	err = driverL.Configure(config.TestConfig, &none)
@@ -63,7 +63,7 @@ func TestUpdatable(t *testing.T) {
 
 	config.PresetRows = []RowIndexVal{{7, 0x1234, presetRow}}
 	config.Updatable = true
-	config.RandSeed = 13
+	config.DataRandSeed = 13
 
 	var none int
 	err = driverL.Configure(config.TestConfig, &none)

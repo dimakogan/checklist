@@ -121,7 +121,7 @@ func TestPuncSetGen(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v %v", test.UnivSize, test.setSize),
 			func(t *testing.T) {
-				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				gen := NewSetGenerator(masterKey, 0, test.UnivSize, test.setSize)
 				gen.Gen(&set)
 				checkSet(t, set.elems, test.UnivSize, test.setSize)
 			})
@@ -141,7 +141,7 @@ func TestPuncSetPunc(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v %v", test.UnivSize, test.setSize),
 			func(t *testing.T) {
-				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				gen := NewSetGenerator(masterKey, 0, test.UnivSize, test.setSize)
 				testPunc(t, gen, test.UnivSize, test.setSize)
 			})
 	}
@@ -161,7 +161,7 @@ func TestPuncSetGenWith(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v %v %v", test.UnivSize, test.setSize, test.with),
 			func(t *testing.T) {
-				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				gen := NewSetGenerator(masterKey, 0, test.UnivSize, test.setSize)
 				testGenWith(t, &gen, test.UnivSize, test.setSize, test.with)
 			})
 	}
@@ -181,7 +181,7 @@ func TestPuncSetGenWithPunc(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%v %v %v", test.UnivSize, test.setSize, test.with),
 			func(t *testing.T) {
-				gen := NewSetGenerator(MasterKey(), 0, test.UnivSize, test.setSize)
+				gen := NewSetGenerator(masterKey, 0, test.UnivSize, test.setSize)
 				testGenWithPunc(t, &gen, test.UnivSize, test.setSize, test.with)
 			})
 	}
@@ -224,7 +224,7 @@ func BenchmarkGGMEvalC(b *testing.B) {
 func BenchmarkGen(b *testing.B) {
 	setSize := int(math.Sqrt(float64(*univSize)))
 
-	gen := NewSetGenerator(MasterKey(), 0, *univSize, setSize)
+	gen := NewSetGenerator(masterKey, 0, *univSize, setSize)
 	var set PuncturableSet
 	b.Run(fmt.Sprintf("UnivSize=%d", *univSize), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {

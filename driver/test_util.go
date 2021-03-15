@@ -19,7 +19,8 @@ type TestConfig struct {
 
 	PresetRows []RowIndexVal
 
-	RandSeed int64
+	// Seed used to generate random data in database. Not used for cryptographic operations.
+	DataRandSeed int64
 
 	MeasureBandwidth bool
 }

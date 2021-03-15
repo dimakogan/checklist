@@ -1,22 +1,15 @@
 package pir
 
 import (
-	"io"
 	"math/rand"
 )
 
+var masterKey PRGKey = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'A', 'B', 'C', 'D', 'E', 'F'}
+var randReader *rand.Rand = rand.New(NewBufPRG(NewPRG(&masterKey)))
+
 func RandSource() *rand.Rand {
-	return rand.New(rand.NewSource(17))
-}
-
-func CryptoRandSource() *rand.Rand {
-  return rand.New(new(cryptoSource))
-}
-
-func MasterKey() []byte {
-	key := make([]byte, 16)
-	io.ReadFull(RandSource(), key)
-	return key
+	//return rand.New(rand.NewSource(17))
+	return randReader
 }
 
 func MakeRows(src *rand.Rand, nRows, rowLen int) []Row {
