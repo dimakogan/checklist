@@ -1,3 +1,3 @@
 # benchmark_initial -numRows=3000000 -updatable=false -pirType=Punc
    numRows OfflineServerTime[us] OfflineClientTime[us]   OfflineBytes    ClientBytes  OnlineServerTime[us]  OnlineClientTime[us]    OnlineBytes
-   3000000               8472194              10725716        5030430              0                   102                  3519           1506
+   3000000               6928049               8427192        5182479              0                    86                  1985            512
