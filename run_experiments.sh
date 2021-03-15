@@ -1,7 +1,8 @@
 #/bin/sh
 
-# Static DB 
+mkdir -p results/{initial,updates,incremental,log}
 
+# Static DB 
 go run ./cmd/benchmark_initial -numRows=3000000 -updatable=false -pirType=Punc | tee results/initial/boosted.txt
 go run ./cmd/benchmark_initial -numRows=3000000 -updatable=false -pirType=DPF | tee results/initial/dpf.txt
 go run ./cmd/benchmark_initial -numRows=3000000 -updatable=false -pirType=Matrix | tee results/initial/matrix.txt
