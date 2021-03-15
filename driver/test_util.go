@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"checklist/pir"
 	"checklist/rpc"
 
 	"github.com/ugorji/go/codec"
@@ -14,20 +13,20 @@ type TestConfig struct {
 	NumRows int
 	RowLen  int
 
-	PirType   pir.PirType
 	Updatable bool
 
 	UpdateSize int
 
 	PresetRows []RowIndexVal
 
-	RandSeed int64
+	// Seed used to generate random data in database. Not used for cryptographic operations.
+	DataRandSeed int64
 
 	MeasureBandwidth bool
 }
 
 func (c TestConfig) String() string {
-	return fmt.Sprintf("%s/n=%d,r=%d", c.PirType, c.NumRows, c.RowLen)
+	return fmt.Sprintf("n=%d,r=%d", c.NumRows, c.RowLen)
 }
 
 func SerializedSizeOf(e interface{}) (int, error) {

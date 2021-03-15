@@ -18,6 +18,7 @@ type Config struct {
 	CpuProfile string
 
 	// For client
+	PirType       pir.PirType
 	ServerAddr    string
 	ServerAddr2   string
 	UsePersistent bool
@@ -56,7 +57,7 @@ func (c *Config) AddClientFlags() *Config {
 }
 
 func (c *Config) AddServerFlags() *Config {
-	c.FlagSet.BoolVar(&c.UseTLS, "tls", false, "Should use TLS")
+	c.FlagSet.BoolVar(&c.UseTLS, "tls", true, "Should use TLS")
 	c.FlagSet.IntVar(&c.Port, "p", 12345, "Listening port")
 	return c
 }
@@ -96,6 +97,10 @@ func (c *Config) ServerDriver() (PirServerDriver, error) {
 	} else {
 		return NewServerDriver()
 	}
+}
+
+func (c *Config) String() string {
+	return fmt.Sprintf("%s/n=%d,r=%d", c.PirType, c.NumRows, c.RowLen)
 }
 
 func (c *Config) Server2Driver() (PirServerDriver, error) {

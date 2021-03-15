@@ -64,12 +64,10 @@ func (s *hintLoadGen) request(proxy *RpcProxy) error {
 	layerSize := s.randSize()
 	firstRow := rand.Intn(s.numRows - layerSize + 1)
 	hintReq := updatable.UpdatableHintReq{
-		RandSeed: 42,
 		FirstRow: firstRow,
 		NumRows:  layerSize,
-		Req:      pir.NewHintReq(s.pirType),
+		Req:      pir.NewHintReq(rand.New(rand.NewSource(42)), s.pirType),
 	}
-	//fmt.Printf("Using size: %d\n", layerSize)
 	var hintResp pir.HintResp
 	err := proxy.Hint(&hintReq, &hintResp)
 	if err != nil {

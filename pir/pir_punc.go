@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 
 	"math/rand"
@@ -28,7 +29,7 @@ type puncClient struct {
 }
 
 type PuncHintReq struct {
-	RandSeed           int64
+	RandSeed           PRGKey
 	NumHintsMultiplier int
 }
 
@@ -36,7 +37,7 @@ type PuncHintResp struct {
 	NRows     int
 	RowLen    int
 	SetSize   int
-	SetGenKey []byte
+	SetGenKey PRGKey
 	Hints     []Row
 }
 
@@ -48,24 +49,25 @@ func xorRowsFlatSlice(db *StaticDB, out []byte, indices Set) {
 
 }
 
-func NewPuncHintReq() *PuncHintReq {
-	return &PuncHintReq{
+func NewPuncHintReq(randSource *rand.Rand) *PuncHintReq {
+	req := &PuncHintReq{
+		RandSeed:           PRGKey{},
 		NumHintsMultiplier: int(float64(SecParam) * math.Log(2)),
 	}
+	_, err := io.ReadFull(randSource, req.RandSeed[:])
+	if err != nil {
+		log.Fatalf("Failed to initialize random seed: %s", err)
+	}
+	return req
 }
 
 func (req *PuncHintReq) Process(db StaticDB) (HintResp, error) {
 	setSize := int(math.Round(math.Pow(float64(db.NumRows), 0.5)))
 	nHints := req.NumHintsMultiplier * db.NumRows / setSize
 
-	key := make([]byte, 16)
-	if _, err := io.ReadFull(rand.New(rand.NewSource(req.RandSeed)), key); err != nil {
-		panic(err)
-	}
-
 	hints := make([]Row, nHints)
 	hintBuf := make([]byte, db.RowLen*nHints)
-	setGen := NewSetGenerator(key, 0, db.NumRows, setSize)
+	setGen := NewSetGenerator(req.RandSeed, 0, db.NumRows, setSize)
 	var pset PuncturableSet
 	for i := 0; i < nHints; i++ {
 		setGen.Gen(&pset)
@@ -78,7 +80,7 @@ func (req *PuncHintReq) Process(db StaticDB) (HintResp, error) {
 		NRows:     db.NumRows,
 		RowLen:    db.RowLen,
 		SetSize:   setSize,
-		SetGenKey: key,
+		SetGenKey: req.RandSeed,
 	}, nil
 }
 
@@ -124,8 +126,8 @@ func (c *puncClient) initSets() {
 
 	// Use a separate set generator with a new key for all future sets
 	// since they must look random to the left server.
-	newSetGenKey := make([]byte, 16)
-	io.ReadFull(c.randSource, newSetGenKey)
+	var newSetGenKey PRGKey
+	io.ReadFull(c.randSource, newSetGenKey[:])
 	c.setGen = NewSetGenerator(newSetGenKey, c.origSetGen.num, c.nRows, c.setSize)
 }
 

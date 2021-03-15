@@ -72,7 +72,7 @@ type stressTest struct {
 
 func parseFlags(config *testConfig) {
 	config.AddPirFlags().AddClientFlags()
-	config.FlagSet.StringVar(&config.TraceFile, "trace", "trace.txt", "input trace file")
+	config.FlagSet.StringVar(&config.TraceFile, "trace", "", "input trace file")
 	config.FlagSet.IntVar(&config.incInterval, "i", 0, "Interval to increment num workers")
 	config.FlagSet.IntVar(&config.sleepMsec, "s", 500, "milliseconds to sleep between requests")
 	config.FlagSet.StringVar(&config.outFile, "o", "", "output filename for stats")
@@ -155,6 +155,7 @@ func (t *stressTest) workerFunc() {
 		err = t.load.request(proxy)
 		if err != nil {
 			t.onError()
+			log.Fatalf("%s", err)
 			continue
 		}
 
@@ -251,7 +252,7 @@ func (t *stressTest) notifyOnSignal() {
 func main() {
 	test := stressTest{}
 	parseFlags(&test.testConfig)
-	test.RandSeed = 678
+	test.DataRandSeed = 678
 	test.addingWorkers = true
 
 	switch test.loadType {

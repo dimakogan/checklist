@@ -40,13 +40,13 @@ type sbproxy struct {
 
 func NewSBProxy(serverAddr string) *sbproxy {
 	addrs := strings.Split(serverAddr, ",")
-	rpcLeft, err := driver.NewRpcProxy(addrs[0], false, true)
+	rpcLeft, err := driver.NewRpcProxy(addrs[0], true, true)
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %s", addrs[0], err)
 	}
 	var rpcRight *driver.RpcProxy
 	if len(addrs) > 1 {
-		rpcRight, err = driver.NewRpcProxy(addrs[1], false, true)
+		rpcRight, err = driver.NewRpcProxy(addrs[1], true, true)
 		if err != nil {
 			log.Fatalf("Failed to connect to %s: %s", addrs[1], err)
 		}
@@ -58,7 +58,7 @@ func NewSBProxy(serverAddr string) *sbproxy {
 	if err = client.Init(); err != nil {
 		log.Fatalf("Failed to run PIR Init: %s\n", err)
 	}
-	log.Printf("PIR Init ok\n")
+	log.Printf("PIR Init ok with %d keys\n", len(client.Keys()))
 	return &sbproxy{pirClient: client}
 }
 
@@ -256,6 +256,7 @@ func copyHeader(dst, src http.Header) {
 func main() {
 	var serverAddr string
 	flag.StringVar(&serverAddr, "serverAddr", ":12345", "<HOSTNAME>:<PORT> of one or two comma-separated PIR servers")
+	flag.Parse()
 
 	proxy := NewSBProxy(serverAddr)
 
@@ -267,5 +268,6 @@ func main() {
 		// Disable HTTP/2.
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
+	log.Printf("Listening on %s...", server.Addr)
 	log.Fatal(server.ListenAndServe())
 }

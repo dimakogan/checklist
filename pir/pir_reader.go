@@ -22,12 +22,12 @@ type Server interface {
 	Answer(q QueryReq, resp *interface{}) error
 }
 
-func NewHintReq(pirType PirType) HintReq {
+func NewHintReq(source *rand.Rand, pirType PirType) HintReq {
 	switch pirType {
 	case Matrix:
 		return NewMatrixHintReq()
 	case Punc:
-		return NewPuncHintReq()
+		return NewPuncHintReq(source)
 	case DPF:
 		return NewDPFHintReq()
 	case NonPrivate:
@@ -47,12 +47,12 @@ type pirReader struct {
 	randSource *rand.Rand
 }
 
-func NewPIRReader(source *rand.Rand, servers [2]Server) PIRReader {
-	return &pirReader{servers: servers, randSource: source}
+func NewPIRReader(source *rand.Rand, serverL, serverR Server) PIRReader {
+	return &pirReader{servers: [2]Server{serverL, serverR}, randSource: source}
 }
 
 func (c *pirReader) Init(pirType PirType) error {
-	req := NewHintReq(pirType)
+	req := NewHintReq(c.randSource, pirType)
 	var hintResp HintResp
 	if err := c.servers[Left].Hint(req, &hintResp); err != nil {
 		return err
@@ -62,6 +62,9 @@ func (c *pirReader) Init(pirType PirType) error {
 }
 
 func (c pirReader) Read(i int) (Row, error) {
+	if c.impl == nil {
+		return nil, fmt.Errorf("Did you forget to call Init?")
+	}
 	queryReq, reconstructFunc := c.impl.Query(i)
 	if reconstructFunc == nil {
 		return nil, fmt.Errorf("Failed to query: %d", i)

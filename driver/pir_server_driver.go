@@ -134,8 +134,8 @@ func (driver *serverDriver) Answer(q pir.QueryReq, resp *interface{}) (err error
 func (driver *serverDriver) Configure(config TestConfig, none *int) (err error) {
 	driver.config = config
 	driver.updatable = config.Updatable
-	if config.RandSeed > 0 {
-		driver.randSource = rand.New(rand.NewSource(config.RandSeed))
+	if config.DataRandSeed > 0 {
+		driver.randSource = rand.New(rand.NewSource(config.DataRandSeed))
 	}
 
 	rows := pir.MakeRows(driver.randSource, config.NumRows, config.RowLen)

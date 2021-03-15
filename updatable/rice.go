@@ -190,6 +190,9 @@ func EncodeRiceIntegersWithParam(values []uint32, riceParam int32) (*RiceDeltaEn
 }
 
 func EncodeRiceIntegers(values []uint32) (*RiceDeltaEncoding, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
 	var riceParam int32
 	valRange := values[len(values)-1] - values[0]
 	if valRange <= 0 {

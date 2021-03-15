@@ -32,3 +32,4 @@ proxy/proxy.exe
 .ipynb_checkpoints/
 __pycache__
 ~*.xlsx
+example/example

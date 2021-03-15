@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"encoding/binary"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	. "checklist/driver"
@@ -21,27 +18,22 @@ func readBlockedURLs(blockListFile string, config *TestConfig) {
 	if err != nil {
 		log.Fatalf("Failed to open block list file %s: %s", blockListFile, err)
 	}
-	scanner := bufio.NewScanner(file)
-	pos := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "#") || len(strings.TrimSpace(line)) == 0 {
-			continue
-		}
-		partial, full := sb.ComputeHash([]byte(line))
+	partial, full, err := sb.ReadBlockedURLs(file)
+	if err != nil {
+		log.Fatalf("Failed to read blocked urls from %s: %s", blockListFile, err)
+	}
+	if len(partial) != len(full) {
+		log.Fatalf("Invalid number of partial %d and full %d", len(partial), len(full))
+	}
+	for i := range partial {
 		entry := RowIndexVal{
-			Index: pos,
-			Key:   binary.LittleEndian.Uint32(partial),
-			Value: full,
+			Index: i,
+			Key:   partial[i],
+			Value: full[i],
 		}
-		pos++
 		log.Printf("Evil URL hash prefix: %x, full: %x\n", entry.Key, entry.Value)
 		config.PresetRows = append(config.PresetRows, entry) // Println will add back the final '\n'
 	}
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "reading standard input:", err)
-	}
-
 }
 
 func main() {
@@ -58,6 +50,11 @@ func main() {
 	driver, err := NewServerDriver()
 	if err != nil {
 		log.Fatalf("Failed to create server: %s", err)
+	}
+	var none int
+	err = driver.Configure(config.TestConfig, &none)
+	if err != nil {
+		log.Fatalf("Failed to configure server: %s\n", err)
 	}
 
 	server, err := rpc.NewServer(config.Port, config.UseTLS, RegisteredTypes())

@@ -1,11 +1,10 @@
 package pir
 
 import (
+	"checklist/psetggm"
 	"fmt"
 	"math"
 	"math/rand"
-
-	"checklist/psetggm"
 
 	"github.com/dimakogan/dpf-go/dpf"
 )

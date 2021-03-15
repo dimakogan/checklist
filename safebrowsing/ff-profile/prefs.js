@@ -65,7 +65,7 @@ user_pref("browser.safebrowsing.provider.mozilla.nextupdatetime", "70");
 user_pref("browser.search.region", "US");
 user_pref("browser.search.separatePrivateDefault", true);
 user_pref("browser.sessionstore.upgradeBackup.latestBuildID", "20200103202240");
-user_pref("browser.shell.defaultBrowserCheckCount", 3);
+user_pref("browser.shell.checkDefaultBrowser", false);
 user_pref("browser.shell.didSkipDefaultBrowserCheckOnFirstRun", true);
 user_pref("browser.shell.mostRecentDateSetAsDefault", "1605123092");
 user_pref("browser.slowStartup.averageTime", 1302);

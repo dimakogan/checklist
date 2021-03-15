@@ -47,8 +47,8 @@ type SetGenerator struct {
 	univSize, setSize int
 }
 
-func NewSetGenerator(masterKey []byte, startId uint32, univSize int, setSize int) SetGenerator {
-	aes, err := aes.NewCipher(masterKey)
+func NewSetGenerator(masterKey PRGKey, startId uint32, univSize int, setSize int) SetGenerator {
+	aes, err := aes.NewCipher(masterKey[:])
 	if err != nil {
 		panic(err)
 	}
