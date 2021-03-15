@@ -8,7 +8,7 @@ The technical components of Checklist are:
 
 * a new two-server private-information-retrieval protocol (the `pir/` directory),
 * a technique that extends preprocessing offline/online PIR schemes to support database updates (see the `updatable/` directory), and
-* a Safe-Browsing service proxy that allows Firefox to perform Safe Browsing API lookups via Checklist (see the `proxy/` and `safebrowsing/` directories).
+* a Safe-Browsing service proxy that allows Firefox to perform Safe Browsing API lookups via Checklist (see the `cmd/sbproxy/` and `cmd/rpcserver/` directories).
 
 ### Code organization 
 
@@ -46,7 +46,8 @@ To try running Checklist's Safe Browsing proxy for Firefox, follow these steps, 
 
 ```
 $ cd cmd/rpc_server
-$ go build							# Build the Checklist server
+# Build the Checklist server
+$ go build							
 
 # Run two PIR servers in the background
 $ ./rpc_server -f ../../safebrowsing/evil_urls.txt -p 8800 &
@@ -56,9 +57,9 @@ $ ./rpc_server -f ../../safebrowsing/evil_urls.txt -p 8801
 **2. Run the local Safe Browsing proxy**
 
 ```
-$ cd cmd/sbtunnel
+$ cd cmd/sbproxy
 $ go build
-$ ./sbtunnel   # Listens on localhost:8888
+$ ./sbproxy -serverAddr=localhost:8800 -serverAddr2=localhost:8801   # Listens on localhost:8888
 ```
 
 **3. Run Firefox with a modified profile** 
@@ -70,4 +71,4 @@ $ cd safebrowsing/ff-profile
 $ . run_browser.sh
 ```
 
-When you open Firefox, you should see some activity on the proxy and PIR servers.
+When you open Firefox, you should see some activity on the proxy and PIR servers. Test the system is working by navigating to [https://en.wikipedia.org/wiki/Main_Page](https://en.wikipedia.org/wiki/Main_Page), which we added as a test URL in [safebrowsing/evil_urls.txt](safebrowsing/evil_urls.txt)
