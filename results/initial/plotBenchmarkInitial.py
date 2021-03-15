@@ -29,7 +29,7 @@ def plot(file_to_cols, pretty_col_names, scales, labels, out_name, legend=False)
     f = FuncFormatter(lambda x, pos: int(x))
     ax.xaxis.set_major_formatter(f)
 
-    f = FuncFormatter(lambda x, pos: "$\\textsf{10}^\\textsf{%d}$" % round(math.log(x, 10)))
+    f = FuncFormatter(lambda x, pos: "${10}^{%d}$" % round(math.log(x, 10)))
     ax.yaxis.set_major_formatter(f)
 
     linestyles = ["solid", "dashed", "dotted"]

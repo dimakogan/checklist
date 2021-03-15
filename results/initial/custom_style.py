@@ -18,6 +18,7 @@ pgf_with_pdflatex = {
     "font.family": "serif",
     "figure.figsize": [3.336,3.15*golden_ratio],  
     "font.sans-serif": [],
+    "font.serif": ["Times"],
     "font.monospace": [],
     "axes.labelsize": 8, 
     "font.size": 9,
