@@ -42,28 +42,28 @@ Our implementation supports the following PIR protocols, which we implement in t
 
 To try running Checklist's Safe Browsing proxy for Firefox, follow these steps, each in a **separate terminal**, starting from the repository root.
 
-**1. Run Checklist servers**
+**1. Build the project**
 
 ```
-$ cd cmd/rpc_server
-# Build the Checklist server
-$ go build							
-
-# Run two PIR servers in the background
-$ ./rpc_server -f ../../safebrowsing/evil_urls.txt -p 8800 &
-$ ./rpc_server -f ../../safebrowsing/evil_urls.txt -p 8801
+$ go build ./...
 ```
 
-**2. Run the local Safe Browsing proxy**
+**2. Run Checklist servers**
 
 ```
-$ cd cmd/sbproxy
-$ go build
-$ ./sbproxy -serverAddr=localhost:8800,localhost:8801   
+# Run two Checklist servers in the background
+$ go run ./cmd/rpc_server -f safebrowsing/evil_urls.txt -p 8800 &
+$ go run ./cmd/rpc_server -f safebrowsing/evil_urls.txt -p 8801
+```
+
+**3. Run the local Safe Browsing proxy**
+
+```
+$ go run ./cmd/sbproxy -serverAddr=localhost:8800,localhost:8801   
 # Listens on localhost:8888
 ```
 
-**3. Run Firefox with a modified profile** 
+**4. Run Firefox with a modified profile** 
 
 The directory `safebrowsing/ff-profile` contains a Firefox profile that's configured to make Safe Browsing API requests to the proxy at `localhost:8888`.
 
