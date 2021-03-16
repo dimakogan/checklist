@@ -68,7 +68,7 @@ $ go run ./cmd/sbproxy -serverAddr=localhost:8800,localhost:8801
 The directory `safebrowsing/ff-profile` contains a Firefox profile that's configured to make Safe Browsing API requests to the proxy at `localhost:8888`.
 
 ```
-$ cd safebrowsing/ff-profile
+$ cd safebrowsing
 $ ./run_browser.sh
 ```
 
