@@ -1,0 +1,70 @@
+/*
+ * Copyright 2015 The Go Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE file.
+ */
+apply plugin: 'com.android.application'
+
+repositories {
+    flatDir {
+        dirs '.'
+    }
+}
+
+task prepareRawResDir {
+    mustRunAfter clean
+    doLast {
+        mkdir "${projectDir}/src/main/res/raw/"
+        mkdir "${projectDir}/src/androidTest/res/raw/"
+    }
+}
+
+task copyTrace(type: Copy) {
+    from layout.projectDirectory.dir(traceFile)
+    into layout.projectDirectory.dir("src/main/res/raw/")
+}
+
+task copyTraceToTest(type: Copy) {
+    from layout.projectDirectory.dir(traceFile)
+    into layout.projectDirectory.dir("src/androidTest/res/raw/")
+}
+
+
+preBuild.dependsOn copyTrace
+preBuild.dependsOn copyTraceToTest
+[copyTrace, copyTraceToTest].each {
+	it.dependsOn prepareRawResDir
+}
+
+android {
+    compileSdkVersion 29
+    lintOptions {
+        abortOnError false
+    }
+
+    defaultConfig {
+        applicationId "org.golang.example.bind"
+        testApplicationId "org.golang.example.bind.test"
+        minSdkVersion 15
+        targetSdkVersion 29
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+dependencies {
+    implementation 'commons-io:commons-io:2.4'
+    implementation (name:'testing', ext:'aar')
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'androidx.test:core:1.0.0'
+    testImplementation 'androidx.test:runner:1.1.0'
+    testImplementation 'androidx.test:rules:1.1.0'
+    androidTestImplementation 'androidx.test:runner:1.1.0'
+    androidTestImplementation 'androidx.test:rules:1.1.0'
+}
